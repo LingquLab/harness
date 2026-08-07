@@ -1,44 +1,34 @@
 ---
 name: superpowers-neo-git-delivery
-description: Use when feature or bug-fix work is complete in a Git repository, or when the user explicitly requests Git delivery such as a commit, push, pull request, merge, or cleanup
+description: Use after completing feature or bug-fix work in a Git repository; for explicit or general Git delivery requests; or when manually invoked to authorize current-task branch selection, a scoped commit when needed, normal push, and pull request creation
 ---
 
 # Git Delivery
 
-## Enter the Delivery Flow
+## Authority
 
-Enter automatically after completed feature or bug-fix work in a Git repository, and when the user explicitly requests delivery. If the user opts out, stop after the result summary. If the task category is unclear, ask whether to enter delivery. For non-Git work, provide only a result summary.
+Enter automatically after completed feature or bug-fix work in a Git repository and on delivery requests. Clarify requests whose intended actions are unclear. Respect any opt-out or narrower instruction; for non-Git work, provide only a result summary.
 
-Entering this flow authorizes a scoped commit by default after the required checks, unless the user opts out. It also authorizes a normal push by default when the current branch is an established, task-owned non-default branch. These defaults do not authorize a branch choice on the default branch, a pull request, merge, history rewrite, hook bypass, or cleanup.
+- **Automatic entry:** Commit task-owned uncommitted changes after checks. Push only an established, task-owned non-default branch. Do not infer branch-choice or PR authority.
+- **Named request:** Perform exactly the requested Git actions without redundant confirmation. A first normal push includes setting upstream. Infer no unnamed action.
+- **Manual invocation:** `$superpowers-neo-git-delivery` or an equivalent explicit attachment authorizes selecting or creating and switching to a task branch, a scoped commit when needed, normal push, and PR creation. A quoted name, discussion, or automatic trigger is not manual invocation.
 
-## Prepare the Commit
+Automatic entry and the manual bundle do not authorize merge, history rewrite, force push, hook bypass, cleanup, discarding changes, or bypassing repository protections. Apply the separate boundaries below even when a protected action is named.
 
-1. Read repository guidance. Determine the current and default branches, existing development branches, recent branch and commit conventions, and any pull request template.
-2. Inspect `git status`, staged and unstaged diffs, untracked files, task ownership, generated artifacts, and possible secrets or sensitive content.
-3. If on the default branch, ask before either creating a feature branch or committing there. Prefer an appropriate existing development branch. For a new branch, follow user or repository conventions; only otherwise use `codex/<topic>` with lowercase hyphenated words.
-4. Define the exact commit scope: task-owned code, tests, and documentation, approved specs, and durable plans. Exclude unrelated changes, accidental generated files, and temporary plans. If task changes cannot be separated from user changes in a file, stop and ask.
-5. Confirm relevant verification is fresh after the final edit. Fix failures caused by the task. If a check is unavailable or an unrelated failure remains, report the exact gap and residual risk before committing or pushing.
-6. Determine and report the branch, file scope, commit message, verification evidence, and known risks. Proceed with the scoped commit by default unless the user opted out. If on the default branch, first obtain the branch decision required above; do not turn that decision into a second commit-authorization prompt.
-7. Stage exact task paths only, then inspect `git diff --cached` and status again for scope, generated files, and sensitive content. Do not bypass commit or push hooks with `--no-verify` by default. Fix task-caused hook failures. If an unrelated external hook remains unavailable, disclose the gap and require separate explicit user authorization before any bypass. Follow recent commit-message style, or use a concise imperative outcome when none exists. Add no generated authorship or unrelated metadata.
+## Deliver
 
-After the implementation commit succeeds, delete its uncommitted temporary plan and inspect the remaining workspace. Never stage that plan or delete it before a successful commit; retain it if the commit fails.
+1. Read repository guidance and inspect the branches, history, tracking, status, diffs, untracked files, generated artifacts, sensitive content, and intended PR target.
+2. Choose a branch and scope that contain only the current task. Under automatic entry, ask before creating, switching, or committing on the default branch. Under a named request, change branches only when requested. Under manual invocation, choose or create a suitable task branch without another prompt, following repository conventions or otherwise using `codex/<topic>`. Preserve unrelated changes and history; stop and ask when safe isolation is unclear. If nothing remains to deliver, report that instead of creating empty Git artifacts.
+3. Verify the actual content that will be delivered. Fix task-caused failures only when a commit is authorized; otherwise preserve the workspace. Report unavailable checks, unrelated failures, and residual risk, and stop when they block safe delivery.
+4. When a commit is authorized and task-owned changes exist, stage exact paths, inspect the cached diff, and commit using repository style. Otherwise leave the index unchanged and create no empty commit. Never bypass hooks by default. Delete only the implementation's temporary plan after a successful commit.
+5. Push only the selected branch under the applicable authority, setting upstream on first push. Before a PR, identify the intended remote target and reuse only a matching existing PR without implicitly retargeting another. Base readiness on the content actually published for that PR, follow the template, and report verification gaps and risks. Create a ready PR only when complete and verified; otherwise stop or use a clearly qualified draft.
 
-## Apply Delivery Authority
+## Protected Actions
 
-| Action | Required boundary |
-|---|---|
-| Commit | Authorized by default for the completed task after scope and verification checks. Respect an explicit opt-out. Committing on the default branch still requires the branch decision above. |
-| Push | Authorized by default only for the current established, task-owned non-default branch. Otherwise require an explicit request or explicit approval of a named plan action. Push only that task branch and set upstream on its first push. |
-| Pull request | Explicitly requested, or explicitly user-approved as a named plan action. Do not treat push authorization as PR authorization. |
-| Merge | Explicit user request after checking CI, review status, branch currency, and repository merge policy. |
-| Local history rewrite | Separate, explicit request after identifying the affected commits and explaining the worktree and collaboration impact. |
-| `--force-with-lease` | Separate, explicit confirmation after explaining the concrete overwrite risk. |
-| Cleanup | Explicit request, or explicit user approval of a named cleanup step in a plan covering the specific local branch, remote branch, or worktree. |
+- **Merge:** Require an explicit merge request, then check CI, review status, branch currency, and repository policy.
+- **History rewrite:** Require the specific operation and affected commits after explaining collaboration impact.
+- **Force push:** Require separate risk confirmation for `--force-with-lease`; never use bare `--force` or bypass protections.
+- **Hook bypass:** Require separate authorization after explaining the cause, validation gap, and risk. Never bypass a task-caused failure.
+- **Cleanup:** Require an explicit target. Confirm integration, a clean worktree, and that the target is not the current working directory. Never discard changes implicitly.
 
-Treat a branch as established and task-owned only after repository guidance, branch history, tracking state, and workspace scope show that it belongs to the current task. A non-default branch name alone is not enough. Creating or switching branches while on the default branch still requires the user's direction, but once the approved work is on an established task branch, the default push authority applies.
-
-Follow the repository PR template. Without one, include the summary, actual verification, known risks, and relevant spec. Create a ready PR only when implementation and required verification are complete; use a draft when work is incomplete, blocked, or explicitly requested as draft. Never fabricate results or hide unverified scope.
-
-Never force push automatically or use bare `--force`. Never bypass branch protections. A hook bypass requires its own explicit authorization after the cause, validation gap, and risk are explained; never bypass a task-caused failure instead of fixing it. A failed remote action does not authorize a force push, protection bypass, or another high-risk workaround.
-
-Before cleanup, confirm the work is integrated, the worktree is clean, and the target is not the current working directory. Never discard uncommitted changes or perform destructive cleanup implicitly.
+Never fabricate results or treat a failed remote action as permission for a riskier workaround.
