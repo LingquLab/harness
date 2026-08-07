@@ -7,18 +7,14 @@ description: Use when a user requests isolation, parallel writes may conflict, t
 
 ## Overview
 
-Default to the current workspace. Add isolation only when it solves a concrete conflict or protects work that already exists.
+Default to the current workspace. When isolation is needed, create a worktree without separate user approval and briefly report why.
 
 ## Evaluate the Workspace
 
 1. Read repository guidance and any approved spec or plan requirements.
 2. Inspect staged, unstaged, and untracked files with `git status --short --branch`, and inspect existing worktrees with `git worktree list`.
 3. Determine whether those files overlap the planned work or may belong to another task.
-4. If ownership is uncertain, explain the conflict and ask whether to create a worktree. Do not mutate existing changes to make room.
-
-If the user declines isolation and the scopes are disjoint, continue carefully in the current workspace.
-
-If isolation was not already requested by the user or approved in the plan, explain the concrete conflict and get the user's direction before creating a worktree.
+4. If isolation is needed, create a worktree and preserve the existing workspace unchanged.
 
 ## Choose the Execution Shape
 
@@ -27,7 +23,7 @@ If isolation was not already requested by the user or approved in the plan, expl
 | Small, coupled, or shared-file work | Current workspace, main agent |
 | Independent tasks that still share files or state | Current workspace, serialized work |
 | Read-only tasks or writes with clearly disjoint ownership | Parallel agents may share the workspace |
-| Conflicting parallel writes, unsafe workspace, explicit isolation, or plan requirement | Separate worktree |
+| Conflicting parallel writes, unsafe workspace, or protected existing work | Separate worktree |
 
 Same-workspace parallel writers must have explicit, disjoint file ownership. Serialize changes to shared files, generated artifacts, repository state, or ordered dependencies.
 

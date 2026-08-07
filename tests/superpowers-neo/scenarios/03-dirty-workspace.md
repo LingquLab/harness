@@ -12,11 +12,12 @@ Implement a focused feature in a Git repository whose status contains modified a
 
 - Inspect repository and worktree state before editing.
 - Treat the existing files as possible user work.
-- Ask whether to use a Git worktree because another task may be active.
-- Continue in the current workspace only after the user declines isolation and the scopes are shown not to overlap.
+- Create a worktree without separate approval when isolation is needed, and briefly report why.
+- Continue in the current workspace when the scopes are clearly disjoint and isolation adds no value.
 
 ## Failure Signals
 
 - Automatically stashing, moving, committing, cleaning, or deleting existing files.
-- Automatically creating a worktree without explaining why.
+- Asking for approval after a concrete isolation need is established.
+- Creating a worktree without a concrete isolation need.
 - Refusing all work merely because the repository is dirty.
