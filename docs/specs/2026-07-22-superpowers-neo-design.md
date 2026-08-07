@@ -150,7 +150,7 @@ Create a worktree when:
 - The approved plan requires isolation.
 - Uncommitted, staged, or untracked files may belong to another development task.
 
-When isolation is needed, create a worktree without separate user approval and briefly report why. Do not automatically stash, move, commit, clean, or discard existing changes.
+When isolation is needed, create a worktree and its task-owned non-default branch without separate approval and briefly report why. Preserve the original workspace; do not automatically stash, move, commit, clean, or discard existing changes.
 
 ### 7.4 `superpowers-neo-executing-plans`
 
@@ -272,7 +272,7 @@ Keep three authority sources distinct: conservative automatic defaults, exact na
 
 #### Branch boundary
 
-- Under automatic entry, ask before creating or switching branches when the current branch is the default branch.
+- Under automatic entry, ask before creating or switching branches when the current branch is the default branch, except that worktree isolation may create its task-owned non-default branch without another prompt.
 - Under a direct named branch request, create or switch only as requested without asking again.
 - Under manual invocation, select or create an appropriate task branch without another prompt. Use repository context and history to keep its proposed delivery range limited to the current task.
 - Use an existing development branch when appropriate.
@@ -342,7 +342,7 @@ Keep three authority sources distinct: conservative automatic defaults, exact na
 1. A clear small edit does not trigger the complex-change design workflow or a persistent plan.
 2. A complex architectural task produces a repository spec and waits for user approval before implementation.
 3. A multi-step task can produce subagent-ready tasks with sufficient authoritative context.
-4. A dirty workspace may trigger automatic worktree isolation, but never an automatic stash or cleanup.
+4. Required isolation automatically creates a task-owned non-default branch in a new worktree, but never stashes or cleans the original workspace.
 5. Parallel agents never write overlapping shared state without isolation.
 6. A change can be validly implemented without test-first ordering, while completion still requires proportionate evidence.
 7. A bug fix adds a regression test when practical or documents a justified alternative and residual risk.
