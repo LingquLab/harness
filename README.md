@@ -22,7 +22,7 @@ Start a new Codex task after installation so newly installed skills are discover
 
 | Plugin | Description | Version |
 |---|---|---|
-| `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.2.1` |
+| `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.2.2` |
 | `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.2.0` |
 
 ## Ascend C Development
