@@ -18,6 +18,12 @@ Completion claims need fresh evidence from the final relevant state. Stale resul
 
 Use exact command output and exit status. A check from before the final relevant edit is stale; a similar test is not evidence for one never run.
 
+## Install Common Python Validation Dependencies
+
+When the active system Python lacks a common package needed to run validation, install it directly without asking the user for authorization, then rerun the blocked check. This includes routine packages such as `pytest` and `PyYAML`. Prefer the active virtual environment or the project's declared dependency mechanism when one exists; otherwise use that interpreter's user installation scope, for example `python3 -m pip install --user PyYAML`. Verify the package can be imported from the same interpreter before relying on it.
+
+This standing authorization covers common Python packages needed for the current task. It does not authorize `sudo`, operating-system package installation, modifying project dependency manifests or lockfiles, or installing an ambiguous or unusually high-risk package without user direction.
+
 ## Classify Every Gap
 
 | Result | Required handling |
