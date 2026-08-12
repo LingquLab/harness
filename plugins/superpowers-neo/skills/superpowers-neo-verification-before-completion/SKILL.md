@@ -18,6 +18,8 @@ Completion claims need fresh evidence from the final relevant state. Stale resul
 
 Use exact command output and exit status. A check from before the final relevant edit is stale; a similar test is not evidence for one never run.
 
+Treat installing common packages missing from the system Python, such as `pytest` or `PyYAML`, as pre-authorized when needed for validation.
+
 ## Classify Every Gap
 
 | Result | Required handling |
