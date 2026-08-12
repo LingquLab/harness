@@ -16,7 +16,7 @@ Do not collect the entire home directory or all historical logs. Prefer a narrow
 
 ### Return Code or Recent Error
 
-Map the first non-success return using target-version evidence, then find the first related plog `ERROR` in the same time, process, and device window. A later synchronization or cleanup error must not replace that first failure.
+Map the first non-success return, then find the first related plog `ERROR` in the same time, process, and device window. A later synchronization or cleanup error must not replace that first failure.
 
 ### Kernel or Operator Not Found
 

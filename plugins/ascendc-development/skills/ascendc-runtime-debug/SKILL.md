@@ -9,7 +9,7 @@ Find the first failing boundary from preserved, bounded evidence. Do not erase t
 
 ## Triage Workflow
 
-1. Start with the failing API, error code, and immediate `aclGetRecentErrMsg` text when supported. Resolve the code against the target CANN version.
+1. Start with the failing API, error code, and immediate `aclGetRecentErrMsg` text when supported.
 2. In a bounded window for the same time, process, and device, find the first relevant plog `ERROR`. Treat later synchronization or cleanup errors as reporting boundaries until the earlier failure is understood.
 3. Use the surrounding environment and artifact provenance to classify that boundary, trace only its call path, and test the smallest falsifiable hypothesis.
 
@@ -17,7 +17,7 @@ Read `references/runtime-triage.md` for return-code, kernel-not-found, Tiling, e
 
 ## Evidence Rules
 
-- Error numbers are search keys, not root causes. Without target-version evidence, leave the symbolic mapping unresolved.
+- Error numbers are search keys, not root causes.
 - Distinguish an immediate API error from an asynchronous Kernel error surfaced by a later synchronization call.
 - Establish which binary and custom OPP path the runtime loaded. A successful build does not prove the installed or selected package contains that artifact.
 - Trace Host-assigned TilingKey, compiled template set, Kernel dispatch, `blockDim`, workspace, and ABI together.
