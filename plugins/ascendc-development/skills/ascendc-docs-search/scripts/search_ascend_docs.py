@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import http.cookiejar
 import json
 import re
 import sys
@@ -12,12 +13,15 @@ import unicodedata
 from html.parser import HTMLParser
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlencode, urljoin, urlsplit, urlunsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.parse import quote, urljoin, urlsplit, urlunsplit
+from urllib.request import HTTPRedirectHandler, HTTPCookieProcessor, Request, build_opener
 
 
 BASE_URL = "https://www.hiascend.com"
-SEARCH_URL = f"{BASE_URL}/ascendgateway/ascendservice/content/search"
+DOCUMENT_URL = f"{BASE_URL}/document"
+SERVICE_URL = f"{BASE_URL}/ascendgateway/ascendservice"
+SESSION_URL = f"{SERVICE_URL}/intelligent/qa/user"
+SEARCH_URL = f"{SERVICE_URL}/intelligent/search/doc"
 ALLOWED_HOST = "www.hiascend.com"
 USER_AGENT = "Mozilla/5.0 (compatible; AscendDocsSearch/2.0)"
 SEARCH_PAGE_SIZE = 10
@@ -221,34 +225,85 @@ class OfficialRedirectHandler(HTTPRedirectHandler):
         )
 
 
-OFFICIAL_OPENER = build_opener(OfficialRedirectHandler())
+OFFICIAL_OPENER = build_opener(
+    OfficialRedirectHandler(), HTTPCookieProcessor(http.cookiejar.CookieJar())
+)
 
 
-def _get(url: str, timeout: float, *, search_request: bool = False) -> tuple[bytes, str, str]:
-    headers = {
-        "Accept": "application/json" if search_request else "text/html,application/xhtml+xml",
-        "Referer": f"{BASE_URL}/",
+def _request(
+    url: str,
+    timeout: float,
+    *,
+    data: bytes | None = None,
+    headers: dict[str, str] | None = None,
+    response_limit: int = MAX_DOCUMENT_RESPONSE_BYTES,
+) -> tuple[bytes, str, str, str | None]:
+    request_headers = {
+        "Accept": "text/html,application/xhtml+xml",
+        "Referer": DOCUMENT_URL,
         "User-Agent": USER_AGENT,
     }
-    if search_request:
-        headers["x-request-type"] = "machine"
-    request = Request(_official_url(url), headers=headers)
-    max_bytes = MAX_SEARCH_RESPONSE_BYTES if search_request else MAX_DOCUMENT_RESPONSE_BYTES
+    if headers:
+        request_headers.update(headers)
+    request = Request(_official_url(url), data=data, headers=request_headers)
     try:
         with OFFICIAL_OPENER.open(request, timeout=timeout) as response:
             final_url = _official_url(response.geturl())
             charset = response.headers.get_content_charset() or "utf-8"
-            body = response.read(max_bytes + 1)
-            if len(body) > max_bytes:
-                kind = "search response" if search_request else "documentation page"
-                raise DocsSearchError(f"{kind} exceeds {max_bytes} bytes")
-            return body, charset, final_url
+            body = response.read(response_limit + 1)
+            if len(body) > response_limit:
+                raise DocsSearchError(f"response exceeds {response_limit} bytes")
+            return body, charset, final_url, response.headers.get("next-token")
     except HTTPError as exc:
         raise DocsSearchError(f"HTTP {exc.code} for {url}") from exc
     except URLError as exc:
         raise DocsSearchError(f"request failed for {url}: {exc.reason}") from exc
     except TimeoutError as exc:
         raise DocsSearchError(f"request timed out for {url}") from exc
+
+
+def _get(
+    url: str,
+    timeout: float,
+    *,
+    response_limit: int = MAX_DOCUMENT_RESPONSE_BYTES,
+) -> tuple[bytes, str, str]:
+    body, charset, final_url, _ = _request(
+        url, timeout, response_limit=response_limit
+    )
+    return body, charset, final_url
+
+
+def _initialize_search_session(timeout: float) -> str:
+    _, _, _, token = _request(
+        SESSION_URL,
+        timeout,
+        headers={"Accept": "application/json", "locale": "zh-cn"},
+        response_limit=MAX_SEARCH_RESPONSE_BYTES,
+    )
+    if not token:
+        raise DocsSearchError("official search session token is missing")
+    return token
+
+
+def _search_request(
+    payload: dict[str, Any], token: str, timeout: float
+) -> tuple[bytes, str, str, str | None]:
+    lang = str(payload.get("lang") or "zh")
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "locale": "zh-cn" if lang == "zh" else "en-us",
+        "x-csrf-token": token,
+    }
+    data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return _request(
+        SEARCH_URL,
+        timeout,
+        data=data,
+        headers=headers,
+        response_limit=MAX_SEARCH_RESPONSE_BYTES,
+    )
 
 
 _VERSION_RE = re.compile(
@@ -296,24 +351,26 @@ def search_documents(
     version: str | None,
     timeout: float,
 ) -> list[dict[str, Any]]:
-    encoded_keyword = base64.b64encode(keyword.strip().encode("utf-8")).decode("ascii")
+    encoded_keyword = base64.b64encode(keyword.strip().encode("utf-8")).decode("ascii").rstrip("=")
     results: list[dict[str, Any]] = []
     seen_urls: set[str] = set()
     last_page = min(100, page + MAX_SEARCH_PAGES - 1)
+    token = _initialize_search_session(timeout)
     for page_number in range(page, last_page + 1):
-        params = {
+        payload = {
             "keyword": encoded_keyword,
             "lang": lang,
             "type": doc_type,
             "pageNum": page_number,
             "pageSize": SEARCH_PAGE_SIZE,
             "sort": 1,
-            "ignoreCorrection": "false",
-            "searchType": "true",
+            "currentUrl": DOCUMENT_URL,
+            "previousUrl": DOCUMENT_URL,
+            "secondarySearch": False,
+            "searchType": True,
         }
-        body, charset, _ = _get(
-            f"{SEARCH_URL}?{urlencode(params)}", timeout, search_request=True
-        )
+        body, charset, _, next_token = _search_request(payload, token, timeout)
+        token = next_token or token
         try:
             payload = json.loads(body.decode(charset))
         except LookupError as exc:
@@ -323,9 +380,11 @@ def search_documents(
 
         if not isinstance(payload, dict):
             raise DocsSearchError("official search endpoint returned an unexpected data shape")
-        if not payload.get("success"):
+        if payload.get("success") is not True and payload.get("code") != 200:
             raise DocsSearchError(str(payload.get("msg") or "official search request failed"))
         data = payload.get("data")
+        if data is None and payload.get("code") == 200:
+            break
         if not isinstance(data, dict):
             raise DocsSearchError("official search endpoint returned an unexpected data shape")
         records = data.get("data", [])

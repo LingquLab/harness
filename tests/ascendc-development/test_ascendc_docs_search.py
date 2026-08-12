@@ -10,7 +10,6 @@ import pathlib
 import sys
 import unittest
 from contextlib import redirect_stdout
-from urllib.parse import parse_qs, urlparse
 from unittest import mock
 
 
@@ -41,16 +40,65 @@ class SearchAscendDocsTest(unittest.TestCase):
         self.assertEqual(SEARCH.MAX_FULL_CONTENT_CHARS, 200_000)
         self.assertEqual(SEARCH.MAX_CODE_BLOCK_CHARS, 20_000)
 
-    def test_request_uses_current_canonical_referer(self) -> None:
+    def test_document_request_uses_current_canonical_referer(self) -> None:
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.geturl.return_value = SEARCH.DOCUMENT_URL
+        response.headers.get_content_charset.return_value = "utf-8"
+        response.read.return_value = b"{}"
+        with mock.patch.object(SEARCH.OFFICIAL_OPENER, "open", return_value=response) as opener:
+            SEARCH._get(SEARCH.DOCUMENT_URL, 1)
+        request = opener.call_args.args[0]
+        self.assertEqual(request.get_header("Referer"), SEARCH.DOCUMENT_URL)
+
+    def test_search_session_initializes_csrf_token(self) -> None:
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.geturl.return_value = SEARCH.SESSION_URL
+        response.headers.get_content_charset.return_value = "utf-8"
+        response.headers.get.return_value = "csrf-token"
+        response.read.return_value = b'{"code":401,"success":false}'
+
+        with mock.patch.object(SEARCH.OFFICIAL_OPENER, "open", return_value=response) as opener:
+            token = SEARCH._initialize_search_session(1)
+
+        request = opener.call_args.args[0]
+        self.assertEqual(request.full_url, SEARCH.SESSION_URL)
+        self.assertEqual(request.get_method(), "GET")
+        self.assertEqual(request.get_header("Referer"), SEARCH.DOCUMENT_URL)
+        self.assertEqual(token, "csrf-token")
+
+    def test_search_session_requires_next_token(self) -> None:
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.geturl.return_value = SEARCH.SESSION_URL
+        response.headers.get_content_charset.return_value = "utf-8"
+        response.headers.get.return_value = None
+        response.read.return_value = b'{"code":401,"success":false}'
+
+        with mock.patch.object(SEARCH.OFFICIAL_OPENER, "open", return_value=response):
+            with self.assertRaisesRegex(SEARCH.DocsSearchError, "session token"):
+                SEARCH._initialize_search_session(1)
+
+    def test_search_request_posts_json_with_csrf_token(self) -> None:
         response = mock.MagicMock()
         response.__enter__.return_value = response
         response.geturl.return_value = SEARCH.SEARCH_URL
         response.headers.get_content_charset.return_value = "utf-8"
-        response.read.return_value = b"{}"
+        response.headers.get.return_value = "rotated-token"
+        response.read.return_value = b'{"code":200,"data":{"data":[]}}'
+        payload = {"keyword": "RGF0YUNvcHk", "lang": "zh", "pageNum": 1}
+
         with mock.patch.object(SEARCH.OFFICIAL_OPENER, "open", return_value=response) as opener:
-            SEARCH._get(SEARCH.SEARCH_URL, 1, search_request=True)
+            result = SEARCH._search_request(payload, "csrf-token", 1)
+
         request = opener.call_args.args[0]
-        self.assertEqual(request.get_header("Referer"), "https://www.hiascend.com/")
+        self.assertEqual(request.full_url, SEARCH.SEARCH_URL)
+        self.assertEqual(request.get_method(), "POST")
+        self.assertEqual(request.get_header("X-csrf-token"), "csrf-token")
+        self.assertEqual(request.get_header("Content-type"), "application/json")
+        self.assertEqual(json.loads(request.data), payload)
+        self.assertEqual(result[3], "rotated-token")
 
     def test_body_read_timeout_is_a_document_error(self) -> None:
         response = mock.MagicMock()
@@ -118,10 +166,20 @@ class SearchAscendDocsTest(unittest.TestCase):
     def test_search_rejects_non_object_json_shapes(self) -> None:
         for payload in ([], {"success": True, "data": []}):
             with self.subTest(payload=payload):
-                with mock.patch.object(
-                    SEARCH,
-                    "_get",
-                    return_value=(json.dumps(payload).encode(), "utf-8", SEARCH.SEARCH_URL),
+                with (
+                    mock.patch.object(
+                        SEARCH, "_initialize_search_session", return_value="token"
+                    ),
+                    mock.patch.object(
+                        SEARCH,
+                        "_search_request",
+                        return_value=(
+                            json.dumps(payload).encode(),
+                            "utf-8",
+                            SEARCH.SEARCH_URL,
+                            None,
+                        ),
+                    ),
                 ):
                     with self.assertRaisesRegex(SEARCH.DocsSearchError, "unexpected data shape"):
                         SEARCH.search_documents(
@@ -134,11 +192,41 @@ class SearchAscendDocsTest(unittest.TestCase):
                             timeout=1,
                         )
 
+    def test_search_treats_successful_null_data_as_no_results(self) -> None:
+        response = {"code": 200, "msg": "success", "data": None}
+        with (
+            mock.patch.object(SEARCH, "_initialize_search_session", return_value="token"),
+            mock.patch.object(
+                SEARCH,
+                "_search_request",
+                return_value=(
+                    json.dumps(response).encode(),
+                    "utf-8",
+                    SEARCH.SEARCH_URL,
+                    None,
+                ),
+            ),
+        ):
+            results = SEARCH.search_documents(
+                "no matching document",
+                lang="zh",
+                doc_type="DOC",
+                page=1,
+                max_results=1,
+                version=None,
+                timeout=1,
+            )
+
+        self.assertEqual(results, [])
+
     def test_search_reports_unsupported_charset_as_structured_error(self) -> None:
-        with mock.patch.object(
-            SEARCH,
-            "_get",
-            return_value=(b"{}", "not-a-codec", SEARCH.SEARCH_URL),
+        with (
+            mock.patch.object(SEARCH, "_initialize_search_session", return_value="token"),
+            mock.patch.object(
+                SEARCH,
+                "_search_request",
+                return_value=(b"{}", "not-a-codec", SEARCH.SEARCH_URL, None),
+            ),
         ):
             with self.assertRaisesRegex(SEARCH.DocsSearchError, "unsupported charset"):
                 SEARCH.search_documents(
@@ -151,7 +239,7 @@ class SearchAscendDocsTest(unittest.TestCase):
                     timeout=1,
                 )
 
-    def test_search_uses_single_url_encoding_for_base64_keyword(self) -> None:
+    def test_search_posts_unpadded_base64_keyword_and_rotates_csrf_token(self) -> None:
         payload = {
             "success": True,
             "data": {
@@ -166,13 +254,21 @@ class SearchAscendDocsTest(unittest.TestCase):
             },
         }
 
-        def fake_get(url: str, timeout: float, *, search_request: bool = False):
-            self.assertTrue(search_request)
-            self.assertIn("keyword=U2V0QXRvbWljVHlwZQ%3D%3D", url)
-            self.assertNotIn("%253D", url)
-            return json.dumps(payload).encode(), "utf-8", SEARCH.SEARCH_URL
+        requests: list[tuple[str, dict[str, object], str]] = []
 
-        with mock.patch.object(SEARCH, "_get", side_effect=fake_get):
+        def fake_search_request(
+            payload: dict[str, object], token: str, timeout: float
+        ) -> tuple[bytes, str, str, str | None]:
+            del timeout
+            requests.append((payload["keyword"], payload, token))
+            return json.dumps(payload_response).encode(), "utf-8", SEARCH.SEARCH_URL, "next-token"
+
+        payload_response = payload
+
+        with (
+            mock.patch.object(SEARCH, "_initialize_search_session", return_value="first-token"),
+            mock.patch.object(SEARCH, "_search_request", side_effect=fake_search_request),
+        ):
             results = SEARCH.search_documents(
                 "SetAtomicType",
                 lang="zh",
@@ -182,18 +278,20 @@ class SearchAscendDocsTest(unittest.TestCase):
                 version=None,
                 timeout=1,
             )
+        self.assertEqual(requests[0][0], "U2V0QXRvbWljVHlwZQ")
+        self.assertEqual(requests[0][1]["pageNum"], 1)
+        self.assertEqual(requests[0][2], "first-token")
         self.assertEqual(results[0]["title"], "SetAtomicType")
 
     def test_search_paginates_until_version_filter_is_filled(self) -> None:
         requested_pages: list[int] = []
 
-        def fake_get(url: str, timeout: float, *, search_request: bool = False):
+        def fake_search_request(payload, token, timeout):
             del timeout
-            self.assertTrue(search_request)
-            params = parse_qs(urlparse(url).query)
-            page = int(params["pageNum"][0])
+            page = payload["pageNum"]
             requested_pages.append(page)
-            self.assertEqual(params["pageSize"], [str(SEARCH.SEARCH_PAGE_SIZE)])
+            self.assertEqual(payload["pageSize"], SEARCH.SEARCH_PAGE_SIZE)
+            self.assertEqual(token, f"token-{page - 1}")
             if page == 1:
                 records = [
                     {
@@ -215,9 +313,12 @@ class SearchAscendDocsTest(unittest.TestCase):
                     for index in range(2)
                 ]
             payload = {"success": True, "data": {"data": records}}
-            return json.dumps(payload).encode(), "utf-8", SEARCH.SEARCH_URL
+            return json.dumps(payload).encode(), "utf-8", SEARCH.SEARCH_URL, f"token-{page}"
 
-        with mock.patch.object(SEARCH, "_get", side_effect=fake_get):
+        with (
+            mock.patch.object(SEARCH, "_initialize_search_session", return_value="token-0"),
+            mock.patch.object(SEARCH, "_search_request", side_effect=fake_search_request),
+        ):
             results = SEARCH.search_documents(
                 "DataCopy",
                 lang="zh",
@@ -234,11 +335,9 @@ class SearchAscendDocsTest(unittest.TestCase):
     def test_search_stops_after_bounded_number_of_pages(self) -> None:
         requested_pages: list[int] = []
 
-        def fake_get(url: str, timeout: float, *, search_request: bool = False):
-            del timeout
-            self.assertTrue(search_request)
-            params = parse_qs(urlparse(url).query)
-            requested_pages.append(int(params["pageNum"][0]))
+        def fake_search_request(payload, token, timeout):
+            del token, timeout
+            requested_pages.append(payload["pageNum"])
             records = [
                 {
                     "docTitle": f"Preview result {index}",
@@ -249,9 +348,12 @@ class SearchAscendDocsTest(unittest.TestCase):
                 for index in range(SEARCH.SEARCH_PAGE_SIZE)
             ]
             payload = {"success": True, "data": {"data": records}}
-            return json.dumps(payload).encode(), "utf-8", SEARCH.SEARCH_URL
+            return json.dumps(payload).encode(), "utf-8", SEARCH.SEARCH_URL, None
 
-        with mock.patch.object(SEARCH, "_get", side_effect=fake_get):
+        with (
+            mock.patch.object(SEARCH, "_initialize_search_session", return_value="token"),
+            mock.patch.object(SEARCH, "_search_request", side_effect=fake_search_request),
+        ):
             results = SEARCH.search_documents(
                 "DataCopy",
                 lang="zh",
@@ -269,11 +371,11 @@ class SearchAscendDocsTest(unittest.TestCase):
         )
 
     def test_get_rejects_responses_larger_than_the_request_class_limit(self) -> None:
-        for search_request, limit in (
-            (True, SEARCH.MAX_SEARCH_RESPONSE_BYTES),
-            (False, SEARCH.MAX_DOCUMENT_RESPONSE_BYTES),
+        for response_kind, limit in (
+            ("search", SEARCH.MAX_SEARCH_RESPONSE_BYTES),
+            ("document", SEARCH.MAX_DOCUMENT_RESPONSE_BYTES),
         ):
-            with self.subTest(search_request=search_request):
+            with self.subTest(response_kind=response_kind):
                 response = mock.MagicMock()
                 response.__enter__.return_value = response
                 response.geturl.return_value = SEARCH.SEARCH_URL
@@ -284,7 +386,7 @@ class SearchAscendDocsTest(unittest.TestCase):
                         SEARCH._get(
                             SEARCH.SEARCH_URL,
                             1,
-                            search_request=search_request,
+                            response_limit=limit,
                         )
 
     def test_parser_excludes_title_and_navigation_but_keeps_code(self) -> None:
