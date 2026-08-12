@@ -20,7 +20,7 @@ Read `references/runtime-triage.md` for return-code, kernel-not-found, Tiling, e
 
 ## Evidence Rules
 
-- Error numbers are search keys, not root causes. Resolve them against the target release's headers, official documentation, source, and neighboring log lines.
+- Error numbers are search keys, not root causes. Resolve them against the target release's headers, official documentation, source, and neighboring log lines; without target-version evidence, leave the symbolic mapping unresolved.
 - Distinguish an immediate API error from an asynchronous Kernel error surfaced by a later synchronization call.
 - Establish which binary and custom OPP path the runtime loaded. A successful build does not prove the installed or selected package contains that artifact.
 - Trace Host-assigned TilingKey, compiled template set, Kernel dispatch, `blockDim`, workspace, and ABI together.
