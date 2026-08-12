@@ -9,18 +9,15 @@ Find the first failing boundary from preserved, bounded evidence. Do not erase t
 
 ## Triage Workflow
 
-1. Confirm the target host, user, device/process, exact command, timestamp and timezone, last successful run, CANN/driver/firmware/operator-package identity, target SoC, and whether the failure is deterministic.
-2. Capture the exact returned status and call `aclGetRecentErrMsg` at the failing boundary when the target API supports it; later calls can replace useful context.
-3. Preserve a bounded time window around the first error from application logs, plog, device diagnostics, and the caller's stderr. Record every source path and command.
-4. Classify the first evidence-backed boundary: input/contract, package or binary discovery, inference/Tiling, launch, asynchronous execution, device exception, synchronization/hang, precision, or performance.
-5. Trace only that path through caller, executor or direct launcher, TilingKey, compiled Kernel variant, workspace, stream, and synchronization.
-6. Form one falsifiable hypothesis, run the smallest read-only or workspace-local check, and update the hypothesis from the result.
+1. Start with the failing API, error code, and immediate `aclGetRecentErrMsg` text when supported. Resolve the code against the target CANN version.
+2. In a bounded window for the same time, process, and device, find the first relevant plog `ERROR`. Treat later synchronization or cleanup errors as reporting boundaries until the earlier failure is understood.
+3. Use the surrounding environment and artifact provenance to classify that boundary, trace only its call path, and test the smallest falsifiable hypothesis.
 
 Read `references/runtime-triage.md` for return-code, kernel-not-found, Tiling, exception, hang, and crash routing. Use `references/precision-triage.md` for wrong results and `references/performance-validation.md` for regressions or profiling.
 
 ## Evidence Rules
 
-- Error numbers are search keys, not root causes. Resolve them against the target release's headers, official documentation, source, and neighboring log lines; without target-version evidence, leave the symbolic mapping unresolved.
+- Error numbers are search keys, not root causes. Without target-version evidence, leave the symbolic mapping unresolved.
 - Distinguish an immediate API error from an asynchronous Kernel error surfaced by a later synchronization call.
 - Establish which binary and custom OPP path the runtime loaded. A successful build does not prove the installed or selected package contains that artifact.
 - Trace Host-assigned TilingKey, compiled template set, Kernel dispatch, `blockDim`, workspace, and ABI together.
