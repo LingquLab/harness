@@ -1,6 +1,6 @@
 {
   "name": "superpowers-neo",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "A pragmatic, modular software-development workflow for Codex coding agents.",
   "author": {
     "name": "LingquLab",
@@ -14,6 +14,7 @@
     "planning",
     "debugging",
     "testing",
+    "refactoring",
     "code review",
     "git workflow"
   ],
@@ -21,7 +22,7 @@
   "interface": {
     "displayName": "Superpowers Neo",
     "shortDescription": "Pragmatic software-development workflows for Codex",
-    "longDescription": "Design, plan, debug, test, review, verify, and deliver software with workflow rigor scaled to the task's complexity and risk.",
+    "longDescription": "Design, plan, debug, test, simplify, review, verify, and deliver software with workflow rigor scaled to the task's complexity and risk.",
     "developerName": "LingquLab",
     "category": "Developer Tools",
     "capabilities": [

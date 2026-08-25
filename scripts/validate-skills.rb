@@ -14,14 +14,14 @@ SCENARIOS_ROOT = File.join(ROOT, "tests", PLUGIN_NAME, "scenarios")
 EXPECTED_MARKETPLACE_NAME = "lingqulab"
 EXPECTED_MARKETPLACE_DISPLAY_NAME = "LingquLab Skills"
 EXPECTED_PLUGIN_SOURCE = "./plugins/superpowers-neo"
-EXPECTED_PLUGIN_VERSION = "0.2.3"
+EXPECTED_PLUGIN_VERSION = "0.3.0"
 EXPECTED_PLUGIN_CATEGORY = "Developer Tools"
 ASCENDC_PLUGIN_NAME = "ascendc-development"
 ASCENDC_PLUGIN_ROOT = File.join(PLUGINS_ROOT, ASCENDC_PLUGIN_NAME)
 ASCENDC_SKILLS_ROOT = File.join(ASCENDC_PLUGIN_ROOT, "skills")
 ASCENDC_SCENARIOS_ROOT = File.join(ROOT, "tests", ASCENDC_PLUGIN_NAME, "scenarios")
 ASCENDC_PLUGIN_SOURCE = "./plugins/ascendc-development"
-ASCENDC_PLUGIN_VERSION = "0.2.1"
+ASCENDC_PLUGIN_VERSION = "0.2.2"
 ASCENDC_PLUGIN_LICENSE = "LicenseRef-CANN-2.0"
 ALLOWED_INSTALLATION_POLICIES = %w[NOT_AVAILABLE AVAILABLE INSTALLED_BY_DEFAULT].freeze
 ALLOWED_AUTHENTICATION_POLICIES = %w[ON_INSTALL ON_USE].freeze
@@ -33,6 +33,7 @@ EXPECTED_SKILLS = %w[
   superpowers-neo-executing-plans
   superpowers-neo-validation-strategy
   superpowers-neo-systematic-debugging
+  superpowers-neo-code-simplification
   superpowers-neo-requesting-code-review
   superpowers-neo-handling-code-review-feedback
   superpowers-neo-verification-before-completion
@@ -59,6 +60,7 @@ EXPECTED_SCENARIOS = %w[
   07-code-review.md
   08-verification-gap.md
   09-git-delivery.md
+  10-code-simplification.md
 ].freeze
 EXPECTED_ASCENDC_SCENARIOS = %w[
   01-operator-development.md

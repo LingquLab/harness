@@ -4,9 +4,11 @@ Date: 2026-07-23
 
 Status: Approved
 
+Amended 2026-08-25: Superpowers Neo now publishes eleven skills at version `0.3.0`, including code simplification before final review and delivery. The updated inventory and validation counts below supersede the original ten-skill baseline.
+
 ## 1. Context
 
-The repository currently publishes the Superpowers Neo source as ten skill directories at the repository root. Installation is performed by a repository script that copies those directories directly into `CODEX_HOME`.
+The original marketplace migration began from ten Superpowers Neo skill directories at the repository root and a repository script that copied them directly into `CODEX_HOME`.
 
 The repository is expected to host additional skills and skill series over time. A flat source layout and one product-specific installer do not provide a catalog boundary, independent plugin versioning, or native installation through the Codex plugin CLI.
 
@@ -15,7 +17,7 @@ The repository will therefore become a Git-backed Codex marketplace. Superpowers
 ## 2. Goals
 
 - Make `LingquLab/skills` installable as a Codex Git marketplace.
-- Publish all ten Superpowers Neo skills as one installable `superpowers-neo` plugin.
+- Publish all eleven Superpowers Neo skills as one installable `superpowers-neo` plugin.
 - Preserve independent skill discovery and the absence of a global entry skill.
 - Establish a repository structure that supports multiple independently versioned plugins.
 - Keep plugin metadata, installation documentation, and validation aligned with the current Codex marketplace schema.
@@ -23,7 +25,7 @@ The repository will therefore become a Git-backed Codex marketplace. Superpowers
 
 ## 3. Non-Goals
 
-- Do not add, remove, or redesign any Superpowers Neo skill behavior.
+- The original marketplace conversion does not add, remove, or redesign Superpowers Neo behavior; later behavior changes use normal versioned plugin updates and their own approved design boundary.
 - Do not add a `using-superpowers` or other global entry skill.
 - Do not combine all future LingquLab skills into one permanently growing plugin.
 - Do not create MCP servers, apps, hooks, authentication flows, icons, or screenshots in this change.
@@ -36,7 +38,7 @@ The repository will therefore become a Git-backed Codex marketplace. Superpowers
 
 The repository will use one marketplace containing multiple plugins. A plugin is the installation and versioning boundary.
 
-Superpowers Neo is one plugin because its ten skills form one coherent development workflow series, are designed and tested together, and should be installed and upgraded atomically. This packaging decision does not create a global entry skill: Codex still discovers and loads each `superpowers-neo-*` skill through its own description and trigger.
+Superpowers Neo is one plugin because its eleven skills form one coherent development workflow series, are designed and tested together, and should be installed and upgraded atomically. This packaging decision does not create a global entry skill: Codex still discovers and loads each `superpowers-neo-*` skill through its own description and trigger.
 
 Future additions follow these rules:
 
@@ -62,6 +64,7 @@ skills/
 |       `-- skills/
 |           |-- superpowers-neo-designing-complex-changes/
 |           |-- superpowers-neo-executing-plans/
+|           |-- superpowers-neo-code-simplification/
 |           |-- superpowers-neo-git-delivery/
 |           |-- superpowers-neo-handling-code-review-feedback/
 |           |-- superpowers-neo-requesting-code-review/
@@ -205,8 +208,8 @@ Implementation is accepted only with fresh evidence from the final layout.
 - Every plugin folder contains a matching `.codex-plugin/plugin.json`.
 - Plugin manifests use strict semantic versions and valid relative component paths.
 - Declared skills directories exist and contain structurally valid skill packages.
-- Superpowers Neo still contains exactly the ten approved skills.
-- The nine Superpowers Neo behavior scenario definitions remain structurally valid.
+- Superpowers Neo contains exactly the eleven approved skills.
+- The ten Superpowers Neo behavior scenario definitions remain structurally valid.
 - No placeholder metadata remains.
 
 ### 11.2 Plugin schema validation
@@ -227,7 +230,7 @@ Use an isolated temporary Codex home or equivalent disposable configuration to:
 1. Add the local repository as a marketplace.
 2. Confirm the marketplace is identified as `lingqulab`.
 3. Install `superpowers-neo@lingqulab`.
-4. Confirm all ten skills are present in the installed plugin artifact.
+4. Confirm all eleven skills are present in the installed plugin artifact.
 
 This smoke test must not replace or overwrite the user's configured marketplaces or installed personal skill copies.
 
@@ -253,9 +256,9 @@ Until marketplace changes are merged into the repository's default branch, `code
 
 - `LingquLab/skills` has a valid `.agents/plugins/marketplace.json` named `lingqulab`.
 - The marketplace exposes an available `superpowers-neo` plugin in `Developer Tools`.
-- The plugin has a valid `.codex-plugin/plugin.json` at version `0.1.0`.
-- All ten Neo skills exist only under `plugins/superpowers-neo/skills/` and remain behaviorally unchanged.
-- The nine behavior scenario definitions remain valid under their plugin-specific test namespace.
+- The plugin has a valid `.codex-plugin/plugin.json` at version `0.3.0`.
+- All eleven Neo skills exist only under `plugins/superpowers-neo/skills/` and follow the approved workflow behavior.
+- The ten behavior scenario definitions remain valid under their plugin-specific test namespace.
 - The repository validator, plugin validator, installer checks, and isolated marketplace smoke test pass.
 - README documents marketplace installation, manual fallback, duplicate-installation cleanup, validation, and future plugin structure.
 - No global entry skill, new runtime integration, product gate, or unrelated skill is introduced.

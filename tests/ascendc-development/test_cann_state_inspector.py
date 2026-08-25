@@ -17,6 +17,7 @@ SCRIPT = (
     ROOT
     / "plugins/ascendc-development/skills/ascendc-env-check/scripts/inspect_cann_state.py"
 )
+JSON_NESTING_LIMIT = 64
 
 
 def write_version(path: pathlib.Path, version: str, extra: str = "") -> None:
@@ -516,6 +517,49 @@ class CannStateInspectorTest(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 2)
         self.assertEqual(payload["error"]["code"], "invalid_npu_capture")
+
+    def test_json_capture_nesting_limit_is_explicit(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary) / "cann"
+            root.mkdir()
+            capture = pathlib.Path(temporary) / "capture.json"
+
+            capture.write_text(
+                "[" * JSON_NESTING_LIMIT + "]" * JSON_NESTING_LIMIT,
+                encoding="utf-8",
+            )
+            accepted, accepted_payload = self.run_inspector(
+                root, "--npu-capture", str(capture)
+            )
+
+            capture.write_text(
+                "[" * (JSON_NESTING_LIMIT + 1)
+                + "]" * (JSON_NESTING_LIMIT + 1),
+                encoding="utf-8",
+            )
+            rejected, rejected_payload = self.run_inspector(
+                root, "--npu-capture", str(capture)
+            )
+
+        self.assertEqual(accepted.returncode, 0, accepted.stderr)
+        self.assertEqual(accepted_payload["npu_capture"]["status"], "unrecognized")
+        self.assertEqual(rejected.returncode, 2)
+        self.assertEqual(rejected_payload["error"]["code"], "invalid_npu_capture")
+
+    def test_json_nesting_check_ignores_brackets_and_escaped_quotes_in_strings(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary) / "cann"
+            root.mkdir()
+            capture = pathlib.Path(temporary) / "capture.json"
+            soc = 'Ascend910B3 ' + '[{"key": "\\\"value\\\""}]' * 100
+            capture.write_text(json.dumps({"soc": soc}), encoding="utf-8")
+
+            completed, payload = self.run_inspector(root, "--npu-capture", str(capture))
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(payload["soc"]["runtime_value"], soc)
 
     def test_text_output_escapes_control_characters_from_capture_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

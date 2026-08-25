@@ -22,6 +22,8 @@ Consider failure impact, reversibility, unfamiliar code, shared dependencies, an
 
 ## Prepare an Unbiased Review Packet
 
+Review the final post-simplification diff. If simplification changed code, refresh any invalidated verification before requesting independent review.
+
 Give the reviewer the authoritative inputs:
 
 - the approved spec when one exists, otherwise the settled request or acceptance criteria;
@@ -45,3 +47,5 @@ Separate questions and assumptions from confirmed defects. If no issues are foun
 ## Integration Boundary
 
 Review output is evidence, not a command. Evaluate it with `superpowers-neo-handling-code-review-feedback`; the main agent remains responsible for the final integration decision.
+
+When accepted feedback materially changes code, use `superpowers-neo-code-simplification` on the changed paths, refresh invalidated verification, and perform a final main-agent diff review. Repeat independent review only when the resulting risk, blast radius, or repository policy justifies it.

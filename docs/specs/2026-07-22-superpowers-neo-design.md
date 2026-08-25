@@ -49,6 +49,7 @@ Superpowers Neo will be a separate personal skill series. It keeps the useful pl
 | `superpowers-neo-executing-plans` | An in-scope plan is ready for implementation | Execute continuously using the main agent and appropriately scoped subagents |
 | `superpowers-neo-validation-strategy` | A feature, fix, refactor, or behavior change needs a validation strategy | Select tests and other evidence in proportion to risk |
 | `superpowers-neo-systematic-debugging` | A bug, failure, or unexpected behavior needs diagnosis | Establish evidence and root cause before applying a fix |
+| `superpowers-neo-code-simplification` | Implemented code is ready for final review or delivery, or the user requests behavior-preserving cleanup | Simplify the task-owned diff without widening scope or changing behavior |
 | `superpowers-neo-requesting-code-review` | A change has enough risk or breadth to benefit from an independent review | Obtain focused, evidence-based review findings |
 | `superpowers-neo-handling-code-review-feedback` | Review feedback must be evaluated or implemented | Verify feedback technically before accepting, clarifying, or rejecting it |
 | `superpowers-neo-verification-before-completion` | The agent is about to claim work is complete, fixed, or passing | Require current relevant evidence and disclose validation gaps |
@@ -63,8 +64,10 @@ There is no umbrella or startup skill. Discovery depends on each skill's own pre
 1. Inspect the relevant repository guidance and code.
 2. Implement directly without invoking the complex-change design workflow or a persistent plan.
 3. Apply risk-driven validation.
-4. Verify before claiming completion.
-5. If this is feature or fix work in a Git repository, enter the delivery decision flow.
+4. Simplify the final task-owned code and refresh any invalidated validation.
+5. Review the simplified diff; use the main agent for a narrow change and independent review when risk justifies it.
+6. Verify before claiming completion.
+7. If this is feature or fix work in a Git repository, enter the delivery decision flow.
 
 ### 6.2 Complex feature
 
@@ -73,16 +76,18 @@ There is no umbrella or startup skill. Discovery depends on each skill's own pre
 3. Use `superpowers-neo-writing-plans` when execution is multi-step, risky, cross-module, multi-session, or intended for handoff.
 4. Evaluate the current workspace with `superpowers-neo-using-git-worktrees` when isolation may be useful.
 5. Execute with `superpowers-neo-executing-plans`.
-6. Apply testing, debugging, review, and final verification skills when their individual triggers match.
-7. Enter the delivery flow for Git-backed feature work.
+6. Apply testing and debugging skills when their individual triggers match.
+7. Simplify the final task-owned code, refresh invalidated validation, and review the resulting diff at a depth selected by risk.
+8. Apply final verification and enter the delivery flow for Git-backed feature work.
 
 ### 6.3 Bug fix
 
 1. Use `superpowers-neo-systematic-debugging` when the root cause is not already established.
 2. Select a suitable regression or alternative validation strategy with `superpowers-neo-validation-strategy`.
 3. Implement the fix without an absolute test-first requirement.
-4. Verify the result and disclose any untested boundary.
-5. Enter the Git delivery flow when applicable.
+4. Simplify the final task-owned code, refresh invalidated validation, and review the resulting diff at a depth selected by risk.
+5. Verify the result and disclose any untested boundary.
+6. Enter the Git delivery flow when applicable.
 
 ## 7. Detailed Skill Behavior
 
@@ -215,7 +220,18 @@ Preserve the principle of evidence before fixes without forcing a fixed four-pha
 
 The amount of investigation scales with the problem. An obvious, well-evidenced failure does not need artificial process expansion.
 
-### 7.7 `superpowers-neo-requesting-code-review`
+### 7.7 `superpowers-neo-code-simplification`
+
+Use after implementation and before final review or Git delivery, or when the user explicitly requests behavior-preserving simplification.
+
+- Limit the pass to the current task-owned diff and follow repository conventions.
+- Preserve interfaces, outputs, errors, side effects, ordering, logging, and supported edge cases.
+- Prefer clarity over fewer lines, speculative reuse, or broad cleanup.
+- Search repository consumers before deleting apparently unused code.
+- Accept a no-op when the code is already clear or a proposed simplification would widen scope or create behavioral uncertainty.
+- Refresh only validation invalidated by the resulting edits, then review the final simplified diff.
+
+### 7.8 `superpowers-neo-requesting-code-review`
 
 Use independent review based on risk rather than after every task.
 
@@ -230,7 +246,9 @@ A review subagent receives:
 
 It does not receive the implementer's desired conclusion. Findings are ordered by severity and include file locations, technical reasoning, and actionable consequences. A no-finding review still identifies test gaps and residual risk.
 
-### 7.8 `superpowers-neo-handling-code-review-feedback`
+Review consumes the final post-simplification diff and current verification evidence. Material code changes made in response to review are simplified, revalidated, and reviewed by the main agent before delivery; independent review repeats only when the resulting risk or repository policy justifies it.
+
+### 7.9 `superpowers-neo-handling-code-review-feedback`
 
 Evaluate feedback against code, the governing spec or settled request, relevant plan when one exists, and actual behavior.
 
@@ -240,7 +258,7 @@ Evaluate feedback against code, the governing spec or settled request, relevant 
 - Avoid performative agreement and blind implementation.
 - The main agent remains responsible for the final integration decision.
 
-### 7.9 `superpowers-neo-verification-before-completion`
+### 7.10 `superpowers-neo-verification-before-completion`
 
 Before claiming work is complete, fixed, or passing:
 
@@ -253,7 +271,7 @@ Before claiming work is complete, fixed, or passing:
 - If environment, hardware, permission, or external-system constraints prevent verification, state what was verified, what was not, why, and the residual risk.
 - Never present inference as a confirmed passing result.
 
-### 7.10 `superpowers-neo-git-delivery`
+### 7.11 `superpowers-neo-git-delivery`
 
 Enter the delivery flow automatically when feature or bug-fix work completes in a Git repository. Do not enter when the user explicitly opts out. Ask when the task category is unclear. Non-Git work only receives a result summary.
 
@@ -281,6 +299,7 @@ Keep three authority sources distinct: conservative automatic defaults, exact na
 
 #### Pre-commit checks
 
+- Ensure the deliverable task-owned code has had a simplification pass, then review the final simplified diff at a depth selected by risk.
 - Confirm relevant verification is current after the final edit.
 - When a commit is authorized, inspect the staged diff, file scope, accidental generated files, and sensitive information. Otherwise do not alter the index.
 - Fix task-caused failures only when a commit is authorized. Without commit authority, report a failing check or hook and stop if it blocks the named action; do not edit staged, unstaged, or untracked state.
@@ -328,7 +347,7 @@ Keep three authority sources distinct: conservative automatic defaults, exact na
 
 ## 9. Packaging and Discovery
 
-- Ship ten flat personal skill directories using the exact names in the inventory.
+- Ship eleven skill directories using the exact names in the inventory.
 - Each directory contains a concise `SKILL.md` and recommended `agents/openai.yaml` metadata.
 - Add scripts or references only when they remove meaningful duplication or support deterministic behavior.
 - Keep trigger descriptions precise and limited to when the skill should load.
@@ -346,16 +365,17 @@ Keep three authority sources distinct: conservative automatic defaults, exact na
 5. Parallel agents never write overlapping shared state without isolation.
 6. A change can be validly implemented without test-first ordering, while completion still requires proportionate evidence.
 7. A bug fix adds a regression test when practical or documents a justified alternative and residual risk.
-8. Review is required by risk, not by task count, and feedback is verified rather than blindly accepted.
-9. Completion claims distinguish confirmed checks, unavailable checks, and unrelated baseline failures.
-10. Automatically completed feature or fix work with task-owned uncommitted changes receives a scoped commit by default unless the user opts out, while a default-branch location still requires an explicit branch decision.
-11. An established task-owned non-default branch receives a normal push by default; automatic entry does not authorize a PR.
-12. Named actions remain narrow, and ambiguous delivery requests are clarified before mutation.
-13. Manual invocation authorizes task-branch selection, a scoped commit when needed, normal push, and PR creation without redundant prompts.
-14. Delivery contains only current-task work and creates no empty artifacts when nothing remains to deliver.
-15. PR operations target the intended remote work, and readiness evidence applies to the content actually published there.
-16. Merge, history rewrite, force-with-lease, hook bypass, and cleanup remain separately protected unless specifically requested under their documented checks.
-17. No Neo skill requires `using-superpowers`, `writing-skills`, or absolute TDD behavior.
+8. Final task code is simplified before review and delivery without widening scope or changing behavior; already-clear code may remain unchanged.
+9. Review depth is selected by risk, review consumes the simplified final diff, and feedback is verified rather than blindly accepted.
+10. Completion claims distinguish confirmed checks, unavailable checks, and unrelated baseline failures.
+11. Automatically completed feature or fix work with task-owned uncommitted changes receives a scoped commit by default unless the user opts out, while a default-branch location still requires an explicit branch decision.
+12. An established task-owned non-default branch receives a normal push by default; automatic entry does not authorize a PR.
+13. Named actions remain narrow, and ambiguous delivery requests are clarified before mutation.
+14. Manual invocation authorizes task-branch selection, a scoped commit when needed, normal push, and PR creation without redundant prompts.
+15. Delivery contains only current-task work and creates no empty artifacts when nothing remains to deliver.
+16. PR operations target the intended remote work, and readiness evidence applies to the content actually published there.
+17. Merge, history rewrite, force-with-lease, hook bypass, and cleanup remain separately protected unless specifically requested under their documented checks.
+18. No Neo skill requires `using-superpowers`, `writing-skills`, or absolute TDD behavior.
 
 ## 11. Validation Strategy
 
@@ -368,6 +388,7 @@ Implementation validation will include:
 - Shared-workspace and isolated-worktree subagent scenarios.
 - Risk-driven testing scenarios where TDD is useful and where it is intentionally not used.
 - Bug-fix scenarios with both automated regression and justified alternative validation.
+- Simplification scenarios covering behavior preservation, no-op passes, review ordering, and unrelated workspace changes.
 - Review scenarios with valid, ambiguous, incorrect, and scope-expanding feedback.
 - Completion scenarios with passing tests, unavailable hardware, and unrelated baseline failures.
 - Delivery scenarios sample authority, task isolation, verification, and protected-action boundaries; they are representative, not an exhaustive state machine.

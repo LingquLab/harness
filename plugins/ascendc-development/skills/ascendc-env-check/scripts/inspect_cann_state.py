@@ -21,6 +21,7 @@ MAX_PLATFORM_FILES = 256
 MAX_METADATA_BYTES = 128 * 1024
 MAX_CAPTURE_BYTES = 256 * 1024
 MAX_PARSED_LINES = 4096
+MAX_JSON_NESTING = 64
 
 PLATFORM_CONFIG_DIRS = (
     "platform_config",
@@ -57,6 +58,33 @@ class InspectionInputError(Exception):
     def __init__(self, message: str, *, code: str = "invalid_input") -> None:
         super().__init__(message)
         self.code = code
+
+
+def json_nesting_exceeds_limit(text: str, limit: int) -> bool:
+    depth = 0
+    in_string = False
+    escaped = False
+
+    for character in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            continue
+
+        if character == '"':
+            in_string = True
+        elif character in "[{":
+            depth += 1
+            if depth > limit:
+                return True
+        elif character in "]}":
+            depth -= 1
+
+    return False
 
 
 def parse_args() -> argparse.Namespace:
@@ -685,6 +713,13 @@ def parse_npu_capture(
     driver_claims: list[dict[str, Any]] = []
     json_candidate = text.lstrip("\ufeff \t\r\n")
     looks_like_json = json_candidate.startswith(("{", "["))
+    if looks_like_json and json_nesting_exceeds_limit(
+        json_candidate, MAX_JSON_NESTING
+    ):
+        raise InspectionInputError(
+            f"NPU capture exceeds the JSON nesting limit of {MAX_JSON_NESTING}",
+            code="invalid_npu_capture",
+        )
     json_parsed = True
     try:
         payload = json.loads(text)
