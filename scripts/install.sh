@@ -14,6 +14,7 @@ SKILLS=(
   superpowers-neo-executing-plans
   superpowers-neo-validation-strategy
   superpowers-neo-systematic-debugging
+  superpowers-neo-code-simplification
   superpowers-neo-requesting-code-review
   superpowers-neo-handling-code-review-feedback
   superpowers-neo-verification-before-completion

@@ -22,8 +22,8 @@ Start a new Codex task after installation so newly installed skills are discover
 
 | Plugin | Description | Version |
 |---|---|---|
-| `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.2.3` |
-| `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.2.1` |
+| `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.3.0` |
+| `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.2.2` |
 
 ## Ascend C Development
 
@@ -61,6 +61,7 @@ Neo has no global entry skill. Each skill is independently discoverable and load
 | `superpowers-neo-executing-plans` | An in-scope plan is ready for main-agent and scoped-subagent execution |
 | `superpowers-neo-validation-strategy` | A change needs validation proportional to its risk |
 | `superpowers-neo-systematic-debugging` | A bug or unexpected failure needs evidence-based diagnosis |
+| `superpowers-neo-code-simplification` | Implemented code should be simplified without changing behavior before final review or delivery |
 | `superpowers-neo-requesting-code-review` | A substantial or risky change benefits from independent review |
 | `superpowers-neo-handling-code-review-feedback` | Review feedback needs technical evaluation |
 | `superpowers-neo-verification-before-completion` | Work is about to be described as complete, fixed, or passing |
@@ -72,9 +73,12 @@ Neo has no global entry skill. Each skill is independently discoverable and load
 - Complex-change design and persistent plans trigger only when complexity justifies them.
 - Worktrees and subagents are selected by isolation and coordination value.
 - Validation is risk-driven; test-first development is useful but not universal.
+- Completed task code is simplified before final validation and review; a no-op is valid when the code is already clear.
 - Independent review is selected by risk rather than required after every task.
 - Automatic delivery authorizes scoped task commits and normal pushes from established task-owned non-default branches. Manually invoking `superpowers-neo-git-delivery` additionally authorizes task-branch creation, normal push, and PR creation; merge, history rewrite, force push, hook bypass, and cleanup remain separately protected.
 - Skill-authoring methodology is not part of the shipped series.
+
+The code-simplification workflow is primarily adapted from [`caarlos0/dotfiles/skills/code-simplifier`](https://github.com/caarlos0/dotfiles/tree/b2c38ba14c4295476f4672bb097a405edd992642/skills/code-simplifier) at source commit `b2c38ba14c4295476f4672bb097a405edd992642`. Keep this pinned source when checking for upstream improvements; Neo intentionally retains only the general, behavior-preserving workflow rather than copying its language-specific guidance.
 
 See the [Superpowers Neo design](docs/specs/2026-07-22-superpowers-neo-design.md) for its behavior contract and the [marketplace design](docs/specs/2026-07-23-codex-marketplace-design.md) for packaging and extension decisions.
 
@@ -88,7 +92,7 @@ ruby -c scripts/validate-skills.rb
 bash -n scripts/install.sh
 ```
 
-It checks the marketplace catalog, both plugin manifests and paths, all ten Superpowers Neo skill packages, all seven Ascend C Development skill packages, relative documentation links, nine Superpowers Neo scenarios, and two Ascend C Development scenarios.
+It checks the marketplace catalog, both plugin manifests and paths, all eleven Superpowers Neo skill packages, all seven Ascend C Development skill packages, relative documentation links, ten Superpowers Neo scenarios, and two Ascend C Development scenarios.
 
 Behavioral validation is a fresh-agent evaluation. Give a new agent only the relevant `SKILL.md` files and the request section from one file under `tests/<plugin-name>/scenarios/`, then compare the response with its expected behaviors and failure signals. Do not include the expected result in the agent prompt.
 
@@ -110,7 +114,7 @@ Install to `${CODEX_HOME:-$HOME/.codex}/skills`:
 scripts/install.sh
 ```
 
-Use `--target PATH` to install elsewhere. The installer copies exactly the ten Neo skill directories from `plugins/superpowers-neo/skills/`, refuses to overwrite existing targets, and never disables or removes the original Superpowers plugin.
+Use `--target PATH` to install elsewhere. The installer copies exactly the eleven Neo skill directories from `plugins/superpowers-neo/skills/`, refuses to overwrite existing targets, and never disables or removes the original Superpowers plugin.
 
 ### Avoid Duplicate Installations
 

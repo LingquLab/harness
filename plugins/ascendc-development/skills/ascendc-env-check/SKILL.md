@@ -30,7 +30,7 @@ python3 '<skill-dir>/scripts/inspect_cann_state.py' \
 
 The helper never executes a device command. `--soc` is user-supplied toolkit metadata evidence and `--build-target` is build evidence; neither is detected hardware. A `runtime_soc_correlated` result means an explicit runtime SoC claim exactly matched one installed platform configuration with one `NpuArch` value. It is not a hard-coded product map.
 
-An explicitly supplied capture that is missing, unreadable, not a regular file, or over 256 KiB fails with `invalid_npu_capture`. A bounded but unrecognized JSON/text schema remains read-only evidence with `npu_capture.status=unrecognized` and a warning; it produces no inferred hardware claim.
+An explicitly supplied capture that is missing, unreadable, not a regular file, over 256 KiB, or deeper than 64 JSON container levels fails with `invalid_npu_capture`. A bounded but unrecognized JSON/text schema remains read-only evidence with `npu_capture.status=unrecognized` and a warning; it produces no inferred hardware claim.
 
 5. If a script is unavailable or its output format is not recognized, fall back to the commands in `references/npu_commands.md` and `references/asys_commands.md`.
 6. Correlate environment variables with discovered toolkit roots, tool locations, real paths, component metadata, and requirement fields. A missing `ASCEND_HOME_PATH` means the current shell is not configured; it does not prove that CANN is absent.
