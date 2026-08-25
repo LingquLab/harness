@@ -237,6 +237,10 @@ Use independent review based on risk rather than after every task.
 
 Independent review is expected for broad, cross-module, public-interface, concurrent, security-sensitive, or data-consistency changes. Small and clear changes may use main-agent diff review plus testing.
 
+Review supported behavior with restraint. A defect needs a concrete reachable trigger and material consequence under the requirements or established contracts. Do not manufacture findings for speculative robustness, stylistic preference, future-proofing, or low-impact unsupported environments.
+
+Required operations and internal invariants should fail clearly unless the product contract requires recovery. Do not request warning-and-continue behavior, defaults, retries, fallbacks, compatibility shims, or extra branches merely because they appear defensive. Accept degradation only when the contract defines the reduced result and the implementation keeps it correct and tested.
+
 A review subagent receives:
 
 - The approved spec when one exists, otherwise the settled request or acceptance criteria.
@@ -244,7 +248,7 @@ A review subagent receives:
 - The actual diff.
 - Test and verification results.
 
-It does not receive the implementer's desired conclusion. Findings are ordered by severity and include file locations, technical reasoning, and actionable consequences. A no-finding review still identifies test gaps and residual risk.
+It does not receive the implementer's desired conclusion. Findings are ordered by severity and include file locations, technical reasoning, and actionable consequences. A no-finding review is valid; mention only validation gaps that materially limit the conclusion.
 
 Review consumes the final post-simplification diff and current verification evidence. Material code changes made in response to review are simplified, revalidated, and reviewed by the main agent before delivery; independent review repeats only when the resulting risk or repository policy justifies it.
 
@@ -366,7 +370,7 @@ Keep three authority sources distinct: conservative automatic defaults, exact na
 6. A change can be validly implemented without test-first ordering, while completion still requires proportionate evidence.
 7. A bug fix adds a regression test when practical or documents a justified alternative and residual risk.
 8. Final task code is simplified before review and delivery without widening scope or changing behavior; already-clear code may remain unchanged.
-9. Review depth is selected by risk, review consumes the simplified final diff, and feedback is verified rather than blindly accepted.
+9. Review depth is selected by risk, review consumes the simplified final diff, and feedback is verified rather than blindly accepted or expanded into speculative defensive code.
 10. Completion claims distinguish confirmed checks, unavailable checks, and unrelated baseline failures.
 11. Automatically completed feature or fix work with task-owned uncommitted changes receives a scoped commit by default unless the user opts out, while a default-branch location still requires an explicit branch decision.
 12. An established task-owned non-default branch receives a normal push by default; automatic entry does not authorize a PR.

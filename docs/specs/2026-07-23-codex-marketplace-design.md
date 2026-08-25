@@ -4,7 +4,7 @@ Date: 2026-07-23
 
 Status: Approved
 
-Amended 2026-08-25: Superpowers Neo now publishes eleven skills at version `0.3.0`, including code simplification before final review and delivery. The updated inventory and validation counts below supersede the original ten-skill baseline.
+Amended 2026-08-25: Superpowers Neo now publishes eleven skills at version `0.3.1`, including code simplification before final review and delivery plus restraint against speculative defensive review findings. The updated inventory and validation counts below supersede the original ten-skill baseline.
 
 ## 1. Context
 
@@ -256,7 +256,7 @@ Until marketplace changes are merged into the repository's default branch, `code
 
 - `LingquLab/skills` has a valid `.agents/plugins/marketplace.json` named `lingqulab`.
 - The marketplace exposes an available `superpowers-neo` plugin in `Developer Tools`.
-- The plugin has a valid `.codex-plugin/plugin.json` at version `0.3.0`.
+- The plugin has a valid `.codex-plugin/plugin.json` at version `0.3.1`.
 - All eleven Neo skills exist only under `plugins/superpowers-neo/skills/` and follow the approved workflow behavior.
 - The ten behavior scenario definitions remain valid under their plugin-specific test namespace.
 - The repository validator, plugin validator, installer checks, and isolated marketplace smoke test pass.
