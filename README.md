@@ -22,7 +22,7 @@ Start a new Codex task after installation so newly installed skills are discover
 
 | Plugin | Description | Version |
 |---|---|---|
-| `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.3.0` |
+| `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.3.1` |
 | `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.2.2` |
 
 ## Ascend C Development
@@ -75,6 +75,7 @@ Neo has no global entry skill. Each skill is independently discoverable and load
 - Validation is risk-driven; test-first development is useful but not universal.
 - Completed task code is simplified before final validation and review; a no-op is valid when the code is already clear.
 - Independent review is selected by risk rather than required after every task.
+- Review findings require a concrete reachable failure and material impact; speculative defensive handling and warn-and-continue fallbacks are not improvements by default.
 - Automatic delivery authorizes scoped task commits and normal pushes from established task-owned non-default branches. Manually invoking `superpowers-neo-git-delivery` additionally authorizes task-branch creation, normal push, and PR creation; merge, history rewrite, force push, hook bypass, and cleanup remain separately protected.
 - Skill-authoring methodology is not part of the shipped series.
 

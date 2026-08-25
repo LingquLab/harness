@@ -20,6 +20,8 @@ Before responding or editing:
 
 Do not implement first and investigate later. Agreement language such as "good catch" does not replace technical verification.
 
+Treat requests for warnings, defaults, retries, fallbacks, or compatibility paths as behavior changes, not automatic hardening. Accept them only when a supported failure is recoverable under the product contract; otherwise preserve or restore the simpler explicit failure.
+
 ## Classify and Act
 
 | Classification | Response |
