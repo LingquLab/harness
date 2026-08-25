@@ -1,13 +1,13 @@
 {
   "name": "superpowers-neo",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "A pragmatic, modular software-development workflow for Codex coding agents.",
   "author": {
     "name": "LingquLab",
     "url": "https://github.com/LingquLab"
   },
-  "homepage": "https://github.com/LingquLab/skills",
-  "repository": "https://github.com/LingquLab/skills",
+  "homepage": "https://github.com/LingquLab/harness",
+  "repository": "https://github.com/LingquLab/harness",
   "license": "MIT",
   "keywords": [
     "software development",
@@ -29,7 +29,7 @@
       "Read",
       "Write"
     ],
-    "websiteURL": "https://github.com/LingquLab/skills",
+    "websiteURL": "https://github.com/LingquLab/harness",
     "defaultPrompt": [
       "Use the appropriate Superpowers Neo workflow for this development task."
     ]

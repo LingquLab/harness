@@ -1,13 +1,13 @@
 {
   "name": "ascendc-development",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Version-aware Ascend C operator development, review, documentation, environment, CANN setup, and runtime debugging workflows.",
   "author": {
     "name": "LingquLab",
     "url": "https://github.com/LingquLab"
   },
-  "homepage": "https://github.com/LingquLab/skills",
-  "repository": "https://github.com/LingquLab/skills",
+  "homepage": "https://github.com/LingquLab/harness",
+  "repository": "https://github.com/LingquLab/harness",
   "license": "LicenseRef-CANN-2.0",
   "keywords": [
     "Ascend C",
@@ -25,7 +25,7 @@
       "Read",
       "Write"
     ],
-    "websiteURL": "https://github.com/LingquLab/skills",
+    "websiteURL": "https://github.com/LingquLab/harness",
     "defaultPrompt": [
       "Develop or migrate this Ascend C operator through a version-matched invocation path and layered validation.",
       "Review this Ascend C change using target-version API, Host, Tiling, Kernel, and build evidence.",

@@ -4,7 +4,7 @@ Date: 2026-07-23
 
 Status: Approved
 
-Amended 2026-08-25: Superpowers Neo now publishes eleven skills at version `0.3.1`, including code simplification before final review and delivery plus restraint against speculative defensive review findings. The updated inventory and validation counts below supersede the original ten-skill baseline.
+Amended 2026-08-25: The repository moved from `LingquLab/skills` to `LingquLab/harness`; current repository URLs and marketplace installation commands below use the new name. Superpowers Neo now publishes eleven skills at version `0.3.2`, including code simplification before final review and delivery plus restraint against speculative defensive review findings. The updated inventory and validation counts below supersede the original ten-skill baseline.
 
 ## 1. Context
 
@@ -16,7 +16,7 @@ The repository will therefore become a Git-backed Codex marketplace. Superpowers
 
 ## 2. Goals
 
-- Make `LingquLab/skills` installable as a Codex Git marketplace.
+- Make `LingquLab/harness` installable as a Codex Git marketplace.
 - Publish all eleven Superpowers Neo skills as one installable `superpowers-neo` plugin.
 - Preserve independent skill discovery and the absence of a global entry skill.
 - Establish a repository structure that supports multiple independently versioned plugins.
@@ -53,7 +53,7 @@ Future additions follow these rules:
 The target layout is:
 
 ```text
-skills/
+harness/
 |-- .agents/
 |   `-- plugins/
 |       `-- marketplace.json
@@ -134,7 +134,7 @@ The manifest is `plugins/superpowers-neo/.codex-plugin/plugin.json` and has thes
 - Initial version: `0.1.0`
 - Developer: `LingquLab`
 - License: `MIT`
-- Repository: `https://github.com/LingquLab/skills`
+- Repository: `https://github.com/LingquLab/harness`
 - Skills path: `./skills/`
 - Display name: `Superpowers Neo`
 - Category: `Developer Tools`
@@ -164,7 +164,7 @@ No duplicate compatibility copy remains under the old top-level `skills/` path. 
 The primary public installation flow is:
 
 ```bash
-codex plugin marketplace add LingquLab/skills
+codex plugin marketplace add LingquLab/harness
 codex plugin add superpowers-neo@lingqulab
 ```
 
@@ -250,13 +250,13 @@ Codex marketplace and plugin schemas can evolve. Repository validation covers st
 
 ### 12.4 Source branch availability
 
-Until marketplace changes are merged into the repository's default branch, `codex plugin marketplace add LingquLab/skills` will not see them without an explicit ref. Public documentation must show the default command only after the marketplace structure is available on the default branch.
+Until marketplace changes are merged into the repository's default branch, `codex plugin marketplace add LingquLab/harness` will not see them without an explicit ref. Public documentation must show the default command only after the marketplace structure is available on the default branch.
 
 ## 13. Acceptance Criteria
 
-- `LingquLab/skills` has a valid `.agents/plugins/marketplace.json` named `lingqulab`.
+- `LingquLab/harness` has a valid `.agents/plugins/marketplace.json` named `lingqulab`.
 - The marketplace exposes an available `superpowers-neo` plugin in `Developer Tools`.
-- The plugin has a valid `.codex-plugin/plugin.json` at version `0.3.1`.
+- The plugin has a valid `.codex-plugin/plugin.json` at version `0.3.2`.
 - All eleven Neo skills exist only under `plugins/superpowers-neo/skills/` and follow the approved workflow behavior.
 - The ten behavior scenario definitions remain valid under their plugin-specific test namespace.
 - The repository validator, plugin validator, installer checks, and isolated marketplace smoke test pass.
