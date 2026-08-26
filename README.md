@@ -7,7 +7,7 @@ LingquLab Skills is a Git-backed Codex marketplace for independently installable
 Add this repository as a Codex marketplace:
 
 ```bash
-codex plugin marketplace add LingquLab/skills
+codex plugin marketplace add LingquLab/harness
 ```
 
 Then install a plugin from the catalog:
@@ -22,8 +22,8 @@ Start a new Codex task after installation so newly installed skills are discover
 
 | Plugin | Description | Version |
 |---|---|---|
-| `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.3.1` |
-| `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.2.2` |
+| `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.3.2` |
+| `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.2.3` |
 
 ## Ascend C Development
 
