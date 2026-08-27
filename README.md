@@ -22,7 +22,7 @@ Start a new Codex task after installation so newly installed skills are discover
 
 | Plugin | Description | Version |
 |---|---|---|
-| `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.3.2` |
+| `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.4.0` |
 | `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.2.3` |
 
 ## Ascend C Development
@@ -61,6 +61,7 @@ Neo has no global entry skill. Each skill is independently discoverable and load
 | `superpowers-neo-executing-plans` | An in-scope plan is ready for main-agent and scoped-subagent execution |
 | `superpowers-neo-validation-strategy` | A change needs validation proportional to its risk |
 | `superpowers-neo-systematic-debugging` | A bug or unexpected failure needs evidence-based diagnosis |
+| `superpowers-neo-powershell-remote-execution` | PowerShell drives non-trivial shell work on a remote Linux host over SSH |
 | `superpowers-neo-code-simplification` | Implemented code should be simplified without changing behavior before final review or delivery |
 | `superpowers-neo-requesting-code-review` | A substantial or risky change benefits from independent review |
 | `superpowers-neo-handling-code-review-feedback` | Review feedback needs technical evaluation |

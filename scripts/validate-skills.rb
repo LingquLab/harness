@@ -14,7 +14,7 @@ SCENARIOS_ROOT = File.join(ROOT, "tests", PLUGIN_NAME, "scenarios")
 EXPECTED_MARKETPLACE_NAME = "lingqulab"
 EXPECTED_MARKETPLACE_DISPLAY_NAME = "LingquLab Skills"
 EXPECTED_PLUGIN_SOURCE = "./plugins/superpowers-neo"
-EXPECTED_PLUGIN_VERSION = "0.3.2"
+EXPECTED_PLUGIN_VERSION = "0.4.0"
 EXPECTED_PLUGIN_CATEGORY = "Developer Tools"
 ASCENDC_PLUGIN_NAME = "ascendc-development"
 ASCENDC_PLUGIN_ROOT = File.join(PLUGINS_ROOT, ASCENDC_PLUGIN_NAME)
@@ -33,6 +33,7 @@ EXPECTED_SKILLS = %w[
   superpowers-neo-executing-plans
   superpowers-neo-validation-strategy
   superpowers-neo-systematic-debugging
+  superpowers-neo-powershell-remote-execution
   superpowers-neo-code-simplification
   superpowers-neo-requesting-code-review
   superpowers-neo-handling-code-review-feedback
@@ -61,6 +62,7 @@ EXPECTED_SCENARIOS = %w[
   08-verification-gap.md
   09-git-delivery.md
   10-code-simplification.md
+  11-powershell-remote-execution.md
 ].freeze
 EXPECTED_ASCENDC_SCENARIOS = %w[
   01-operator-development.md

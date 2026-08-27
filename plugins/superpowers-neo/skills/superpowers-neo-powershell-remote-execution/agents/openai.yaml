@@ -1,0 +1,4 @@
+interface:
+  display_name: "Neo PowerShell Remote Execution"
+  short_description: "Run remote Linux work safely from PowerShell"
+  default_prompt: "Use $superpowers-neo-powershell-remote-execution to run this Linux host task safely from PowerShell."
