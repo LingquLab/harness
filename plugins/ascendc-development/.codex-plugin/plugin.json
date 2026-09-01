@@ -1,7 +1,7 @@
 {
   "name": "ascendc-development",
-  "version": "0.2.3",
-  "description": "Version-aware Ascend C operator development, review, documentation, environment, CANN setup, and runtime debugging workflows.",
+  "version": "0.3.0",
+  "description": "Version-aware Ascend C operator development, review, documentation, NPU status, environment, CANN setup, and runtime debugging workflows.",
   "author": {
     "name": "LingquLab",
     "url": "https://github.com/LingquLab"
@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "Ascend C Development",
     "shortDescription": "Develop, review, and debug version-matched Ascend C software.",
-    "longDescription": "Develop complete Ascend C operators, review Host, Tiling, Kernel, and support code, find version-matched API evidence, diagnose runtime failures from bounded evidence, inspect NPU environments read-only, and plan guarded CANN setup workflows.",
+    "longDescription": "Develop complete Ascend C operators, review Host, Tiling, Kernel, and support code, find version-matched API evidence, check JSON-selected NPU process occupancy, diagnose runtime failures from bounded evidence, inspect NPU environments read-only, and plan guarded CANN setup workflows.",
     "developerName": "LingquLab",
     "category": "Developer Tools",
     "capabilities": [
