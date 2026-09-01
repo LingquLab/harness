@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ascend NPU Monitor</title>
+  <style>
+    :root { color-scheme: light; --ink: #17201b; --muted: #66716b; --line: #d8dfda; --panel: #ffffff; --canvas: #f3f6f4; --idle: #168348; --busy: #d4363e; --unknown: #8a928e; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); font: 13px/1.35 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0; }
+    header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 18px; min-height: 52px; padding: 8px 16px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.96); }
+    h1 { margin: 0 auto 0 0; font-size: 16px; font-weight: 700; white-space: nowrap; }
+    .summary { display: flex; align-items: center; gap: 14px; }
+    .metric { display: flex; align-items: baseline; gap: 5px; color: var(--muted); white-space: nowrap; }
+    .metric strong { color: var(--ink); font-size: 15px; }
+    .metric.idle strong { color: var(--idle); }
+    .metric.busy strong { color: var(--busy); }
+    .stamp { min-width: 150px; color: var(--muted); text-align: right; white-space: nowrap; }
+    main { padding: 12px 16px 18px; }
+    .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px 18px; align-items: start; }
+    section { min-width: 0; }
+    h2 { display: flex; justify-content: space-between; gap: 10px; margin: 0; padding: 0 0 6px; border-bottom: 2px solid var(--ink); font-size: 13px; }
+    .prefix { color: var(--muted); font: 11px/1.35 ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 400; }
+    .server { display: grid; grid-template-columns: 8px 20px 34px 44px auto; gap: 5px; align-items: center; min-height: 31px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+    .server:hover { background: #eaf0ec; }
+    .state-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--unknown); }
+    .server[data-state="idle"] .state-dot { background: var(--idle); }
+    .server[data-state="busy"] .state-dot { background: var(--busy); }
+    .name { overflow: hidden; font-weight: 700; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+    .endpoint { overflow: hidden; color: var(--muted); font: 11px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+    .idle-age { color: var(--muted); font: 10px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; text-align: right; white-space: nowrap; }
+    .server[data-state="idle"] .idle-age { color: var(--idle); }
+    .server[data-state="busy"] .idle-age { color: var(--busy); }
+    .devices { display: grid; grid-auto-flow: column; grid-auto-columns: 18px; gap: 3px; justify-content: end; }
+    .device { display: grid; width: 18px; height: 19px; place-items: center; border: 1px solid transparent; border-radius: 2px; background: var(--unknown); color: white; font-size: 10px; font-weight: 700; }
+    .device[data-state="idle"] { background: var(--idle); }
+    .device[data-state="busy"] { background: var(--busy); }
+    .empty { padding: 40px 0; color: var(--muted); text-align: center; }
+    .legend { display: flex; gap: 12px; margin-top: 10px; color: var(--muted); }
+    .legend span::before { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; background: var(--unknown); content: ""; }
+    .legend .idle::before { background: var(--idle); }
+    .legend .busy::before { background: var(--busy); }
+    @media (max-width: 680px) { header { flex-wrap: wrap; gap: 6px 14px; } h1 { width: 100%; } .stamp { min-width: 0; margin-left: auto; } main { padding: 10px; } .groups { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Ascend NPU Monitor</h1>
+    <div class="summary" aria-label="Device summary">
+      <span class="metric idle"><strong id="idle">0</strong> idle</span>
+      <span class="metric busy"><strong id="busy">0</strong> busy</span>
+      <span class="metric"><strong id="unknown">0</strong> unknown</span>
+    </div>
+    <div class="stamp" id="stamp">Checking...</div>
+  </header>
+  <main>
+    <div class="groups" id="groups"><div class="empty">Checking servers...</div></div>
+    <div class="legend"><span class="idle">Idle</span><span class="busy">Busy</span><span>Unknown</span></div>
+  </main>
+  <script>
+    const groupsRoot = document.querySelector('#groups');
+    const endpointHost = value => { try { return new URL(value).hostname; } catch { return value; } };
+    const groupName = value => { const match = value.match(/^(.*)-([0-9]+)$/); return match ? match[1] : 'Servers'; };
+    const nodeLabel = value => { const match = value.match(/^(.*)-([0-9]+)$/); return match ? match[2] : value; };
+    const ipv4Prefix = servers => {
+      const parts = servers.map(server => endpointHost(server.endpoint).split('.'));
+      return parts.length && parts.every(item => item.length === 4 && item.slice(0, 3).join('.') === parts[0].slice(0, 3).join('.'))
+        ? parts[0].slice(0, 3).join('.')
+        : null;
+    };
+    const elapsedText = seconds => {
+      const value = Math.max(0, Math.floor(seconds));
+      if (value < 60) return `${value}s`;
+      if (value < 3600) return `${Math.floor(value / 60)}m`;
+      if (value < 86400) return `${Math.floor(value / 3600)}h${Math.floor(value % 3600 / 60)}m`;
+      return `${Math.floor(value / 86400)}d${Math.floor(value % 86400 / 3600)}h`;
+    };
+    const idleAge = server => {
+      if (server.status === 'busy') return { text: '0s', title: 'Occupied at the latest check' };
+      if (server.status !== 'idle' || !Number.isFinite(server.idle_since_epoch_seconds)) {
+        return { text: '--', title: 'Not confirmed fully idle' };
+      }
+      const seconds = Date.now() / 1000 - server.idle_since_epoch_seconds;
+      const lowerBound = server.idle_duration_lower_bound;
+      return {
+        text: `${lowerBound ? '>' : ''}${elapsedText(seconds)}`,
+        title: lowerBound ? 'No busy observation since this monitor started' : 'Time since the last busy observation'
+      };
+    };
+
+    function render(data) {
+      const summary = data.summary || {};
+      for (const key of ['idle', 'busy', 'unknown']) document.querySelector(`#${key}`).textContent = summary[key] ?? 0;
+      document.querySelector('#stamp').textContent = data.checked_at
+        ? `Updated ${new Date(data.checked_at).toLocaleTimeString()} · ${summary.environments ?? 0} servers`
+        : 'Checking...';
+      if (!data.environments?.length) return;
+
+      const grouped = new Map();
+      for (const server of data.environments) {
+        const key = groupName(server.name);
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key).push(server);
+      }
+      groupsRoot.replaceChildren();
+      for (const [name, servers] of grouped) {
+        const section = document.createElement('section');
+        const heading = document.createElement('h2');
+        const headingName = document.createElement('span'); headingName.textContent = name;
+        const prefix = ipv4Prefix(servers);
+        const headingPrefix = document.createElement('span'); headingPrefix.className = 'prefix'; headingPrefix.textContent = prefix ? `${prefix}.*` : '';
+        heading.append(headingName, headingPrefix);
+        section.append(heading);
+        for (const server of servers) {
+          const row = document.createElement('div');
+          row.className = 'server';
+          row.dataset.state = server.status === 'indeterminate' ? 'unknown' : server.status;
+          row.title = server.error?.message || `${server.name}: ${server.status}`;
+          const dot = document.createElement('span'); dot.className = 'state-dot';
+          const label = document.createElement('span'); label.className = 'name'; label.textContent = nodeLabel(server.name);
+          const host = endpointHost(server.endpoint);
+          const endpoint = document.createElement('span'); endpoint.className = 'endpoint'; endpoint.textContent = prefix && host.startsWith(`${prefix}.`) ? `.${host.slice(prefix.length + 1)}` : host;
+          const ageValue = idleAge(server);
+          const age = document.createElement('span'); age.className = 'idle-age'; age.textContent = ageValue.text; age.title = ageValue.title;
+          const devices = document.createElement('span'); devices.className = 'devices';
+          for (const item of server.devices || []) {
+            const device = document.createElement('span');
+            device.className = 'device'; device.dataset.state = item.state;
+            device.textContent = item.id; device.title = `NPU ${item.id}: ${item.state}`;
+            devices.append(device);
+          }
+          row.append(dot, label, endpoint, age, devices);
+          section.append(row);
+        }
+        groupsRoot.append(section);
+      }
+    }
+
+    async function update() {
+      try { render(await (await fetch('/api/status', { cache: 'no-store' })).json()); }
+      catch { document.querySelector('#stamp').textContent = 'Monitor unavailable'; }
+    }
+    update();
+    setInterval(update, 1000);
+  </script>
+</body>
+</html>
