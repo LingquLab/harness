@@ -23,7 +23,7 @@ Start a new Codex task after installation so newly installed skills are discover
 | Plugin | Description | Version |
 |---|---|---|
 | `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.3.2` |
-| `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.2.3` |
+| `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.3.0` |
 
 ## Ascend C Development
 
@@ -33,7 +33,7 @@ Install the plugin from the marketplace:
 codex plugin add ascendc-development@lingqulab
 ```
 
-The plugin contains seven independently triggered skills:
+The plugin contains eight independently triggered skills:
 
 | Skill | Use when |
 |---|---|
@@ -41,6 +41,7 @@ The plugin contains seven independently triggered skills:
 | `ascendc-code-review` | Reviewing Host, Tiling, Kernel, SIMT, build, or operator changes |
 | `ascendc-docs-search` | Locating version-matched local or official Ascend C documentation and examples |
 | `ascendc-env-check` | Performing read-only CANN environment and NPU visibility diagnostics |
+| `ascendc-npu-status` | Checking JSON-listed Ascend NPU process occupancy locally or over SSH |
 | `ascendc-operator-development` | Developing or migrating a complete registered or direct-launch Ascend C operator through layered validation |
 | `ascendc-runtime-debug` | Diagnosing runtime, Tiling, launch, device-exception, hang, precision, or performance failures from bounded evidence |
 | `cann-env-setup` | Planning or carrying out a guarded, version-matched CANN installation or repair |
@@ -93,7 +94,7 @@ ruby -c scripts/validate-skills.rb
 bash -n scripts/install.sh
 ```
 
-It checks the marketplace catalog, both plugin manifests and paths, all eleven Superpowers Neo skill packages, all seven Ascend C Development skill packages, relative documentation links, ten Superpowers Neo scenarios, and two Ascend C Development scenarios.
+It checks the marketplace catalog, both plugin manifests and paths, all eleven Superpowers Neo skill packages, all eight Ascend C Development skill packages, relative documentation links, ten Superpowers Neo scenarios, and two Ascend C Development scenarios.
 
 Behavioral validation is a fresh-agent evaluation. Give a new agent only the relevant `SKILL.md` files and the request section from one file under `tests/<plugin-name>/scenarios/`, then compare the response with its expected behaviors and failure signals. Do not include the expected result in the agent prompt.
 

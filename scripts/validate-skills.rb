@@ -21,7 +21,7 @@ ASCENDC_PLUGIN_ROOT = File.join(PLUGINS_ROOT, ASCENDC_PLUGIN_NAME)
 ASCENDC_SKILLS_ROOT = File.join(ASCENDC_PLUGIN_ROOT, "skills")
 ASCENDC_SCENARIOS_ROOT = File.join(ROOT, "tests", ASCENDC_PLUGIN_NAME, "scenarios")
 ASCENDC_PLUGIN_SOURCE = "./plugins/ascendc-development"
-ASCENDC_PLUGIN_VERSION = "0.2.3"
+ASCENDC_PLUGIN_VERSION = "0.3.0"
 ASCENDC_PLUGIN_LICENSE = "LicenseRef-CANN-2.0"
 ALLOWED_INSTALLATION_POLICIES = %w[NOT_AVAILABLE AVAILABLE INSTALLED_BY_DEFAULT].freeze
 ALLOWED_AUTHENTICATION_POLICIES = %w[ON_INSTALL ON_USE].freeze
@@ -44,6 +44,7 @@ EXPECTED_ASCENDC_SKILLS = %w[
   ascendc-code-review
   ascendc-docs-search
   ascendc-env-check
+  ascendc-npu-status
   ascendc-operator-development
   ascendc-runtime-debug
   cann-env-setup

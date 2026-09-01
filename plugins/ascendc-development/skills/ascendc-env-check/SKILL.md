@@ -7,6 +7,8 @@ description: Inspect an Ascend development or runtime host for CANN environment 
 
 Keep this skill read-only unless the user separately asks to change the environment.
 
+Use `ascendc-npu-status` instead when the task is a JSON-driven, per-device process-occupancy check. Visibility or health evidence from this skill does not establish that a device is idle.
+
 ## Workflow
 
 1. Confirm the target machine. When a remote host is named, run checks on that host rather than assuming local state.
