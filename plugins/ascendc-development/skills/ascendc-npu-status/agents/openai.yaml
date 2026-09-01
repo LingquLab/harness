@@ -1,4 +1,4 @@
 interface:
   display_name: "Ascend NPU Status"
-  short_description: "Check requested Ascend NPUs for active processes"
-  default_prompt: "Use $ascendc-npu-status to check whether the NPUs in this env_list.json are idle."
+  short_description: "Check or visually monitor requested Ascend NPUs"
+  default_prompt: "Use $ascendc-npu-status to check or monitor whether the NPUs in this env_list.json are idle."

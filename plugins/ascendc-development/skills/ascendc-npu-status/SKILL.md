@@ -1,6 +1,6 @@
 ---
 name: ascendc-npu-status
-description: Check whether explicitly requested Ascend NPU devices are idle by reading a versioned env_list.json environment inventory and querying per-device process memory locally or over SSH. Use before NPU tests or benchmarks, when selecting free devices across hosts, or when a machine-readable idle, busy, or indeterminate result is required. This is a process-occupancy check, not a device-health diagnosis.
+description: Check and compactly monitor whether explicitly requested Ascend NPU devices are idle by reading a versioned env_list.json inventory and querying per-device process memory locally or over SSH. Use before NPU tests or benchmarks, when selecting free devices across hosts, or when a machine-readable result or browser dashboard is required. This is a process-occupancy check, not a device-health diagnosis.
 ---
 
 # Ascend NPU Status
@@ -50,6 +50,19 @@ python '<skill-dir>/scripts/check_npu_status.py' /path/to/env_list.json \
 
 Stop instead of launching the test when the command does not return `0`.
 
+## Dashboard
+
+When the user asks to monitor devices, show a page, or requests a visual status view, start the local dashboard server instead of repeatedly running one-shot checks:
+
+```bash
+python '<skill-dir>/scripts/npu_status_dashboard.py' /path/to/env_list.json \
+  --interval 10 --max-workers 16
+```
+
+Read the single startup JSON line from stdout and open its `url` in the Codex in-app browser. Keep the server process running while the dashboard is in use. If the requested port is occupied, omit `--port` so the operating system selects a free loopback port. The dashboard binds only to `127.0.0.1`, probes once immediately, then refreshes server data at the requested interval.
+
+The compact view groups environment names ending in `-<number>` by their shared prefix, moves a common IPv4 `/24` prefix into the group heading, represents server state with a colored marker, and shows each requested device as a colored cell. Beside each server IP, it shows the time since that server was last observed busy. A leading `>` means no busy state has been observed since this dashboard process started, so the duration is only a lower bound; `--` means the server is not currently confirmed fully idle. Green means idle, red means busy, and gray means indeterminate. Do not relabel indeterminate probes as idle. Use the visible summary and last-check time when reporting results; this remains an occupancy view rather than a health monitor.
+
 ## Interpretation
 
 - Exit `0`: every requested device is `idle`; `safe_to_use` is true.
@@ -65,3 +78,4 @@ The checker preserves environment and device order in its JSON output. It report
 - Do not use an indeterminate device for a workload.
 - Do not reset devices, release processes, or terminate workloads as part of this check.
 - Keep credentials in SSH configuration or an agent, not in JSON or command output.
+- Serve the dashboard only on the loopback interface; do not expose it to the network.
