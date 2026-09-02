@@ -23,6 +23,13 @@ ASCENDC_SCENARIOS_ROOT = File.join(ROOT, "tests", ASCENDC_PLUGIN_NAME, "scenario
 ASCENDC_PLUGIN_SOURCE = "./plugins/ascendc-development"
 ASCENDC_PLUGIN_VERSION = "0.3.0"
 ASCENDC_PLUGIN_LICENSE = "LicenseRef-CANN-2.0"
+HANDOFF_PLUGIN_NAME = "cross-zone-development"
+HANDOFF_PLUGIN_ROOT = File.join(PLUGINS_ROOT, HANDOFF_PLUGIN_NAME)
+HANDOFF_SKILLS_ROOT = File.join(HANDOFF_PLUGIN_ROOT, "skills")
+HANDOFF_SCENARIOS_ROOT = File.join(ROOT, "tests", HANDOFF_PLUGIN_NAME, "scenarios")
+HANDOFF_PLUGIN_SOURCE = "./plugins/cross-zone-development"
+HANDOFF_PLUGIN_VERSION = "0.1.0"
+HANDOFF_PLUGIN_LICENSE = "MIT"
 ALLOWED_INSTALLATION_POLICIES = %w[NOT_AVAILABLE AVAILABLE INSTALLED_BY_DEFAULT].freeze
 ALLOWED_AUTHENTICATION_POLICIES = %w[ON_INSTALL ON_USE].freeze
 SEMVER_PATTERN = /\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\z/.freeze
@@ -49,6 +56,9 @@ EXPECTED_ASCENDC_SKILLS = %w[
   ascendc-runtime-debug
   cann-env-setup
 ].freeze
+EXPECTED_HANDOFF_SKILLS = %w[
+  cross-zone-development
+].freeze
 ALLOWED_FRONTMATTER_KEYS = %w[name description license allowed-tools metadata].freeze
 REQUIRED_INTERFACE_KEYS = %w[display_name short_description default_prompt].freeze
 EXPECTED_SCENARIOS = %w[
@@ -66,6 +76,9 @@ EXPECTED_SCENARIOS = %w[
 EXPECTED_ASCENDC_SCENARIOS = %w[
   01-operator-development.md
   02-runtime-debug.md
+].freeze
+EXPECTED_HANDOFF_SCENARIOS = %w[
+  01-secure-handoff.md
 ].freeze
 
 def load_json(path)
@@ -215,6 +228,12 @@ def validate_marketplace
       raise "#{entry_path}: unexpected category" unless category == EXPECTED_PLUGIN_CATEGORY
     elsif plugin_name == ASCENDC_PLUGIN_NAME
       raise "#{entry_path}: unexpected source path" unless source_path == ASCENDC_PLUGIN_SOURCE
+      raise "#{entry_path}: expected AVAILABLE installation policy" unless installation == "AVAILABLE"
+      raise "#{entry_path}: expected ON_INSTALL authentication policy" unless authentication == "ON_INSTALL"
+      raise "#{entry_path}: product gating is not approved" if policy.key?("products")
+      raise "#{entry_path}: unexpected category" unless category == EXPECTED_PLUGIN_CATEGORY
+    elsif plugin_name == HANDOFF_PLUGIN_NAME
+      raise "#{entry_path}: unexpected source path" unless source_path == HANDOFF_PLUGIN_SOURCE
       raise "#{entry_path}: expected AVAILABLE installation policy" unless installation == "AVAILABLE"
       raise "#{entry_path}: expected ON_INSTALL authentication policy" unless authentication == "ON_INSTALL"
       raise "#{entry_path}: product gating is not approved" if policy.key?("products")
@@ -668,6 +687,16 @@ unless actual_ascendc_skills == EXPECTED_ASCENDC_SKILLS.sort
   exit 1
 end
 
+actual_handoff_skills = Dir.children(HANDOFF_SKILLS_ROOT).select do |entry|
+  File.directory?(File.join(HANDOFF_SKILLS_ROOT, entry))
+end.sort
+unless actual_handoff_skills == EXPECTED_HANDOFF_SKILLS.sort
+  missing = EXPECTED_HANDOFF_SKILLS - actual_handoff_skills
+  extra = actual_handoff_skills - EXPECTED_HANDOFF_SKILLS
+  warn "error: cross-zone handoff skill inventory mismatch; missing=#{missing.inspect} extra=#{extra.inspect}"
+  exit 1
+end
+
 begin
   validate_marketplace
   manifest, declared_skills_root = validate_plugin_manifest(PLUGIN_ROOT, PLUGIN_NAME)
@@ -707,6 +736,28 @@ begin
     EXPECTED_ASCENDC_SKILLS,
     "Ascend C Development"
   )
+
+  handoff_manifest, handoff_declared_skills_root = validate_plugin_manifest(HANDOFF_PLUGIN_ROOT, HANDOFF_PLUGIN_NAME)
+  unless handoff_manifest["version"] == HANDOFF_PLUGIN_VERSION
+    raise "#{HANDOFF_PLUGIN_ROOT}: unexpected version"
+  end
+  unless handoff_manifest["license"] == HANDOFF_PLUGIN_LICENSE
+    raise "#{HANDOFF_PLUGIN_ROOT}: unexpected license identifier"
+  end
+  unless handoff_manifest.dig("interface", "category") == EXPECTED_PLUGIN_CATEGORY
+    raise "#{HANDOFF_PLUGIN_ROOT}: unexpected plugin category"
+  end
+  unless handoff_declared_skills_root == File.realpath(HANDOFF_SKILLS_ROOT)
+    raise "#{HANDOFF_PLUGIN_ROOT}: skills path must resolve to ./skills/"
+  end
+  EXPECTED_HANDOFF_SKILLS.each { |name| validate_standard_skill(HANDOFF_SKILLS_ROOT, name) }
+  validate_scenarios(
+    HANDOFF_SCENARIOS_ROOT,
+    EXPECTED_HANDOFF_SCENARIOS,
+    EXPECTED_HANDOFF_SKILLS,
+    "Cross-Zone Development"
+  )
+  validate_relative_markdown_links(HANDOFF_PLUGIN_ROOT)
   validate_ascendc_migration_contract
 rescue StandardError => e
   warn "error: #{e.message}"
@@ -719,3 +770,6 @@ puts "validated #{EXPECTED_SCENARIOS.length} behavior scenario definitions"
 puts "validated plugin #{ASCENDC_PLUGIN_NAME} at version #{ASCENDC_PLUGIN_VERSION}"
 puts "validated #{EXPECTED_ASCENDC_SKILLS.length} Ascend C skills"
 puts "validated #{EXPECTED_ASCENDC_SCENARIOS.length} Ascend C behavior scenario definitions"
+puts "validated plugin #{HANDOFF_PLUGIN_NAME} at version #{HANDOFF_PLUGIN_VERSION}"
+puts "validated #{EXPECTED_HANDOFF_SKILLS.length} cross-zone handoff skill"
+puts "validated #{EXPECTED_HANDOFF_SCENARIOS.length} cross-zone handoff behavior scenario definition"
