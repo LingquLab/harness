@@ -1,0 +1,18 @@
+{
+  "name": "cross-zone-development",
+  "version": "0.1.1",
+  "description": "GitHub issue handoffs between external development models and internal service-debugging models.",
+  "description_i18n": {
+    "en": "GitHub issue handoffs between external development models and internal service-debugging models.",
+    "zh-CN": "通过 GitHub Issue 在外部开发模型与内部服务调试模型之间进行交接。"
+  },
+  "author": {
+    "name": "LingquLab",
+    "url": "https://github.com/LingquLab"
+  },
+  "homepage": "https://github.com/LingquLab/harness",
+  "repository": "https://github.com/LingquLab/harness",
+  "license": "MIT",
+  "keywords": ["cross-zone", "github-issues", "handoff", "service-debugging"],
+  "skills": "skills"
+}

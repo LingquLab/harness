@@ -14,21 +14,21 @@ SCENARIOS_ROOT = File.join(ROOT, "tests", PLUGIN_NAME, "scenarios")
 EXPECTED_MARKETPLACE_NAME = "lingqulab"
 EXPECTED_MARKETPLACE_DISPLAY_NAME = "LingquLab Skills"
 EXPECTED_PLUGIN_SOURCE = "./plugins/superpowers-neo"
-EXPECTED_PLUGIN_VERSION = "0.3.2"
+EXPECTED_PLUGIN_VERSION = "0.3.3"
 EXPECTED_PLUGIN_CATEGORY = "Developer Tools"
 ASCENDC_PLUGIN_NAME = "ascendc-development"
 ASCENDC_PLUGIN_ROOT = File.join(PLUGINS_ROOT, ASCENDC_PLUGIN_NAME)
 ASCENDC_SKILLS_ROOT = File.join(ASCENDC_PLUGIN_ROOT, "skills")
 ASCENDC_SCENARIOS_ROOT = File.join(ROOT, "tests", ASCENDC_PLUGIN_NAME, "scenarios")
 ASCENDC_PLUGIN_SOURCE = "./plugins/ascendc-development"
-ASCENDC_PLUGIN_VERSION = "0.3.0"
+ASCENDC_PLUGIN_VERSION = "0.3.1"
 ASCENDC_PLUGIN_LICENSE = "LicenseRef-CANN-2.0"
 HANDOFF_PLUGIN_NAME = "cross-zone-development"
 HANDOFF_PLUGIN_ROOT = File.join(PLUGINS_ROOT, HANDOFF_PLUGIN_NAME)
 HANDOFF_SKILLS_ROOT = File.join(HANDOFF_PLUGIN_ROOT, "skills")
 HANDOFF_SCENARIOS_ROOT = File.join(ROOT, "tests", HANDOFF_PLUGIN_NAME, "scenarios")
 HANDOFF_PLUGIN_SOURCE = "./plugins/cross-zone-development"
-HANDOFF_PLUGIN_VERSION = "0.1.0"
+HANDOFF_PLUGIN_VERSION = "0.1.1"
 HANDOFF_PLUGIN_LICENSE = "MIT"
 ALLOWED_INSTALLATION_POLICIES = %w[NOT_AVAILABLE AVAILABLE INSTALLED_BY_DEFAULT].freeze
 ALLOWED_AUTHENTICATION_POLICIES = %w[ON_INSTALL ON_USE].freeze
@@ -737,6 +737,16 @@ end
 
 begin
   validate_marketplace
+  zcode_validator = File.join(ROOT, "scripts", "validate-zcode.py")
+  unless system(
+    { "PYTHONDONTWRITEBYTECODE" => "1" },
+    "python3",
+    zcode_validator,
+    out: File::NULL,
+    err: File::NULL
+  )
+    raise "#{zcode_validator}: ZCode marketplace validation failed"
+  end
   manifest, declared_skills_root = validate_plugin_manifest(PLUGIN_ROOT, PLUGIN_NAME)
   raise "#{PLUGIN_MANIFEST_PATH}: unexpected version" unless manifest["version"] == EXPECTED_PLUGIN_VERSION
   unless manifest.dig("interface", "category") == EXPECTED_PLUGIN_CATEGORY

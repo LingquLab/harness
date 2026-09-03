@@ -1,6 +1,6 @@
 {
   "name": "ascendc-development",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Version-aware Ascend C operator development, review, documentation, NPU status, environment, CANN setup, and runtime debugging workflows.",
   "author": {
     "name": "LingquLab",

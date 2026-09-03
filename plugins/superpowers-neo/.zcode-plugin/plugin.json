@@ -1,0 +1,18 @@
+{
+  "name": "superpowers-neo",
+  "version": "0.3.3",
+  "description": "Pragmatic, modular software-development workflows for coding agents.",
+  "description_i18n": {
+    "en": "Pragmatic, modular software-development workflows for coding agents.",
+    "zh-CN": "面向编程智能体的实用、模块化软件开发工作流。"
+  },
+  "author": {
+    "name": "LingquLab",
+    "url": "https://github.com/LingquLab"
+  },
+  "homepage": "https://github.com/LingquLab/harness",
+  "repository": "https://github.com/LingquLab/harness",
+  "license": "MIT",
+  "keywords": ["development", "debugging", "testing", "code-review", "git"],
+  "skills": "skills"
+}
