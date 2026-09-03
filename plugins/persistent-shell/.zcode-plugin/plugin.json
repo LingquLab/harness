@@ -1,0 +1,18 @@
+{
+  "name": "persistent-shell",
+  "version": "0.1.0",
+  "description": "Reusable SSH shell sessions from Windows through a user-level local daemon.",
+  "description_i18n": {
+    "en": "Reusable SSH shell sessions from Windows through a user-level local daemon.",
+    "zh-CN": "通过用户级本地守护进程在 Windows 上复用 SSH shell 会话。"
+  },
+  "author": {
+    "name": "LingquLab",
+    "url": "https://github.com/LingquLab"
+  },
+  "homepage": "https://github.com/LingquLab/harness",
+  "repository": "https://github.com/LingquLab/harness",
+  "license": "MIT",
+  "keywords": ["ssh", "persistent-shell", "windows", "powershell"],
+  "skills": "skills"
+}
