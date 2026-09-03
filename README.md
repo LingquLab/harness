@@ -24,6 +24,17 @@ Start a new Codex task after installation so newly installed skills are discover
 |---|---|---|
 | `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.3.2` |
 | `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.3.0` |
+| `cross-zone-development` | Secure GitHub issue handoffs between blue development and green service-debugging zones | `0.1.0` |
+
+## Cross-Zone Development
+
+Install the plugin from the marketplace:
+
+```bash
+codex plugin add cross-zone-development@lingqulab
+```
+
+Its single `cross-zone-development` skill selects a role from trusted model identity: GPT/OpenAI models prepare and consume blue-zone handoffs, while DeepSeek/GLM models run bounded green-zone service checks. Green results are returned as short, sanitized issue comments with no code, bulk logs, internal endpoints, payloads, or exported artifacts. Unknown model families stop before GitHub mutation and require a trusted zone designation.
 
 ## Ascend C Development
 
@@ -94,7 +105,7 @@ ruby -c scripts/validate-skills.rb
 bash -n scripts/install.sh
 ```
 
-It checks the marketplace catalog, both plugin manifests and paths, all eleven Superpowers Neo skill packages, all eight Ascend C Development skill packages, relative documentation links, ten Superpowers Neo scenarios, and two Ascend C Development scenarios.
+It checks the marketplace catalog, all plugin manifests and paths, the Superpowers Neo and Ascend C skill packages, the Cross-Zone Development package, relative documentation links, and each plugin's behavior scenarios.
 
 Behavioral validation is a fresh-agent evaluation. Give a new agent only the relevant `SKILL.md` files and the request section from one file under `tests/<plugin-name>/scenarios/`, then compare the response with its expected behaviors and failure signals. Do not include the expected result in the agent prompt.
 

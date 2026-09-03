@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cross Zone Development"
+  short_description: "Secure blue-to-green service debugging handoffs"
+  default_prompt: "Use $cross-zone-development to coordinate this GitHub issue handoff without exposing green-zone code or logs."
