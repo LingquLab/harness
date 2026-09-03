@@ -1,6 +1,6 @@
 {
   "name": "cross-zone-development",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Secure GitHub issue handoffs between external development models and internal service-debugging models.",
   "author": {
     "name": "LingquLab",
@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "Cross Zone Development",
     "shortDescription": "Secure blue-to-green service debugging through GitHub issues.",
-    "longDescription": "Coordinate an auditable debug handoff from an external GPT development zone to an internal DeepSeek or GLM service zone, then return bounded, sanitized findings without code or bulk logs.",
+    "longDescription": "Coordinate an auditable debug handoff with reproducible blue-zone test instructions and concrete, bounded green-zone diagnostics without code or bulk logs.",
     "developerName": "LingquLab",
     "category": "Developer Tools",
     "capabilities": [

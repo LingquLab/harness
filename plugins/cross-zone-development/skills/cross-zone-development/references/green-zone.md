@@ -20,8 +20,8 @@ Collect evidence narrowly by time, process, request, and target. Keep raw eviden
 
 ## Return the Result
 
-Translate evidence into the `GREEN_RESULT` record in [handoff-protocol.md](handoff-protocol.md). Prefer categorical descriptions such as failing stage, input class, retry behavior, and impact. Use only test labels already present in the request or safe generic labels; do not introduce protected component, path, host, user, or dataset names.
+Translate evidence into the `GREEN_RESULT` record in [handoff-protocol.md](handoff-protocol.md). Be specific when details can cross the boundary safely: identify the failing case and step, exact non-sensitive error or status code, candidate-repository-relative file/function or up to three relevant stack frames without source lines, observed versus expected behavior, retry behavior, and impact. Include a short redacted error or log excerpt when it materially helps blue diagnose the failure. Use request-provided test labels and candidate-relative locations; do not introduce protected infrastructure paths, components, hosts, users, or datasets.
 
-Perform the egress review before the GitHub comment is sent. Remove code-like content, raw output, sensitive identifiers, payload values, and unnecessary detail. Enforce both the literal-fragment limit and total comment limit from `SKILL.md`. Post one result comment and leave the issue open for blue.
+Perform the egress review before the GitHub comment is sent. Remove source lines, sensitive identifiers, payload values, unrelated output, and unnecessary detail, but retain safe diagnostic facts instead of generalizing them away. Enforce both the literal-fragment limit and total comment limit from `SKILL.md`. Post one result comment and leave the issue open for blue.
 
 If redaction would make a finding misleading, or the only useful explanation requires code, large logs, protected topology, business data, or a disruptive follow-up, return `NEEDS_HUMAN` with only a safe reason category. Confidentiality takes priority over completeness.
