@@ -1,6 +1,6 @@
 # Blue-Zone Workflow
 
-Use this guide only after trusted model identity selects the blue role.
+Use this guide only after a direct user designation or the fallback model-family inference selects the blue role.
 
 ## Prepare the Handoff
 

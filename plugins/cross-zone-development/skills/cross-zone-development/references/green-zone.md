@@ -1,6 +1,6 @@
 # Green-Zone Workflow
 
-Use this guide only after trusted model identity selects the DeepSeek or GLM green role.
+Use this guide only after a direct user designation or the fallback model-family inference selects the green role.
 
 ## Validate the Request
 

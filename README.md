@@ -34,7 +34,7 @@ Start a new Codex task after installation so newly installed skills are discover
 |---|---|---|
 | `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.3.3` |
 | `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.3.1` |
-| `cross-zone-development` | Secure GitHub issue handoffs between blue development and green service-debugging zones | `0.1.2` |
+| `cross-zone-development` | Secure GitHub issue handoffs between blue development and green service-debugging zones | `0.1.3` |
 | `persistent-shell` | Reusable stateful SSH shell sessions from Windows | `0.1.0` |
 
 ## Persistent Shell
@@ -55,7 +55,7 @@ Install the plugin from the marketplace:
 codex plugin add cross-zone-development@lingqulab
 ```
 
-Its single `cross-zone-development` skill selects a role from trusted model identity: GPT/OpenAI models prepare and consume blue-zone handoffs, while DeepSeek/GLM models run bounded green-zone service checks. Green results are returned as short, sanitized issue comments with no code, bulk logs, internal endpoints, payloads, or exported artifacts. Unknown model families stop before GitHub mutation and require a trusted zone designation.
+Its single `cross-zone-development` skill follows a direct blue- or green-zone designation from the user regardless of model family. Without one, GPT/OpenAI defaults to blue and DeepSeek/GLM defaults to green; unknown identities ask the user before acting. Green results contain concrete, bounded diagnostics with no code, bulk logs, internal endpoints, sensitive payloads, or exported artifacts.
 
 ## Ascend C Development
 

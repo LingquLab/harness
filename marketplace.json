@@ -47,12 +47,12 @@
     {
       "name": "cross-zone-development",
       "source": "./plugins/cross-zone-development",
-      "description": "GitHub issue handoffs between external development models and internal service-debugging models.",
+      "description": "GitHub issue handoffs between blue development and green protected-service zones.",
       "description_i18n": {
-        "en": "GitHub issue handoffs between external development models and internal service-debugging models.",
-        "zh-CN": "通过 GitHub Issue 在外部开发模型与内部服务调试模型之间进行交接。"
+        "en": "GitHub issue handoffs between blue development and green protected-service zones.",
+        "zh-CN": "通过 GitHub Issue 在蓝区开发环境与绿区受保护服务环境之间进行交接。"
       },
-      "version": "0.1.2",
+      "version": "0.1.3",
       "author": {
         "name": "LingquLab",
         "url": "https://github.com/LingquLab"
