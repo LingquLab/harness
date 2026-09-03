@@ -1,0 +1,21 @@
+# Cross Zone Development
+
+[English](./README.md)
+
+这是一个兼容 ZCode 与 Codex 的插件，用于外部模型负责代码开发、内部 DeepSeek 或 GLM 模型负责受保护服务调测时，通过 GitHub Issue 完成跨区交接。
+
+## 使用方式
+
+让智能体准备、执行或消费跨区调试交接即可。`cross-zone-development` skill 根据模型身份选择蓝区或绿区流程；无法识别模型家族时，会在修改 GitHub 前停止并要求提供可信的区域指定。
+
+蓝区智能体创建内容受限的 handoff issue，并在调测后消费脱敏结果。绿区智能体执行服务检查，只返回结论、用例标识、状态、耗时和下一步修改要求，不返回源码、大量日志、内部地址、请求载荷、堆栈、凭据或导出制品。
+
+## 依赖与行为
+
+- 网络：读写 GitHub Issue。私有仓库需要已认证的 GitHub 集成、GitHub CLI 或现有 HTTPS Git 凭据。
+- 命令：备用辅助脚本会调用 Python、Git 凭据查询和 curl；curl 请求始终使用 `--ssl-no-revoke` 与 `--insecure`。
+- 文件：辅助脚本使用有界临时文件保存请求数据，并在使用后删除。用户要求蓝区智能体应用调测结论时，skill 可能修改当前代码仓。
+- 服务：绿区调测只使用该智能体已有的受保护服务访问能力。
+- Hook 与 MCP：无。
+
+本插件为 LingquLab 原创内容，采用仓库中的 MIT 许可证。
