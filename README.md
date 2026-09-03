@@ -1,8 +1,18 @@
 # LingquLab Skills
 
-LingquLab Skills is a Git-backed Codex marketplace for independently installable skills and skill series.
+LingquLab Skills is a Git-backed ZCode and Codex marketplace for independently installable skills and skill series.
 
 ## Install the Marketplace
+
+In ZCode, open **Settings → Plugins → Create → Add marketplace** and enter:
+
+```text
+LingquLab/harness
+```
+
+The repository-root `marketplace.json` is the ZCode catalog. Each plugin provides a preferred `.zcode-plugin/plugin.json` manifest and a compatible Codex manifest.
+
+For Codex, add the same repository from the command line:
 
 Add this repository as a Codex marketplace:
 
@@ -22,9 +32,9 @@ Start a new Codex task after installation so newly installed skills are discover
 
 | Plugin | Description | Version |
 |---|---|---|
-| `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.3.2` |
-| `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.3.0` |
-| `cross-zone-development` | Secure GitHub issue handoffs between blue development and green service-debugging zones | `0.1.0` |
+| `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.3.3` |
+| `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.3.1` |
+| `cross-zone-development` | Secure GitHub issue handoffs between blue development and green service-debugging zones | `0.1.1` |
 
 ## Cross-Zone Development
 
@@ -102,10 +112,11 @@ The repository validator uses Ruby standard libraries and needs no package insta
 ```bash
 ruby scripts/validate-skills.rb
 ruby -c scripts/validate-skills.rb
+python3 scripts/validate-zcode.py
 bash -n scripts/install.sh
 ```
 
-It checks the marketplace catalog, all plugin manifests and paths, the Superpowers Neo and Ascend C skill packages, the Cross-Zone Development package, relative documentation links, and each plugin's behavior scenarios.
+These checks cover both marketplace catalogs, all Codex and ZCode manifests, localized plugin documentation, skill packages, relative documentation links, and plugin behavior scenarios.
 
 Behavioral validation is a fresh-agent evaluation. Give a new agent only the relevant `SKILL.md` files and the request section from one file under `tests/<plugin-name>/scenarios/`, then compare the response with its expected behaviors and failure signals. Do not include the expected result in the agent prompt.
 
@@ -142,6 +153,9 @@ Each independently versioned plugin lives under:
 ```text
 plugins/<plugin-name>/
 |-- .codex-plugin/plugin.json
+|-- .zcode-plugin/plugin.json
+|-- README.md
+|-- README_CN.md
 `-- skills/
 ```
 
@@ -150,10 +164,12 @@ To add a plugin:
 1. Use one normalized lower-case hyphenated name for its directory, manifest, and marketplace entry.
 2. Give the plugin its own strict semantic version.
 3. Put runtime skills under `plugins/<plugin-name>/skills/`.
-4. Append its entry to `.agents/plugins/marketplace.json`; catalog order is user-visible.
-5. Include `policy.installation`, `policy.authentication`, and `category`; omit product gating unless it is an explicit requirement.
-6. Add plugin-specific tests under `tests/<plugin-name>/` and extend repository validation.
-7. Document its selector as `<plugin-name>@lingqulab`.
+4. Register it in root `marketplace.json` for ZCode and `.agents/plugins/marketplace.json` for Codex; catalog order is user-visible.
+5. Keep the plugin version synchronized across both manifests, the root marketplace entry, and this README.
+6. Use a supported lower-case ZCode category and include the Codex installation and authentication policy fields.
+7. Provide semantically equivalent `README.md` and `README_CN.md` files covering invocation, dependencies, network access, commands, file effects, Hooks, MCP, provenance, and licensing.
+8. Add plugin-specific tests under `tests/<plugin-name>/` and extend repository validation.
+9. Document its Codex selector as `<plugin-name>@lingqulab`.
 
 Keep coherent skill series together, but publish unrelated skills as separate plugins instead of expanding one catch-all package.
 
