@@ -416,6 +416,44 @@ def validate_relative_markdown_links(root)
   end
 end
 
+def validate_handoff_contract
+  skill_root = File.join(HANDOFF_SKILLS_ROOT, HANDOFF_PLUGIN_NAME)
+  python_script = File.join(skill_root, "scripts", "github_issue.py")
+  raise "#{python_script}: required GitHub helper is missing" unless File.file?(python_script)
+
+  syntax_check = "import sys; path = sys.argv[1]; compile(open(path, encoding='utf-8').read(), path, 'exec')"
+  unless system("python3", "-c", syntax_check, python_script, out: File::NULL, err: File::NULL)
+    raise "#{python_script}: Python syntax validation failed"
+  end
+
+  %w[github_get_issue.sh github_comment.sh].each do |name|
+    path = File.join(skill_root, "scripts", name)
+    raise "#{path}: required GitHub wrapper is missing" unless File.file?(path)
+    unless system("bash", "-n", path, out: File::NULL, err: File::NULL)
+      raise "#{path}: shell syntax validation failed"
+    end
+  end
+
+  tests_root = File.join(ROOT, "tests", HANDOFF_PLUGIN_NAME)
+  unless system(
+    { "PYTHONDONTWRITEBYTECODE" => "1" },
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    tests_root,
+    "-p",
+    "test_*.py",
+    out: File::NULL,
+    err: File::NULL
+  )
+    raise "#{tests_root}: cross-zone offline regression tests failed"
+  end
+
+  validate_relative_markdown_links(HANDOFF_PLUGIN_ROOT)
+end
+
 def validate_ascendc_migration_contract
   forbidden_patterns = {
     "Claude Task instruction" => /Task 工具|subagent_type=Explore/,
@@ -757,7 +795,7 @@ begin
     EXPECTED_HANDOFF_SKILLS,
     "Cross-Zone Development"
   )
-  validate_relative_markdown_links(HANDOFF_PLUGIN_ROOT)
+  validate_handoff_contract
   validate_ascendc_migration_contract
 rescue StandardError => e
   warn "error: #{e.message}"
