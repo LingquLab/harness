@@ -25,13 +25,23 @@ Goal:
 <behavior to validate>
 
 Observed in blue:
-<short non-sensitive symptom and completed local checks>
+<non-sensitive symptom, relevant change context, and completed local checks with outcomes>
 
-Green checks requested:
-- <bounded check identified by public or issue-provided name>
+Prerequisites:
+- <required package, feature flag, fixture class, account capability, or service state>
+
+Setup:
+1. <bounded preparation step or safe command>
+
+Test cases:
+1. <safe case name>
+   - Input/fixture: <non-sensitive class or approved fixture reference>
+   - Action: <exact operation or safe command>
+   - Expected: <observable result, status, or invariant>
+   - Evidence requested on failure: <error code, failing step, location, and bounded log type>
 
 Expected behavior:
-<observable pass condition>
+<overall pass condition and treatment of skipped or not-run cases>
 
 Allowed green actions:
 <read-only and isolated test/deploy scope already authorized>
@@ -55,28 +65,35 @@ Revision tested: <copied immutable revision>
 Status: PASS | FAIL | BLOCKED | NEEDS_HUMAN
 
 Checks:
-- <safe check label>: <pass, fail, or not run>
+- <safe check label>: <pass, fail, blocked, or not run>; <duration or attempt count when useful>
 
 Finding:
-<high-level stage, category, trigger condition, and impact; no code or raw data>
+<specific failing case and step, trigger condition, retry behavior, and impact; no code>
+
+Failure details:
+- Error/status code: <exact non-sensitive value or none>
+- Location: <candidate-relative file/function, relevant stack frame, or test step; no source line>
+- Observed vs expected: <concise comparison>
+- Related log excerpt: <short redacted excerpt or none>
 
 Evidence summary:
-<sanitized semantic summary; literal fragments only within the skill limits>
+<sanitized interpretation and correlation; literal fragments only within the skill limits>
 
 Suggested blue action:
 <conceptual direction or next discriminating experiment; no code>
 
 Egress review:
 - No code, diff, patch, configuration, or reconstructive pseudocode
-- No raw or bulk logs, stack traces, command output, or attachments
-- No secrets, internal endpoints, paths, identities, payloads, or business data
+- No bulk logs, full stack traces, full command output, or attachments
+- Literal fragments within 10 lines and 1,500 UTF-8 characters
+- No secrets, internal endpoints, infrastructure paths, identities, payloads, or business data
 - Comment within 4,000 UTF-8 characters
 ```
 
 Status meanings:
 
 - `PASS`: every requested check ran against the named revision and met the stated pass condition.
-- `FAIL`: at least one requested check ran and produced a safe, actionable failure category.
+- `FAIL`: at least one requested check ran and produced safe, actionable failure details rather than only a generic category.
 - `BLOCKED`: the check could not run because a prerequisite, permission, revision, or allowed target was unavailable.
 - `NEEDS_HUMAN`: useful detail cannot cross the boundary safely, or continuing requires a protected or disruptive action.
 

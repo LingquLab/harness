@@ -8,7 +8,7 @@ This ZCode and Codex plugin coordinates GitHub Issue handoffs when an external m
 
 Ask the agent to prepare, execute, or consume a cross-zone debugging handoff. The `cross-zone-development` skill selects the blue- or green-zone workflow from the model identity. An unknown model family stops before modifying GitHub and asks for a trusted zone designation.
 
-The blue-zone agent creates a bounded handoff issue and later consumes the sanitized result. The green-zone agent performs service checks and returns only conclusions, case identifiers, status, timing, and the next requested change. It does not return source code, bulk logs, internal endpoints, payloads, stack traces, credentials, or exported artifacts.
+The blue-zone agent creates a detailed, reproducible test request and later consumes the sanitized result. The green-zone agent reports concrete safe diagnostics such as the failing case and step, non-sensitive error code, candidate-relative location, observed versus expected behavior, and a short redacted log excerpt. It does not return source code, bulk logs, full stack traces, internal endpoints, payloads, credentials, or exported artifacts.
 
 ## Dependencies and effects
 

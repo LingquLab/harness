@@ -1,6 +1,6 @@
 {
   "name": "cross-zone-development",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "GitHub issue handoffs between external development models and internal service-debugging models.",
   "description_i18n": {
     "en": "GitHub issue handoffs between external development models and internal service-debugging models.",
