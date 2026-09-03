@@ -1,0 +1,4 @@
+interface:
+  display_name: "Persistent SSH Shell"
+  short_description: "Manage reusable SSH shell sessions on Windows"
+  default_prompt: "Use $persistent-shell to start and run commands through a persistent SSH shell."
