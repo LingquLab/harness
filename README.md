@@ -35,6 +35,17 @@ Start a new Codex task after installation so newly installed skills are discover
 | `superpowers-neo` | Pragmatic software-development workflows with rigor scaled to task complexity and risk | `0.3.3` |
 | `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.3.1` |
 | `cross-zone-development` | Secure GitHub issue handoffs between blue development and green service-debugging zones | `0.1.1` |
+| `persistent-shell` | Reusable stateful SSH shell sessions from Windows | `0.1.0` |
+
+## Persistent Shell
+
+Install the plugin from the marketplace:
+
+```bash
+codex plugin add persistent-shell@lingqulab
+```
+
+Its `persistent-shell` skill installs a shared PowerShell and Git Bash `pshell` launcher backed by a user-level local daemon. Repeated remote commands reuse one non-interactive SSH shell, preserving state such as the working directory and environment variables. The installer discovers an available Python 3 interpreter with Paramiko instead of requiring a fixed Python minor version.
 
 ## Cross-Zone Development
 

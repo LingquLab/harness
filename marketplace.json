@@ -60,6 +60,23 @@
       "category": "developer-tools",
       "keywords": ["cross-zone", "github-issues", "handoff", "service-debugging"],
       "strict": true
+    },
+    {
+      "name": "persistent-shell",
+      "source": "./plugins/persistent-shell",
+      "description": "Reusable SSH shell sessions from Windows through a user-level local daemon.",
+      "description_i18n": {
+        "en": "Reusable SSH shell sessions from Windows through a user-level local daemon.",
+        "zh-CN": "通过用户级本地守护进程在 Windows 上复用 SSH shell 会话。"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "LingquLab",
+        "url": "https://github.com/LingquLab"
+      },
+      "category": "developer-tools",
+      "keywords": ["ssh", "persistent-shell", "windows", "powershell"],
+      "strict": true
     }
   ]
 }

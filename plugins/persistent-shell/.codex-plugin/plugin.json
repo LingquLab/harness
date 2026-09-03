@@ -1,0 +1,24 @@
+{
+  "name": "persistent-shell",
+  "version": "0.1.0",
+  "description": "Reusable SSH shell sessions from Windows through a user-level local daemon.",
+  "author": {
+    "name": "LingquLab",
+    "url": "https://github.com/LingquLab"
+  },
+  "homepage": "https://github.com/LingquLab/harness",
+  "repository": "https://github.com/LingquLab/harness",
+  "license": "MIT",
+  "keywords": ["SSH", "persistent shell", "Windows"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Persistent Shell",
+    "shortDescription": "Reuse stateful SSH shell sessions from Windows.",
+    "longDescription": "Start and reuse non-interactive SSH shell channels across PowerShell and Git Bash commands, preserving remote working directory and shell state while avoiding repeated connection startup.",
+    "developerName": "LingquLab",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/LingquLab/harness",
+    "defaultPrompt": ["Use the persistent shell workflow for repeated commands on this SSH target."]
+  }
+}
