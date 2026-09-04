@@ -10,7 +10,7 @@ It does not implement interactive terminal applications, passwords, proxy jumps,
 
 The daemon listens only on `127.0.0.1` at an operating-system-selected port. `%LOCALAPPDATA%\pshell\daemon.json` contains its PID, port, and a randomly generated bearer token. Each request and response is one size-bounded UTF-8 JSON line. The inherited user-profile ACL is the first boundary; the token is the second. The daemon rejects non-loopback clients and invalid tokens.
 
-The client authenticates a `ping` against recorded state and replaces stale state when it starts a daemon. A detached daemon starts only on demand. `pshell daemon-stop` closes every SSH session, removes daemon state, and terminates the daemon.
+The client authenticates a short, bounded `ping` against recorded state and replaces stale state when it starts a daemon. A detached daemon starts only on demand. Concurrent cold-start callers coordinate through an operating-system file lock; the lock holder rechecks state before launching and publishes a reachable daemon before releasing the lock. Daemon shutdown uses the same lock for its ownership check and state cleanup, so an exiting daemon cannot remove a replacement daemon's state. The lock does not cover SSH session creation or command execution, so separate targets retain their normal concurrency. `pshell daemon-stop` closes every SSH session, removes daemon state, and terminates the daemon.
 
 ## Remote Framing
 
@@ -26,4 +26,4 @@ The client loads `%USERPROFILE%\.ssh\known_hosts`. A new host key is accepted on
 
 ## Validation Boundary
 
-Local validation covers argument parsing, daemon lifecycle, token rejection, stale-state cleanup, and status commands. Live validation must separately demonstrate first-use persistence or retained-key verification, command output and exit status, state persistence (`cd` followed by `pwd`), multiple commands on one generation, timeout invalidation, explicit stop, and materially lower steady-state latency. Results apply only to the tested client, server, authentication path, and shell.
+Local validation covers argument parsing, single-daemon cold start under concurrent callers, platform lock selection, daemon lifecycle, token rejection, stale-state cleanup, and status commands. Platform lock tests mock the Windows API selection; a live Windows run is still required to validate actual `msvcrt` lock behavior. Live validation must separately demonstrate first-use persistence or retained-key verification, command output and exit status, state persistence (`cd` followed by `pwd`), multiple commands on one generation, timeout invalidation, explicit stop, and materially lower steady-state latency. Results apply only to the tested client, server, authentication path, and shell.
