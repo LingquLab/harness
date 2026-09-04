@@ -63,6 +63,8 @@ Handoff-ID: <copied id>
 Iteration: <copied integer>
 Revision tested: <copied immutable revision>
 Status: PASS | FAIL | BLOCKED | NEEDS_HUMAN
+Local modification tested: YES | NO
+Local modification outcome: PASS | FAIL | NOT RUN
 
 Checks:
 - <safe check label>: <pass, fail, blocked, or not run>; <duration or attempt count when useful>
@@ -79,11 +81,15 @@ Failure details:
 Evidence summary:
 <sanitized interpretation and correlation; literal fragments only within the skill limits>
 
+Local change summary:
+<conceptual behavior changed and its diagnostic effect, or none; no implementation content>
+
 Suggested blue action:
 <conceptual direction or next discriminating experiment; no code>
 
 Egress review:
 - No code, diff, patch, configuration, or reconstructive pseudocode
+- No local commit, branch, or source-bearing artifact uploaded or linked
 - No bulk logs, full stack traces, full command output, or attachments
 - Literal fragments within 10 lines and 1,500 UTF-8 characters
 - No secrets, internal endpoints, infrastructure paths, identities, payloads, or business data
@@ -92,12 +98,12 @@ Egress review:
 
 Status meanings:
 
-- `PASS`: every requested check ran against the named revision and met the stated pass condition.
-- `FAIL`: at least one requested check ran and produced safe, actionable failure details rather than only a generic category.
+- `PASS`: every requested check ran against the named baseline revision and met the stated pass condition.
+- `FAIL`: at least one requested check ran against the named baseline revision and produced safe, actionable failure details rather than only a generic category.
 - `BLOCKED`: the check could not run because a prerequisite, permission, revision, or allowed target was unavailable.
 - `NEEDS_HUMAN`: useful detail cannot cross the boundary safely, or continuing requires a protected or disruptive action.
 
-An omitted check is not a pass. A result whose ID, iteration, or revision does not match the latest `BLUE_READY` record is stale or unrelated and must not drive a fix.
+`Status` always describes the named baseline revision. A locally modified version that passes does not change a baseline `FAIL` to `PASS`; record it in the local-modification fields as bounded evidence for blue to reproduce independently. An omitted check is not a pass. A result whose ID, iteration, or revision does not match the latest `BLUE_READY` record is stale or unrelated and must not drive a fix.
 
 ## Iteration and Closure
 

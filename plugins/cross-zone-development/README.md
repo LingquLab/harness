@@ -8,7 +8,7 @@ This ZCode and Codex plugin coordinates GitHub Issue handoffs between a blue dev
 
 Ask the agent to prepare, execute, or consume a cross-zone debugging handoff. A direct user statement that the agent is in the blue or green zone selects that workflow regardless of model family. Without a direct designation, OpenAI/GPT defaults to blue and DeepSeek/GLM defaults to green; unknown identities ask the user before modifying GitHub or running service checks.
 
-The blue-zone agent creates a detailed, reproducible test request and later consumes the sanitized result. The green-zone agent reports concrete safe diagnostics such as the failing case and step, non-sensitive error code, candidate-relative location, observed versus expected behavior, and a short redacted log excerpt. It does not return source code, bulk logs, full stack traces, internal endpoints, payloads, credentials, or exported artifacts.
+The blue-zone agent creates a detailed, reproducible test request and later consumes the sanitized result. The green-zone agent may modify, instrument, build, deploy, and test code locally within the authorized scope. It reports baseline and locally modified outcomes separately, with concrete safe diagnostics such as the failing case and step, non-sensitive error code, candidate-relative location, observed versus expected behavior, and a short redacted log excerpt. It does not upload or return source code, commits, branches, diffs, patches, bulk logs, full stack traces, internal endpoints, payloads, credentials, or exported artifacts.
 
 ## Dependencies and effects
 

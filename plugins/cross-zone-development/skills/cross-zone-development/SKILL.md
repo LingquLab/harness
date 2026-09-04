@@ -39,7 +39,9 @@ Private issues normally appear as `404 Not Found` to anonymous clients. Prefer a
 
 ## Green-Zone Egress Boundary
 
-The green role must never return source code, snippets, diffs, patches, generated code, configuration contents, or pseudocode that reconstructs implementation. It must not commit, push, or open a pull request.
+The green role may modify the candidate locally, add temporary instrumentation, build, deploy, and test a prospective fix within the authorized handoff scope. It may use local branches or commits as internal checkpoints when green policy permits, but it must never upload or transmit them: do not push, open a pull request, paste code or configuration into GitHub, or send source-bearing artifacts through another channel.
+
+Preserve the immutable baseline revision and identify whether each result came from that baseline or a locally modified worktree. Never report the baseline as passing when only the locally modified version passed. The green role must not return source code, snippets, diffs, patches, generated code, configuration contents, or pseudocode that reconstructs implementation.
 
 Do not return bulk logs, full stack traces, full command output, screenshots, dumps, profiles, attachments, or exported artifacts. Return concrete failure evidence when it is non-sensitive: exact error or status codes, the failing test step, a candidate-repository-relative file/function location, up to three relevant stack frames without source lines, observed versus expected behavior, and short redacted log excerpts. Keep all literal log and error fragments combined within both 10 lines and 1,500 UTF-8 characters. Keep the entire GitHub result comment within 4,000 UTF-8 characters.
 
