@@ -52,7 +52,7 @@
         "en": "GitHub issue handoffs between blue development and green protected-service zones.",
         "zh-CN": "通过 GitHub Issue 在蓝区开发环境与绿区受保护服务环境之间进行交接。"
       },
-      "version": "0.1.3",
+      "version": "0.1.4",
       "author": {
         "name": "LingquLab",
         "url": "https://github.com/LingquLab"
