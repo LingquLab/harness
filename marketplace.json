@@ -69,7 +69,7 @@
         "en": "Reusable SSH shell sessions from Windows through a user-level local daemon.",
         "zh-CN": "通过用户级本地守护进程在 Windows 上复用 SSH shell 会话。"
       },
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "LingquLab",
         "url": "https://github.com/LingquLab"

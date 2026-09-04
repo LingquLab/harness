@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import errno
 import getpass
 import json
 import os
@@ -16,10 +17,11 @@ import sys
 import threading
 import time
 import uuid
-from importlib.metadata import PackageNotFoundError, version
+from contextlib import contextmanager
 from dataclasses import dataclass
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, BinaryIO, Dict, Iterator, List, Optional, Tuple
 
 paramiko: Any = None
 if len(sys.argv) > 1 and sys.argv[1] == "_serve":
@@ -35,9 +37,11 @@ if len(sys.argv) > 1 and sys.argv[1] == "_serve":
 APP_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "pshell"
 STATE_FILE = APP_DIR / "daemon.json"
 LOG_FILE = APP_DIR / "daemon.log"
+START_LOCK_FILE = APP_DIR / "daemon-start.lock"
 KNOWN_HOSTS = Path.home() / ".ssh" / "known_hosts"
 MAX_MESSAGE = 16 * 1024 * 1024
 DEFAULT_TIMEOUT = 60.0
+DAEMON_PING_TIMEOUT = 1.0
 CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 DETACHED_PROCESS = getattr(subprocess, "DETACHED_PROCESS", 0)
 CREATE_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
@@ -93,10 +97,15 @@ def write_state(state: Dict[str, Any]) -> None:
     os.replace(temporary, STATE_FILE)
 
 
-def request_with_state(state: Dict[str, Any], action: str, payload: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def request_with_state(
+    state: Dict[str, Any],
+    action: str,
+    payload: Optional[Dict[str, Any]],
+    response_timeout: Optional[float] = None,
+) -> Dict[str, Any]:
     message = {"token": state["token"], "action": action, **(payload or {})}
-    timeout = max(DEFAULT_TIMEOUT + 10, float(message.get("timeout", 0)) + 10)
-    with socket.create_connection(("127.0.0.1", state["port"]), timeout=3) as sock:
+    timeout = response_timeout or max(DEFAULT_TIMEOUT + 10, float(message.get("timeout", 0)) + 10)
+    with socket.create_connection(("127.0.0.1", state["port"]), timeout=min(3, timeout)) as sock:
         sock.settimeout(timeout)
         sock.sendall(json_bytes(message))
         response = recv_json(sock)
@@ -119,6 +128,81 @@ def start_daemon() -> None:
         )
 
 
+def lock_start_file(stream: BinaryIO, platform: str = os.name) -> None:
+    stream.seek(0, os.SEEK_END)
+    if stream.tell() == 0:
+        stream.write(b"\0")
+        stream.flush()
+    stream.seek(0)
+    if platform == "nt":
+        import msvcrt
+
+        while True:
+            try:
+                msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                break
+            except OSError as exc:
+                if exc.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+                time.sleep(0.1)
+    else:
+        import fcntl
+
+        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+
+
+def unlock_start_file(stream: BinaryIO, platform: str = os.name) -> None:
+    stream.seek(0)
+    if platform == "nt":
+        import msvcrt
+
+        msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        import fcntl
+
+        fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+
+
+@contextmanager
+def daemon_start_lock() -> Iterator[None]:
+    START_LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with START_LOCK_FILE.open("a+b") as stream:
+        lock_start_file(stream)
+        try:
+            yield
+        finally:
+            unlock_start_file(stream)
+
+
+def ensure_daemon() -> Dict[str, Any]:
+    with daemon_start_lock():
+        state = read_state()
+        if state:
+            try:
+                request_with_state(state, "ping", None, DAEMON_PING_TIMEOUT)
+                return state
+            except DaemonRequestError:
+                raise
+            except (OSError, PshellError):
+                pass
+
+        start_daemon()
+        deadline = time.monotonic() + 8
+        last_error = "daemon state was not published"
+        while time.monotonic() < deadline:
+            state = read_state()
+            if state:
+                try:
+                    request_with_state(state, "ping", None, DAEMON_PING_TIMEOUT)
+                    return state
+                except DaemonRequestError:
+                    raise
+                except (OSError, PshellError) as exc:
+                    last_error = str(exc)
+            time.sleep(0.1)
+    raise PshellError(f"daemon startup failed: {last_error}; see {LOG_FILE}")
+
+
 def request(action: str, payload: Optional[Dict[str, Any]] = None, start: bool = True) -> Dict[str, Any]:
     state = read_state()
     if state:
@@ -130,20 +214,17 @@ def request(action: str, payload: Optional[Dict[str, Any]] = None, start: bool =
             pass
     if not start:
         raise PshellError("pshell daemon is not running")
-    start_daemon()
-    deadline = time.monotonic() + 8
-    last_error = "daemon state was not published"
-    while time.monotonic() < deadline:
+    return request_with_state(ensure_daemon(), action, payload)
+
+
+def remove_owned_state(pid: int) -> None:
+    with daemon_start_lock():
         state = read_state()
-        if state:
+        if state and state.get("pid") == pid:
             try:
-                return request_with_state(state, action, payload)
-            except DaemonRequestError:
-                raise
-            except (OSError, PshellError) as exc:
-                last_error = str(exc)
-        time.sleep(0.1)
-    raise PshellError(f"daemon startup failed: {last_error}; see {LOG_FILE}")
+                STATE_FILE.unlink()
+            except OSError:
+                pass
 
 
 def expand_path(value: str) -> str:
@@ -486,12 +567,7 @@ class Daemon:
             for session in sessions.values():
                 session.close()
             server.close()
-            state = read_state()
-            if state and state.get("pid") == os.getpid():
-                try:
-                    STATE_FILE.unlink()
-                except OSError:
-                    pass
+            remove_owned_state(os.getpid())
 
 
 def target_payload(args: argparse.Namespace) -> Dict[str, Any]:
