@@ -36,6 +36,23 @@ Start a new Codex task after installation so newly installed skills are discover
 | `ascendc-development` | Version-aware Ascend C operator development, API guidance, review, diagnostics, and CANN setup workflows | `0.3.1` |
 | `cross-zone-development` | Secure GitHub issue handoffs between blue development and green service-debugging zones | `0.1.4` |
 | `persistent-shell` | Reusable stateful SSH shell sessions from Windows | `0.1.1` |
+| `archify` | Validated, interactive architecture and system diagrams | `2.17.0-dev.1` |
+
+## Archify
+
+Install the plugin from the marketplace:
+
+```bash
+codex plugin add archify@lingqulab
+```
+
+Its `archify` skill turns system descriptions or repository evidence into
+validated architecture, workflow, sequence, data-flow, and lifecycle diagrams.
+The vendored runtime produces self-contained HTML and supports image and WebM
+export. It is pinned to upstream commit
+`18911058008f17dc065af23a2cdc9bfeff6d3f7a`; see the plugin's
+[vendor record](plugins/archify/VENDORED.md) and
+[third-party notices](plugins/archify/skills/archify/THIRD_PARTY_NOTICES.md).
 
 ## Persistent Shell
 

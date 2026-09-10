@@ -1,0 +1,4 @@
+interface:
+  display_name: "Archify"
+  short_description: "Create validated, interactive system diagrams."
+  default_prompt: "Use $archify to create a validated architecture diagram for this system."

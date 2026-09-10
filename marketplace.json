@@ -77,6 +77,23 @@
       "category": "developer-tools",
       "keywords": ["ssh", "persistent-shell", "windows", "powershell"],
       "strict": true
+    },
+    {
+      "name": "archify",
+      "source": "./plugins/archify",
+      "description": "Create validated architecture, workflow, sequence, data-flow, and lifecycle diagrams.",
+      "description_i18n": {
+        "en": "Create validated architecture, workflow, sequence, data-flow, and lifecycle diagrams.",
+        "zh-CN": "创建经过验证的架构、工作流、时序、数据流与生命周期图。"
+      },
+      "version": "2.17.0-dev.1",
+      "author": {
+        "name": "tt-a1i",
+        "url": "https://github.com/tt-a1i"
+      },
+      "category": "developer-tools",
+      "keywords": ["architecture", "diagrams", "visualization"],
+      "strict": true
     }
   ]
 }

@@ -36,6 +36,12 @@ PERSISTENT_SKILLS_ROOT = File.join(PERSISTENT_PLUGIN_ROOT, "skills")
 PERSISTENT_PLUGIN_SOURCE = "./plugins/persistent-shell"
 PERSISTENT_PLUGIN_VERSION = "0.1.1"
 PERSISTENT_PLUGIN_LICENSE = "MIT"
+ARCHIFY_PLUGIN_NAME = "archify"
+ARCHIFY_PLUGIN_ROOT = File.join(PLUGINS_ROOT, ARCHIFY_PLUGIN_NAME)
+ARCHIFY_SKILLS_ROOT = File.join(ARCHIFY_PLUGIN_ROOT, "skills")
+ARCHIFY_PLUGIN_SOURCE = "./plugins/archify"
+ARCHIFY_PLUGIN_VERSION = "2.17.0-dev.1"
+ARCHIFY_PLUGIN_LICENSE = "MIT"
 ALLOWED_INSTALLATION_POLICIES = %w[NOT_AVAILABLE AVAILABLE INSTALLED_BY_DEFAULT].freeze
 ALLOWED_AUTHENTICATION_POLICIES = %w[ON_INSTALL ON_USE].freeze
 SEMVER_PATTERN = /\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\z/.freeze
@@ -250,6 +256,12 @@ def validate_marketplace
       raise "#{entry_path}: expected ON_INSTALL authentication policy" unless authentication == "ON_INSTALL"
       raise "#{entry_path}: product gating is not approved" if policy.key?("products")
       raise "#{entry_path}: unexpected category" unless category == EXPECTED_PLUGIN_CATEGORY
+    elsif plugin_name == ARCHIFY_PLUGIN_NAME
+      raise "#{entry_path}: unexpected source path" unless source_path == ARCHIFY_PLUGIN_SOURCE
+      raise "#{entry_path}: expected AVAILABLE installation policy" unless installation == "AVAILABLE"
+      raise "#{entry_path}: expected ON_INSTALL authentication policy" unless authentication == "ON_INSTALL"
+      raise "#{entry_path}: product gating is not approved" if policy.key?("products")
+      raise "#{entry_path}: unexpected category" unless category == EXPECTED_PLUGIN_CATEGORY
     end
 
     validate_plugin_manifest(plugin_root, plugin_name)
@@ -376,7 +388,12 @@ def validate_standard_skill(skills_root, name)
   reject_duplicate_mapping_keys(frontmatter_text, skill_path)
   frontmatter = load_yaml(frontmatter_text, skill_path)
   raise "#{skill_path}: frontmatter must be a mapping" unless frontmatter.is_a?(Hash)
-  raise "#{skill_path}: frontmatter must contain only name and description" unless frontmatter.keys.map(&:to_s).sort == %w[description name]
+  missing_frontmatter = %w[name description] - frontmatter.keys.map(&:to_s)
+  raise "#{skill_path}: missing frontmatter keys: #{missing_frontmatter.join(', ')}" unless missing_frontmatter.empty?
+  unexpected_frontmatter = frontmatter.keys.map(&:to_s) - ALLOWED_FRONTMATTER_KEYS
+  unless unexpected_frontmatter.empty?
+    raise "#{skill_path}: unexpected frontmatter keys: #{unexpected_frontmatter.join(', ')}"
+  end
   raise "#{skill_path}: name must match directory" unless frontmatter["name"] == name
   raise "#{skill_path}: invalid hyphen-case name" unless name.match?(/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/)
   raise "#{skill_path}: name exceeds 64 characters" if name.length > 64
@@ -498,6 +515,22 @@ def validate_persistent_shell_contract
     raise "persistent-shell must not pin a Python minor version: #{version_pins.join(', ')}"
   end
   validate_relative_markdown_links(PERSISTENT_PLUGIN_ROOT)
+end
+
+def validate_archify_contract
+  skill_root = File.join(ARCHIFY_SKILLS_ROOT, ARCHIFY_PLUGIN_NAME)
+  release = load_json(File.join(skill_root, "skill-release.json"))
+  unless release["version"] == ARCHIFY_PLUGIN_VERSION
+    raise "#{skill_root}: vendored release version does not match plugin version"
+  end
+  unless release.dig("source", "repository") == "https://github.com/tt-a1i/archify"
+    raise "#{skill_root}: unexpected upstream repository"
+  end
+  %w[LICENSE THIRD_PARTY_NOTICES.md].each do |name|
+    path = File.join(skill_root, name)
+    raise "#{path}: vendored license notice is missing" unless File.file?(path)
+  end
+  validate_relative_markdown_links(ARCHIFY_PLUGIN_ROOT)
 end
 
 def validate_ascendc_migration_contract
@@ -788,6 +821,13 @@ unless actual_persistent_skills == [PERSISTENT_PLUGIN_NAME]
   raise "persistent-shell skill inventory mismatch: #{actual_persistent_skills.inspect}"
 end
 
+actual_archify_skills = Dir.children(ARCHIFY_SKILLS_ROOT).select do |entry|
+  File.directory?(File.join(ARCHIFY_SKILLS_ROOT, entry))
+end.sort
+unless actual_archify_skills == [ARCHIFY_PLUGIN_NAME]
+  raise "archify skill inventory mismatch: #{actual_archify_skills.inspect}"
+end
+
 begin
   validate_marketplace
   zcode_validator = File.join(ROOT, "scripts", "validate-zcode.py")
@@ -877,6 +917,24 @@ begin
   end
   validate_standard_skill(PERSISTENT_SKILLS_ROOT, PERSISTENT_PLUGIN_NAME)
   validate_persistent_shell_contract
+  archify_manifest, archify_declared_skills_root = validate_plugin_manifest(
+    ARCHIFY_PLUGIN_ROOT,
+    ARCHIFY_PLUGIN_NAME
+  )
+  unless archify_manifest["version"] == ARCHIFY_PLUGIN_VERSION
+    raise "#{ARCHIFY_PLUGIN_ROOT}: unexpected version"
+  end
+  unless archify_manifest["license"] == ARCHIFY_PLUGIN_LICENSE
+    raise "#{ARCHIFY_PLUGIN_ROOT}: unexpected license identifier"
+  end
+  unless archify_manifest.dig("interface", "category") == EXPECTED_PLUGIN_CATEGORY
+    raise "#{ARCHIFY_PLUGIN_ROOT}: unexpected plugin category"
+  end
+  unless archify_declared_skills_root == File.realpath(ARCHIFY_SKILLS_ROOT)
+    raise "#{ARCHIFY_PLUGIN_ROOT}: skills path must resolve to ./skills/"
+  end
+  validate_standard_skill(ARCHIFY_SKILLS_ROOT, ARCHIFY_PLUGIN_NAME)
+  validate_archify_contract
   validate_ascendc_migration_contract
 rescue StandardError => e
   warn "error: #{e.message}"
@@ -894,3 +952,5 @@ puts "validated #{EXPECTED_HANDOFF_SKILLS.length} cross-zone handoff skill"
 puts "validated #{EXPECTED_HANDOFF_SCENARIOS.length} cross-zone handoff behavior scenario definition"
 puts "validated plugin #{PERSISTENT_PLUGIN_NAME} at version #{PERSISTENT_PLUGIN_VERSION}"
 puts "validated persistent-shell skill and offline contract"
+puts "validated plugin #{ARCHIFY_PLUGIN_NAME} at version #{ARCHIFY_PLUGIN_VERSION}"
+puts "validated vendored archify skill and attribution"
