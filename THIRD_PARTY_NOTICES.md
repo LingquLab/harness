@@ -82,3 +82,19 @@ The `ascendc-development` plugin adapts and modifies Ascend C and CANN skill doc
 - Official license source used to recover the upstream repository's missing license file: https://gitee.com/ascend/shmem/blob/master/LICENSE
 
 The CANN license applies to the `ascendc-development` plugin and its adapted contents. In particular, its grant is limited to developing software for use with Ascend processors. The repository's root MIT license does not replace that plugin-specific license.
+
+## Archify
+
+The `archify` plugin vendors the upstream Archify runtime release artifact:
+
+- Project: Archify
+- Source: https://github.com/tt-a1i/archify
+- Source commit: `18911058008f17dc065af23a2cdc9bfeff6d3f7a`
+- Version: `2.17.0-dev.1`
+- Copyright: Copyright (c) 2026 tt-a1i (Archify); Copyright (c) 2025 Cocoon AI
+- License: MIT
+- Included notices: `plugins/archify/skills/archify/LICENSE` and `plugins/archify/skills/archify/THIRD_PARTY_NOTICES.md`
+
+The included notices also record the separate terms and trademark guidance for
+bundled brand marks and fonts. The repository's root MIT license does not
+replace those terms.

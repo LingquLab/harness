@@ -1,0 +1,24 @@
+{
+  "name": "archify",
+  "version": "2.17.0-dev.1",
+  "description": "Create polished, validated architecture, workflow, sequence, data-flow, and lifecycle diagrams.",
+  "author": {
+    "name": "tt-a1i",
+    "url": "https://github.com/tt-a1i"
+  },
+  "homepage": "https://tt-a1i.github.io/archify/",
+  "repository": "https://github.com/tt-a1i/archify",
+  "license": "MIT",
+  "keywords": ["architecture", "diagrams", "visualization"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Archify",
+    "shortDescription": "Create validated, interactive system diagrams.",
+    "longDescription": "Turn codebases and system descriptions into polished, interactive architecture, workflow, sequence, data-flow, and lifecycle diagrams with deterministic validation and export.",
+    "developerName": "tt-a1i",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://tt-a1i.github.io/archify/",
+    "defaultPrompt": ["Use Archify to create a validated architecture diagram for this system."]
+  }
+}
