@@ -1,0 +1,31 @@
+{
+  "hub_url": "https://hapi.example.invalid/",
+  "key_env": "HAPI_ACCESS_KEY",
+  "session_url": "REPLACE_WITH_BLUE_SESSION_URL_OR_REMOVE",
+  "target": "green-dev",
+  "state_dir": ".state",
+  "poll_seconds": 5,
+  "sse": true,
+  "max_task_seconds": 1800,
+  "max_questions": 3,
+  "agent_command": ["claude"],
+  "task_binding": {
+    "repository": "candidate",
+    "scope_profile": "harness-tests"
+  },
+  "repositories": {
+    "candidate": {
+      "cwd": "C:/work/candidate",
+      "remote": "origin",
+      "profiles": ["harness-tests"]
+    }
+  },
+  "profiles": {
+    "harness-tests": {
+      "allowed_tools": ["Read", "Glob", "Grep", "Bash(git status*)", "Bash(git rev-parse*)", "Bash(python -m pytest*)"],
+      "max_turns": 30,
+      "instructions": "Run only requested checks with approved non-sensitive fixtures. Do not change shared services, credentials, or production state; do not install, push, or upload. Return BLOCKED when prerequisites or permissions are unavailable."
+    }
+  },
+  "egress_deny_patterns": []
+}

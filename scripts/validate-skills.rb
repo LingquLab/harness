@@ -28,7 +28,7 @@ HANDOFF_PLUGIN_ROOT = File.join(PLUGINS_ROOT, HANDOFF_PLUGIN_NAME)
 HANDOFF_SKILLS_ROOT = File.join(HANDOFF_PLUGIN_ROOT, "skills")
 HANDOFF_SCENARIOS_ROOT = File.join(ROOT, "tests", HANDOFF_PLUGIN_NAME, "scenarios")
 HANDOFF_PLUGIN_SOURCE = "./plugins/cross-zone-development"
-HANDOFF_PLUGIN_VERSION = "0.1.4"
+HANDOFF_PLUGIN_VERSION = "0.2.2"
 HANDOFF_PLUGIN_LICENSE = "MIT"
 PERSISTENT_PLUGIN_NAME = "persistent-shell"
 PERSISTENT_PLUGIN_ROOT = File.join(PLUGINS_ROOT, PERSISTENT_PLUGIN_NAME)
@@ -447,21 +447,43 @@ end
 
 def validate_handoff_contract
   skill_root = File.join(HANDOFF_SKILLS_ROOT, HANDOFF_PLUGIN_NAME)
-  python_script = File.join(skill_root, "scripts", "github_issue.py")
-  raise "#{python_script}: required GitHub helper is missing" unless File.file?(python_script)
-
-  syntax_check = "import sys; path = sys.argv[1]; compile(open(path, encoding='utf-8').read(), path, 'exec')"
-  unless system("python3", "-c", syntax_check, python_script, out: File::NULL, err: File::NULL)
-    raise "#{python_script}: Python syntax validation failed"
-  end
-
-  %w[github_get_issue.sh github_comment.sh].each do |name|
-    path = File.join(skill_root, "scripts", name)
-    raise "#{path}: required GitHub wrapper is missing" unless File.file?(path)
-    unless system("bash", "-n", path, out: File::NULL, err: File::NULL)
-      raise "#{path}: shell syntax validation failed"
+  %w[config.example.json config.windows.json].each do |name|
+    path = File.join(HANDOFF_PLUGIN_ROOT, name)
+    config = load_json(path)
+    unless config["session_url"] == "REPLACE_WITH_BLUE_SESSION_URL_OR_REMOVE"
+      raise "#{path}: missing optional green-initiated session_url placeholder"
+    end
+    unless config["key_env"].is_a?(String) && !config["key_env"].empty?
+      raise "#{path}: key_env is required"
+    end
+    binding = config["task_binding"]
+    unless binding.is_a?(Hash) && binding.keys.sort == %w[repository scope_profile] &&
+        config.fetch("repositories", {}).key?(binding["repository"]) &&
+        config.fetch("profiles", {}).key?(binding["scope_profile"]) &&
+        config["repositories"][binding["repository"]].fetch("profiles", []).include?(binding["scope_profile"]) &&
+        config["repositories"][binding["repository"]]["remote"].is_a?(String) &&
+        !config["repositories"][binding["repository"]]["remote"].empty?
+      raise "#{path}: task_binding must resolve to a locally authorized repository/profile"
+    end
+    if config.key?("access_key") || config.key?("token")
+      raise "#{path}: credentials must not be embedded"
     end
   end
+
+  protocol = File.join(skill_root, "references", "protocol.md")
+  protocol_text = File.read(protocol)
+  ["Green-originated requests", "session_url", "TASK", "ANSWER", "CANCEL", "RESULT", "egress_reviewed=true"].each do |fragment|
+    raise "#{protocol}: missing #{fragment}" unless protocol_text.include?(fragment)
+  end
+
+  obsolete = %w[
+    references/github-access.md
+    references/handoff-protocol.md
+    scripts/github_issue.py
+    scripts/github_get_issue.sh
+    scripts/github_comment.sh
+  ].map { |relative| File.join(skill_root, relative) }.select { |path| File.exist?(path) }
+  raise "obsolete GitHub transport remains: #{obsolete.join(', ')}" unless obsolete.empty?
 
   tests_root = File.join(ROOT, "tests", HANDOFF_PLUGIN_NAME)
   unless system(

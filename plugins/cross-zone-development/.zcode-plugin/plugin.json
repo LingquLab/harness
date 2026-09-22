@@ -1,10 +1,10 @@
 {
   "name": "cross-zone-development",
-  "version": "0.1.4",
-  "description": "GitHub issue handoffs between blue development and green protected-service zones.",
+  "version": "0.2.2",
+  "description": "HAPI collaboration between blue development and green protected-service AI agents.",
   "description_i18n": {
-    "en": "GitHub issue handoffs between blue development and green protected-service zones.",
-    "zh-CN": "通过 GitHub Issue 在蓝区开发环境与绿区受保护服务环境之间进行交接。"
+    "en": "HAPI collaboration between blue development and green protected-service AI agents.",
+    "zh-CN": "通过 HAPI 协调蓝区开发 AI 与绿区受保护服务 AI。"
   },
   "author": {
     "name": "LingquLab",
@@ -13,6 +13,6 @@
   "homepage": "https://github.com/LingquLab/harness",
   "repository": "https://github.com/LingquLab/harness",
   "license": "MIT",
-  "keywords": ["cross-zone", "github-issues", "handoff", "service-debugging"],
+  "keywords": ["cross-zone", "hapi", "ai-collaboration", "service-debugging"],
   "skills": "skills"
 }
