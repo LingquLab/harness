@@ -9,23 +9,19 @@ Issues and browser automation are not part of the transport.
 
 ## Green-initiated collaboration
 
-Use the v0.2.2 green runtime. Copy [config.windows.json](config.windows.json) to
-`config.local.json`, set the HAPI Hub URL, green repository/profile aliases, and:
-
-```json
-"session_url": "sessions/<blue-session-id>"
-```
+Use the v0.3 green runtime. Copy [config.windows.json](config.windows.json) to
+untracked `config.local.json`, then set the HAPI Hub, access key, and green
+repository/profile aliases.
 
 `task_binding` selects the repository and access profile entirely inside green;
-blue never supplies or needs these aliases. `session_url` is a session reference,
-not a full URL: do not include a host,
-credentials, query, or fragment. Keep the HAPI key outside the file in the
-configured environment variable or the runtime's hidden prompt.
+blue never supplies or needs these aliases. Session ID, session URL, and state
+directory are deliberately absent from configuration. Keep `config.local.json`
+inside green and never commit it because it contains the HAPI access key.
 
 From the green Windows runtime directory, run:
 
-```powershell
-.\Start-Bridge.ps1 -Command open
+```bash
+./start-bridge.sh open <session-id>
 ```
 
 The bridge first validates the local task binding, CLI, and directories. Only
@@ -40,14 +36,15 @@ exact TASK revision through the `remote` configured in its local repository
 binding and tests it in an isolated clean checkout. HAPI carries coordination and
 reviewed results, never code. Green does not push diagnostic changes.
 
-For setups that do not need green-initiated opening, remove `session_url` and use
-the runtime's existing bind/run workflow. See
+For a listener without OPEN, run `./start-bridge.sh run <session-id>`. Each
+session automatically uses `.state/<session-id>/` and a session-specific log, so
+one local configuration can serve multiple concurrent sessions. See
 [config.example.json](config.example.json) for a platform-neutral template.
 
 ## Protocol boundaries
 
 TASK/ANSWER/CANCEL and ACK/PROGRESS/QUESTION/RESULT/REJECTED retain their v2
-semantics. New TASK messages do not carry repository/profile aliases; v0.2.2
+semantics. New TASK messages do not carry repository/profile aliases; v0.3
 green runtimes accept legacy alias-bearing TASK messages only within local
 authorization. Results bind to the exact task, iteration, target, and immutable
 revision. RESULT includes every requested check; PASS requires all checks to pass

@@ -2,9 +2,9 @@
 
 ## Open collaboration
 
-The operator configures one green-local `task_binding`, pastes the authorized blue
-HAPI session reference into `session_url`, and runs
-`Start-Bridge.ps1 -Command open`. Before sending anything, the bridge validates
+The operator configures one green-local `task_binding` and runs
+`./start-bridge.sh open <session-id>` from Git Bash. The session ID is a runtime
+argument, not configuration. Before sending anything, the bridge validates
 that the binding resolves to an authorized repository/profile and approved Git
 remote, the working directory and CLI exist, and required configuration is
 internally consistent.
@@ -20,7 +20,7 @@ checking the conversation; its stable event ID supports deduplication.
 ## Execute tasks
 
 Resolve every new TASK through the preflighted local binding and named immutable
-baseline. Green v0.2.2 may accept legacy alias-bearing TASK messages only when
+baseline. Green v0.3 may accept legacy alias-bearing TASK messages only when
 those aliases remain within local authorization. The bridge is a transport and
 process supervisor, not an OS or network sandbox. Return BLOCKED when required
 isolation, revision, fixtures, identity, dependencies, or permissions are missing.

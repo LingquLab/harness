@@ -10,7 +10,7 @@ duplicate JSON fields and deduplicate accepted messages by `event_id`.
 
 `OPEN` is the only green-originated request that is not bound to a task. The
 green bridge sends it as a user message after the operator runs
-`Start-Bridge.ps1 -Command open`:
+`./start-bridge.sh open <session-id>`:
 
 ```text
 CROSS_ZONE_V2
@@ -19,8 +19,9 @@ CROSS_ZONE_V2
 
 OPEN has exactly those five fields. Its event ID is `green-open-` followed by
 lowercase hexadecimal characters. It does not carry or require `task_id`,
-`iteration`, or `revision`; never apply TASK validation to it. `session_url`
-identifies the destination session only and has the form `sessions/<session-id>`.
+`iteration`, or `revision`; never apply TASK validation to it. The bridge derives
+`session_url` from the command-line session ID. It identifies the destination
+session only and has the form `sessions/<session-id>`.
 It must not contain a scheme, host, credentials, query, fragment, `..`, or
 percent-encoded path components.
 
@@ -56,7 +57,7 @@ conditions in goal/checks. Exact duplicates are ignored; reusing a task/iteratio
 with different content rejects. A later iteration requires the previous one to
 be terminal.
 
-For migration, green v0.2.2 may accept legacy TASK messages containing
+For migration, green v0.3 may accept legacy TASK messages containing
 `repository` and `scope_profile`. It treats them only as aliases constrained by
 green-local configuration. New blue agents omit both fields. This compatibility
 path must not let blue choose a path or expand permissions.

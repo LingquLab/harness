@@ -31,9 +31,9 @@ Do not impersonate the other role. After selecting the role, read
 
 ## Green Starts Collaboration
 
-The green operator copies the authorized blue HAPI session reference into
-`session_url` in local configuration, then runs
-`Start-Bridge.ps1 -Command open`. The bridge sends one green-originated `OPEN`
+The green operator runs `./start-bridge.sh open <session-id>` from Git Bash. The
+session is selected on the command line and never stored in configuration. The
+bridge sends one green-originated `OPEN`
 user message, binds at the current message head, and listens for subsequent
 `TASK`, `ANSWER`, and `CANCEL` messages.
 
@@ -70,5 +70,6 @@ permissions produce BLOCKED. Missing information produces QUESTION, capped at
 three questions. Set `egress_reviewed=true` only after review. If useful evidence
 cannot cross safely, return NEEDS_HUMAN with a safe reason category.
 
-Use [config.example.json](../../config.example.json) as the generic
-runtime configuration reference. Credentials remain outside configuration.
+Use [config.example.json](../../config.example.json) as the generic runtime
+configuration reference. The access key may be stored in untracked green-local
+`config.local.json`; never put it in a committed template or protocol message.

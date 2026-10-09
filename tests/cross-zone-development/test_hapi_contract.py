@@ -64,12 +64,14 @@ class HapiContractTest(unittest.TestCase):
             with self.subTest(event=event), self.assertRaises(ValueError):
                 validate_open(event)
 
-    def test_templates_enable_open_without_embedding_credentials(self) -> None:
+    def test_templates_keep_session_and_state_out_of_configuration(self) -> None:
         for name in ("config.example.json", "config.windows.json"):
             config = json.loads((PLUGIN / name).read_text(encoding="utf-8"))
-            self.assertEqual(config["session_url"], "REPLACE_WITH_BLUE_SESSION_URL_OR_REMOVE")
-            self.assertEqual(config["key_env"], "HAPI_ACCESS_KEY")
-            self.assertNotIn("access_key", config)
+            self.assertEqual(config["access_key"], "REPLACE_WITH_HAPI_ACCESS_KEY")
+            self.assertNotIn("session_id", config)
+            self.assertNotIn("session_url", config)
+            self.assertNotIn("state_dir", config)
+            self.assertNotIn("key_env", config)
             self.assertNotIn("token", config)
             self.assertEqual(config["max_questions"], 3)
             binding = config["task_binding"]
@@ -87,7 +89,8 @@ class HapiContractTest(unittest.TestCase):
         self.assertIn("Blue must not create, inject, echo", protocol)
         self.assertIn("send one formal TASK", blue)
         self.assertIn("blue neither requests nor names", blue)
-        self.assertIn("Start-Bridge.ps1 -Command open", green)
+        self.assertIn("./start-bridge.sh open <session-id>", green)
+        self.assertIn("not configuration", green)
         self.assertIn("preflighted local binding", green)
         self.assertIn("every requested check", protocol)
         self.assertIn("egress_reviewed=true", protocol)

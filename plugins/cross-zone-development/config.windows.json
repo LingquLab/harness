@@ -1,14 +1,12 @@
 {
   "hub_url": "https://hapi.example.invalid/",
-  "key_env": "HAPI_ACCESS_KEY",
-  "session_url": "REPLACE_WITH_BLUE_SESSION_URL_OR_REMOVE",
+  "access_key": "REPLACE_WITH_HAPI_ACCESS_KEY",
   "target": "green-dev",
-  "state_dir": ".state",
   "poll_seconds": 5,
   "sse": true,
   "max_task_seconds": 1800,
   "max_questions": 3,
-  "agent_command": ["claude"],
+  "agent_command": ["C:/Program Files/CodeAgentCLI/bin/codeagentcli.exe"],
   "task_binding": {
     "repository": "candidate",
     "scope_profile": "harness-tests"
