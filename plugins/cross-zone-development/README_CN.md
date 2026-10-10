@@ -6,10 +6,29 @@
 调用本地 Claude Code 兼容 CLI，只向蓝区返回经过审查的有界结果。传输不再使用
 GitHub Issue，也不需要操作浏览器。
 
+## 绿区运行时安装
+
+插件已经包含 Python Bridge [`cross_zone`](cross_zone)、Git Bash 启动脚本
+[`start-bridge.sh`](start-bridge.sh)、配置模板和离线运行时测试。绿区 Windows 主机需安装
+Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复制到批准的本地
+位置；Bridge 不依赖第三方 Python 包。
+
+把 [config.windows.json](config.windows.json) 复制为已忽略的 `config.local.json`，填写
+`hub_url`、`access_key`、批准的仓库路径和 Git remote，然后执行：
+
+```bash
+./start-bridge.sh doctor <session-id>
+./start-bridge.sh open <session-id>
+```
+
+蓝区已经开始派发任务时可用 `run` 代替 `open`。启动脚本写入
+`.cac/bridge-<command>-<session-id>.log`；其中可以显示有长度限制的 Agent 流式输出，
+但该内容只保留在绿区。状态和任务专属 detached checkout 位于
+`.state/<session-id>/`。
+
 ## 绿区主动开启协同
 
-使用 v0.3 绿区运行时。将 [config.windows.json](config.windows.json) 复制为不受 Git
-跟踪的 `config.local.json`，配置 HAPI Hub、access key 和绿区仓库/权限别名。
+使用插件内置的 v0.3 绿区运行时及不受 Git 跟踪的 `config.local.json`。
 
 `task_binding` 完全在绿区内部选择仓库和权限 profile，蓝区不提供也不需要知道这些
 别名。配置中不保存 session ID、session URL 或 state directory。`config.local.json`
@@ -34,6 +53,12 @@ TASK。绿区通过本地仓库绑定中的 `remote` 拉取 TASK 指定的完整
 不需要绿区主动开启时，运行 `./start-bridge.sh run <session-id>`。每个会话自动使用
 `.state/<session-id>/` 和独立日志，因此同一配置可服务多个并发会话。跨平台示例见
 [config.example.json](config.example.json)。
+
+在插件目录运行以下命令执行 Bridge 回归测试：
+
+```bash
+python -m unittest discover -s tests -v
+```
 
 ## 协议边界
 
