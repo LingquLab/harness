@@ -447,6 +447,12 @@ end
 
 def validate_handoff_contract
   skill_root = File.join(HANDOFF_SKILLS_ROOT, HANDOFF_PLUGIN_NAME)
+  %w[start-bridge.sh pyproject.toml cross_zone/__main__.py cross_zone/agent.py
+     cross_zone/cli.py cross_zone/controller.py cross_zone/egress.py cross_zone/hapi.py
+     cross_zone/protocol.py cross_zone/store.py tests/test_bridge.py].each do |relative|
+    path = File.join(HANDOFF_PLUGIN_ROOT, relative)
+    raise "#{path}: bundled green runtime file is missing" unless File.file?(path)
+  end
   %w[config.example.json config.windows.json].each do |name|
     path = File.join(HANDOFF_PLUGIN_ROOT, name)
     config = load_json(path)
@@ -501,6 +507,24 @@ def validate_handoff_contract
     err: File::NULL
   )
     raise "#{tests_root}: cross-zone offline regression tests failed"
+  end
+
+  runtime_tests = File.join(HANDOFF_PLUGIN_ROOT, "tests")
+  unless system(
+    { "PYTHONDONTWRITEBYTECODE" => "1" },
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_*.py",
+    chdir: HANDOFF_PLUGIN_ROOT,
+    out: File::NULL,
+    err: File::NULL
+  )
+    raise "#{runtime_tests}: bundled green runtime tests failed"
   end
 
   validate_relative_markdown_links(HANDOFF_PLUGIN_ROOT)
