@@ -66,6 +66,12 @@ Git fetch 和 checkout，直接在启动 workspace 中执行。
 python -m unittest discover -s tests -v
 ```
 
+Agent 故障会返回明确且安全的原因：`agent_executable_not_found` 表示
+`agent_command[0]` 不存在或不在 PATH；`agent_executable_not_runnable` 表示文件不能
+执行；`agent_exit_nonzero` 表示 CLI 非零退出；`agent_output_protocol_error` 表示 CLI
+没有返回要求的 stream-json 结构化结果。绿区本地 Bridge 日志会记录异常类型、有长度
+限制的详情、退出码和对应修复建议。
+
 ## 协议边界
 
 TASK/ANSWER/CANCEL 与 ACK/PROGRESS/QUESTION/RESULT/REJECTED 保持 v2 既有语义。

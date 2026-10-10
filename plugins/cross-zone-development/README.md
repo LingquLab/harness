@@ -75,6 +75,14 @@ Run the Bridge regression suite from this directory with:
 python -m unittest discover -s tests -v
 ```
 
+Agent failures use specific safe result reasons. `agent_executable_not_found`
+means `agent_command[0]` is missing or not on PATH;
+`agent_executable_not_runnable` means the file cannot execute;
+`agent_exit_nonzero` reports a nonzero CLI exit; and
+`agent_output_protocol_error` means the CLI did not return the required
+stream-json structured result. The green-local bridge log includes the exception
+type, bounded detail, exit code, and corrective action where applicable.
+
 ## Protocol boundaries
 
 TASK/ANSWER/CANCEL and ACK/PROGRESS/QUESTION/RESULT/REJECTED retain their v2

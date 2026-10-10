@@ -761,9 +761,30 @@ class AgentTests(unittest.TestCase):
         self.assertFalse((Path(self.cfg["state_dir"]) / "checkouts").exists())
 
     def test_agent_failure_does_not_export_stdout(self):
-        result = self.run_agent("print('protected source text')\n")
+        with self.assertLogs("cross_zone.agent", level="ERROR") as logs:
+            result = self.run_agent("print('protected source text')\n")
         self.assertNotIn("protected", str(result))
         self.assertEqual(result["status"], "NEEDS_HUMAN")
+        self.assertEqual(result["failure"], "agent_output_protocol_error")
+        self.assertIn("JSONDecodeError", "\n".join(logs.output))
+
+    def test_missing_agent_executable_has_specific_error_and_local_guidance(self):
+        self.cfg["agent_command"] = [str(Path(self.tmp.name) / "missing-codeagent.exe")]
+        with self.assertLogs("cross_zone.agent", level="ERROR") as logs:
+            result = CodeAgentCLI(self.cfg).run(
+                task(revision=self.revision), None, None,
+                time.time() + 10, threading.Event(),
+            )
+        self.assertEqual(result, {"failure": "agent_executable_not_found", "status": "BLOCKED"})
+        combined = "\n".join(logs.output)
+        self.assertIn("agent_executable_not_found", combined)
+        self.assertIn("agent_command[0]", combined)
+
+    def test_nonzero_agent_exit_reports_exit_code_locally(self):
+        with self.assertLogs("cross_zone.agent", level="ERROR") as logs:
+            result = self.run_agent("import sys\nsys.exit(7)\n")
+        self.assertEqual(result, {"failure": "agent_exit_nonzero", "status": "BLOCKED"})
+        self.assertIn("code 7", "\n".join(logs.output))
 
 
 if __name__ == "__main__":

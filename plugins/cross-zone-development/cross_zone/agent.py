@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -200,6 +201,22 @@ def resolve_windows_launcher(argv):
     return argv
 
 
+def executable_available(command):
+    candidate = Path(command)
+    if candidate.is_absolute() or candidate.parent != Path("."):
+        return candidate.is_file()
+    return shutil.which(command) is not None
+
+
+def agent_failure(reason, status, detail, exc=None):
+    if exc is None:
+        LOG.error("Agent failure [%s]: %s", reason, detail)
+    else:
+        LOG.error("Agent failure [%s]: %s: %s. %s", reason,
+                  type(exc).__name__, _bounded_log_text(str(exc), 2000), detail)
+    return {"failure": reason, "status": status}
+
+
 class CodeAgentCLI:
     """Green CLI adapter for the CodeAgentCLI (codeagent) non-interactive mode.
 
@@ -238,6 +255,13 @@ class CodeAgentCLI:
         if stopped_result := stopped():
             return stopped_result
         command = resolve_windows_launcher(list(config["agent_command"]))
+        if not executable_available(command[0]):
+            return agent_failure(
+                "agent_executable_not_found",
+                "BLOCKED",
+                f"Executable '{command[0]}' does not exist or is not on PATH. "
+                "Correct agent_command[0] in config.local.json and restart the Bridge.",
+            )
         command += ["-p", "--skip-safe-check", "--allow-dangerously-skip-permissions",
                     "--output-format", "stream-json", "--verbose",
                     "--json-schema", canonical(SCHEMA),
@@ -299,16 +323,61 @@ class CodeAgentCLI:
                 if any(reader.is_alive() for reader in readers):
                     raise RuntimeError("agent_output_reader_stuck")
             if process.returncode:
-                return {"failure": "agent_exit_error", "status": "BLOCKED"}
+                return agent_failure(
+                    "agent_exit_nonzero",
+                    "BLOCKED",
+                    f"CodeAgentCLI exited with code {process.returncode}. "
+                    f"Inspect the green-local stderr file '{stderr_path}'.",
+                )
             result = _read_agent_result(stdout_path)
             if not isinstance(result, dict) or result.get("is_error") or result.get("permission_denials"):
                 return {"failure": "agent_error_or_permission_denied", "status": "BLOCKED"}
             dirty = baseline(cwd, revision, require_clean=False) if revision else False
             return {"output": result.get("structured_output"), "session_id": result.get("session_id"), "dirty": dirty}
-        except (OSError, ValueError, subprocess.SubprocessError, RuntimeError):
+        except FileNotFoundError as exc:
+            return agent_failure(
+                "agent_executable_not_found",
+                "BLOCKED",
+                "Correct agent_command[0] in config.local.json and restart the Bridge.",
+                exc,
+            )
+        except PermissionError as exc:
+            return agent_failure(
+                "agent_executable_not_runnable",
+                "BLOCKED",
+                "Grant execute permission or select a runnable CodeAgentCLI executable.",
+                exc,
+            )
+        except (json.JSONDecodeError, ValueError) as exc:
+            return agent_failure(
+                "agent_output_protocol_error",
+                "NEEDS_HUMAN",
+                "CodeAgentCLI did not produce the required stream-json structured result.",
+                exc,
+            )
+        except RuntimeError as exc:
             if process is not None and process.poll() is None:
                 try:
                     terminate_tree(process)
                 except (OSError, RuntimeError, subprocess.SubprocessError):
                     return {"failure": "termination_unconfirmed", "status": "NEEDS_HUMAN", "pause": True}
-            return {"failure": "agent_protocol_or_process_error", "status": "NEEDS_HUMAN"}
+            return agent_failure(
+                "agent_runtime_error",
+                "NEEDS_HUMAN",
+                "Inspect the preceding green-local Agent log records.",
+                exc,
+            )
+        except subprocess.SubprocessError as exc:
+            return agent_failure(
+                "agent_process_error",
+                "NEEDS_HUMAN",
+                "CodeAgentCLI process management failed; inspect the green-local log.",
+                exc,
+            )
+        except OSError as exc:
+            return agent_failure(
+                "agent_process_os_error",
+                "NEEDS_HUMAN",
+                "An operating-system error occurred while running CodeAgentCLI.",
+                exc,
+            )
