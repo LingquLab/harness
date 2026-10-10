@@ -23,11 +23,16 @@ from cross_zone.protocol import MARKER, ProtocolError, assistant_text, open_even
 
 def task(**changes):
     event = {"protocol": "cross-zone/v2", "type": "TASK", "event_id": "blue-1", "task_id": "task-1",
-             "iteration": 1, "target": "green-dev", "revision": "a" * 40, "repository": "candidate",
-             "scope_profile": "isolated-test", "goal": "Run the regression",
+             "iteration": 1, "target": "green-dev", "revision": "a" * 40, "goal": "Run the regression",
              "checks": [{"id": "regression", "action": "Run approved tests", "expected": "All pass"}],
              "timeout_seconds": 30}
     event.update(changes)
+    return event
+
+
+def general_task(**changes):
+    event = task(**changes)
+    event.pop("revision", None)
     return event
 
 
@@ -98,13 +103,9 @@ class FakeAgent:
 def config(directory):
     return {"hub_url": "http://localhost/hapi/", "session_id": "blue-session",
             "target": "green-dev", "state_dir": str(Path(directory) / "state"), "sse": False,
+            "workspace_dir": str(Path(directory) / "repo"),
             "max_task_seconds": 30, "max_questions": 3, "poll_seconds": 0.1, "agent_command": ["codeagent"],
-            "agent_live_log": True, "agent_log_max_chars": 2000,
-            "task_binding": {"repository": "candidate", "scope_profile": "isolated-test"},
-            "repositories": {"candidate": {"cwd": str(Path(directory) / "repo"), "remote": "origin",
-                                               "profiles": ["isolated-test"]}},
-            "profiles": {"isolated-test": {"allowed_tools": ["Read"], "instructions": "Read-only tests"}},
-            "egress_deny_patterns": []}
+            "agent_live_log": True, "agent_log_max_chars": 2000}
 
 
 class OpenTests(unittest.TestCase):
@@ -137,10 +138,11 @@ class GitBashLauncherTests(unittest.TestCase):
             session_id = "19146292-52a4-4094-9cd5-6086b0c3ec05"
             launcher = Path(__file__).parents[1] / "start-bridge.sh"
             result = subprocess.run(["bash", str(launcher), "doctor", session_id, str(config_path)],
-                                    env=env, capture_output=True, text=True)
+                                    cwd=root, env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(capture.read_text(encoding="utf-8").splitlines(),
                              ["-3", "-m", "cross_zone", "--config", str(config_path),
+                              "--workspace", str(root),
                               "--session", session_id, "doctor"])
             log_path = root / "logs" / ("bridge-doctor-" + session_id + ".log")
             self.assertTrue(log_path.is_file())
@@ -171,7 +173,7 @@ class CliErrorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             value = config(directory)
             value["access_key"] = "local-config-secret"
-            for field in ("session_id", "session_url", "state_dir", "key_env"):
+            for field in ("session_id", "session_url", "state_dir", "workspace_dir", "key_env"):
                 value.pop(field, None)
             path = Path(directory) / "config.local.json"
             path.write_text(json.dumps(value), encoding="utf-8")
@@ -181,17 +183,20 @@ class CliErrorTests(unittest.TestCase):
                                                (loaded["access_key"],)),
                              "bad [REDACTED]")
 
-    def test_config_rejects_session_and_state_fields(self):
+    def test_config_ignores_removed_session_state_and_repository_fields(self):
         with tempfile.TemporaryDirectory() as directory:
-            for field in ("session_id", "session_url", "state_dir", "key_env"):
+            for field in ("session_id", "session_url", "state_dir", "workspace_dir", "key_env",
+                          "task_binding", "repositories", "profiles", "profile",
+                          "egress_deny_patterns"):
                 value = config(directory)
-                for runtime_field in ("session_id", "state_dir"):
+                for runtime_field in ("session_id", "state_dir", "workspace_dir"):
                     value.pop(runtime_field, None)
                 value[field] = "obsolete"
                 path = Path(directory) / (field + ".json")
                 path.write_text(json.dumps(value), encoding="utf-8")
-                with self.subTest(field=field), self.assertRaisesRegex(ValueError, "deprecated"):
-                    load_config(path)
+                with self.subTest(field=field):
+                    loaded = load_config(path)
+                    self.assertNotIn(field, loaded)
 
     def test_command_line_session_derives_isolated_state(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -210,9 +215,16 @@ class ProtocolTests(unittest.TestCase):
 
     def test_new_task_omits_green_local_aliases(self):
         event = task()
-        event.pop("repository")
-        event.pop("scope_profile")
         self.assertEqual(parse(wire(event), "green-dev"), event)
+        with self.assertRaises(ProtocolError):
+            parse(wire({**event, "repository": "candidate", "scope_profile": "tests"}), "green-dev")
+
+    def test_general_task_and_controls_omit_revision(self):
+        event = general_task()
+        self.assertEqual(parse(wire(event), "green-dev"), event)
+        cancel = {"protocol": "cross-zone/v2", "type": "CANCEL", "event_id": "cancel-1",
+                  "task_id": event["task_id"], "iteration": 1, "target": "green-dev"}
+        self.assertEqual(parse(wire(cancel), "green-dev"), cancel)
 
     def test_ignore_user_tool_child_partial_and_examples(self):
         row = message(task(), 1)
@@ -319,14 +331,23 @@ class BridgeTests(unittest.TestCase):
 
     def test_new_task_uses_green_local_binding(self):
         event = task()
-        event.pop("repository")
-        event.pop("scope_profile")
         self.bridge.bind()
         self.ingest(event)
         self.settle()
         request = self.agent.calls[0][0]
-        self.assertEqual(request["repository"], "candidate")
-        self.assertEqual(request["scope_profile"], "isolated-test")
+        self.assertNotIn("repository", request)
+        self.assertNotIn("scope_profile", request)
+
+    def test_general_task_runs_without_revision_and_returns_revisionless_result(self):
+        event = general_task()
+        self.bridge.bind()
+        self.ingest(event)
+        self.settle()
+        self.bridge.flush()
+        request = self.agent.calls[0][0]
+        self.assertNotIn("revision", request)
+        result = next(sent for _, sent in self.client.sent if sent["type"] == "RESULT")
+        self.assertNotIn("revision", result)
 
     def test_multi_page_after_and_empty_bootstrap(self):
         self.bridge.bind()
@@ -582,7 +603,7 @@ class AgentTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.cfg = config(self.tmp.name)
-        self.repo = Path(self.cfg["repositories"]["candidate"]["cwd"])
+        self.repo = Path(self.cfg["workspace_dir"])
         self.repo.mkdir()
         subprocess.run(["git", "init", str(self.repo)], check=True, capture_output=True)
         subprocess.run(["git", "-C", str(self.repo), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
@@ -724,10 +745,46 @@ class AgentTests(unittest.TestCase):
         result = self.run_agent("raise Exception('should not launch')\n")
         self.assertEqual(result["status"], "BLOCKED")
 
+    def test_general_task_runs_in_authorized_workspace_without_git_checkout(self):
+        event = general_task()
+        self.script.write_text("import json,sys\nsys.stdin.read()\nprint(" +
+                               repr(json.dumps({"structured_output": output()})) + ")\n",
+                               encoding="utf-8")
+        result = CodeAgentCLI(self.cfg).run(
+            event,
+            None,
+            None,
+            time.time() + 10,
+            threading.Event(),
+        )
+        self.assertEqual(result["output"]["status"], "PASS")
+        self.assertFalse((Path(self.cfg["state_dir"]) / "checkouts").exists())
+
     def test_agent_failure_does_not_export_stdout(self):
-        result = self.run_agent("print('protected source text')\n")
+        with self.assertLogs("cross_zone.agent", level="ERROR") as logs:
+            result = self.run_agent("print('protected source text')\n")
         self.assertNotIn("protected", str(result))
         self.assertEqual(result["status"], "NEEDS_HUMAN")
+        self.assertEqual(result["failure"], "agent_output_protocol_error")
+        self.assertIn("JSONDecodeError", "\n".join(logs.output))
+
+    def test_missing_agent_executable_has_specific_error_and_local_guidance(self):
+        self.cfg["agent_command"] = [str(Path(self.tmp.name) / "missing-codeagent.exe")]
+        with self.assertLogs("cross_zone.agent", level="ERROR") as logs:
+            result = CodeAgentCLI(self.cfg).run(
+                task(revision=self.revision), None, None,
+                time.time() + 10, threading.Event(),
+            )
+        self.assertEqual(result, {"failure": "agent_executable_not_found", "status": "BLOCKED"})
+        combined = "\n".join(logs.output)
+        self.assertIn("agent_executable_not_found", combined)
+        self.assertIn("agent_command[0]", combined)
+
+    def test_nonzero_agent_exit_reports_exit_code_locally(self):
+        with self.assertLogs("cross_zone.agent", level="ERROR") as logs:
+            result = self.run_agent("import sys\nsys.exit(7)\n")
+        self.assertEqual(result, {"failure": "agent_exit_nonzero", "status": "BLOCKED"})
+        self.assertIn("code 7", "\n".join(logs.output))
 
 
 if __name__ == "__main__":

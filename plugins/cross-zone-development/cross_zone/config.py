@@ -13,20 +13,18 @@ def load_config(path):
     config.setdefault("access_key", None)
     if config["access_key"] is not None and (not isinstance(config["access_key"], str) or not config["access_key"].strip()):
         raise ValueError("access_key must be a non-empty string or null")
-    deprecated = {"session_id", "session_url", "state_dir", "key_env"} & set(config)
-    if deprecated:
-        raise ValueError("remove deprecated config fields: " + ", ".join(sorted(deprecated)))
+    ignored = {"session_id", "session_url", "state_dir", "workspace_dir", "key_env",
+               "task_binding", "repositories", "profiles", "profile",
+               "egress_deny_patterns"}
+    for field in ignored:
+        config.pop(field, None)
     config.setdefault("poll_seconds", 5)
     config.setdefault("sse", True)
     config.setdefault("max_questions", 3)
     config.setdefault("max_task_seconds", 1800)
-    config.setdefault("egress_deny_patterns", [])
     config.setdefault("agent_command", ["codeagent"])
     config.setdefault("agent_live_log", True)
     config.setdefault("agent_log_max_chars", 2000)
-    binding = config.get("task_binding")
-    if not isinstance(binding, dict) or set(binding) != {"repository", "scope_profile"}:
-        raise ValueError("task_binding must name repository and scope_profile")
     if not isinstance(config["agent_command"], list) or not config["agent_command"] or any(
         not isinstance(v, str) or not v for v in config["agent_command"]
     ):
@@ -39,21 +37,4 @@ def load_config(path):
         raise ValueError("poll_seconds out of range")
     if not 0 <= config["max_questions"] <= 10 or not 1 <= config["max_task_seconds"] <= 86400:
         raise ValueError("task budget out of range")
-    if binding["repository"] not in config["repositories"] or binding["scope_profile"] not in config["profiles"]:
-        raise ValueError("task_binding references an unknown repository or profile")
-    for repo in config["repositories"].values():
-        cwd = Path(repo["cwd"])
-        repo["cwd"] = str(cwd if cwd.is_absolute() else path.parent / cwd)
-        if not isinstance(repo.get("remote"), str) or not repo["remote"]:
-            raise ValueError("repository needs an approved Git remote name")
-    bound_repo = config["repositories"][binding["repository"]]
-    if binding["scope_profile"] not in bound_repo.get("profiles", []):
-        raise ValueError("task_binding profile is not authorized for repository")
-    for profile in config["profiles"].values():
-        if not isinstance(profile.get("allowed_tools"), list) or not profile["allowed_tools"]:
-            raise ValueError("profile needs allowed_tools")
-        if any(not isinstance(v, str) or not v for v in profile["allowed_tools"]):
-            raise ValueError("allowed_tools must contain strings")
-        if not isinstance(profile.get("instructions"), str) or not profile["instructions"]:
-            raise ValueError("profile needs instructions")
     return config

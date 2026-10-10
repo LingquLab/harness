@@ -28,7 +28,7 @@ HANDOFF_PLUGIN_ROOT = File.join(PLUGINS_ROOT, HANDOFF_PLUGIN_NAME)
 HANDOFF_SKILLS_ROOT = File.join(HANDOFF_PLUGIN_ROOT, "skills")
 HANDOFF_SCENARIOS_ROOT = File.join(ROOT, "tests", HANDOFF_PLUGIN_NAME, "scenarios")
 HANDOFF_PLUGIN_SOURCE = "./plugins/cross-zone-development"
-HANDOFF_PLUGIN_VERSION = "0.3.0"
+HANDOFF_PLUGIN_VERSION = "0.4.0"
 HANDOFF_PLUGIN_LICENSE = "MIT"
 PERSISTENT_PLUGIN_NAME = "persistent-shell"
 PERSISTENT_PLUGIN_ROOT = File.join(PLUGINS_ROOT, PERSISTENT_PLUGIN_NAME)
@@ -459,18 +459,9 @@ def validate_handoff_contract
     unless config["access_key"] == "REPLACE_WITH_HAPI_ACCESS_KEY"
       raise "#{path}: missing access_key placeholder"
     end
-    deprecated = %w[session_id session_url state_dir key_env].select { |key| config.key?(key) }
+    deprecated = %w[session_id session_url state_dir workspace_dir key_env task_binding repositories profiles profile egress_deny_patterns].select { |key| config.key?(key) }
     unless deprecated.empty?
       raise "#{path}: session/state fields must be command-line/runtime derived: #{deprecated.join(', ')}"
-    end
-    binding = config["task_binding"]
-    unless binding.is_a?(Hash) && binding.keys.sort == %w[repository scope_profile] &&
-        config.fetch("repositories", {}).key?(binding["repository"]) &&
-        config.fetch("profiles", {}).key?(binding["scope_profile"]) &&
-        config["repositories"][binding["repository"]].fetch("profiles", []).include?(binding["scope_profile"]) &&
-        config["repositories"][binding["repository"]]["remote"].is_a?(String) &&
-        !config["repositories"][binding["repository"]]["remote"].empty?
-      raise "#{path}: task_binding must resolve to a locally authorized repository/profile"
     end
     if config.key?("token")
       raise "#{path}: token must not be embedded"

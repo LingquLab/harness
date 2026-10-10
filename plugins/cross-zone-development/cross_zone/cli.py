@@ -82,6 +82,7 @@ class InstanceLock:
 def main():
     parser = argparse.ArgumentParser(description="HAPI cross-zone bridge (Windows / CodeAgent CLI)")
     parser.add_argument("--config", default="config.local.json")
+    parser.add_argument("--workspace", default=os.getcwd(), help="authorized workspace; defaults to launch directory")
     parser.add_argument("--session", help="HAPI session UUID; required except for 'sessions'")
     parser.add_argument("command", choices=["sessions", "doctor", "bind", "run", "open", "status", "acknowledge-recovery"])
     args = parser.parse_args()
@@ -92,6 +93,7 @@ def main():
     stage = "loading configuration"
     try:
         config = load_config(args.config)
+        config["workspace_dir"] = str(Path(args.workspace).resolve())
         if args.command != "sessions":
             select_session(config, args.config, args.session)
         stage = "initializing HAPI authentication"
@@ -119,11 +121,8 @@ def main():
                 raise ValueError("Unsupported Hub pagination contract")
             if not shutil.which(config["agent_command"][0]):
                 raise ValueError("Configured agent executable not found")
-            if not shutil.which("git"):
-                raise ValueError("git executable not found")
-            for repo in config["repositories"].values():
-                if not Path(repo["cwd"]).is_dir():
-                    raise ValueError("Configured repository directory does not exist")
+            if not Path(config["workspace_dir"]).is_dir():
+                raise ValueError("Launch workspace directory does not exist")
             print("Authentication, session, message pagination, agent executable and directories: OK")
             print("Session active:", bool(selected.get("active")))
             return

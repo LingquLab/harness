@@ -24,6 +24,7 @@ case "$command_name" in
 esac
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+workspace_dir="$PWD"
 cd "$script_dir" || exit 1
 
 log_dir="${BRIDGE_LOG_DIR:-$script_dir/.cac}"
@@ -40,7 +41,7 @@ if [[ ! -f "$config_file" ]]; then
 fi
 
 export PYTHONUNBUFFERED=1
-python_args=(-m cross_zone --config "$config_file")
+python_args=(-m cross_zone --config "$config_file" --workspace "$workspace_dir")
 [[ -z "$session_id" ]] || python_args+=(--session "$session_id")
 python_args+=("$command_name")
 if command -v py >/dev/null 2>&1; then

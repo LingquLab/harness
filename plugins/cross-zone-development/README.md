@@ -16,12 +16,12 @@ Windows, and CodeAgentCLI, then copy this plugin directory to an approved local
 location. No third-party Python package is required.
 
 Copy [config.windows.json](config.windows.json) to the ignored
-`config.local.json`, set `hub_url`, `access_key`, the approved repository path
-and Git remote, then run:
+`config.local.json` and set `hub_url` and `access_key`. Start it from the
+directory green authorizes as the task workspace:
 
 ```bash
-./start-bridge.sh doctor <session-id>
-./start-bridge.sh open <session-id>
+<plugin-dir>/start-bridge.sh doctor <session-id>
+<plugin-dir>/start-bridge.sh open <session-id>
 ```
 
 Use `run` instead of `open` when the blue session has already dispatched work.
@@ -31,12 +31,15 @@ task-owned detached checkouts live under `.state/<session-id>/`.
 
 ## Green-initiated collaboration
 
-Use the bundled v0.3 green runtime and its untracked `config.local.json`.
+Use the bundled v0.4 green runtime and its untracked `config.local.json`.
 
-`task_binding` selects the repository and access profile entirely inside green;
-blue never supplies or needs these aliases. Session ID, session URL, and state
+Configuration contains no repository path, repository alias, Git remote, or task
+binding, profile, allowed-tools list, or custom egress pattern. The launch
+directory becomes the workspace. Session ID, session URL, and state
 directory are deliberately absent from configuration. Keep `config.local.json`
 inside green and never commit it because it contains the HAPI access key.
+Removed fields from older configurations are ignored and cannot override the
+command-line session or launch workspace.
 
 From the green Windows runtime directory, run:
 
@@ -52,9 +55,14 @@ ordinary conversation; it never echoes or injects OPEN.
 
 Blue completes and locally checks each candidate, commits it, and pushes its task
 branch to the approved GitHub repository before sending TASK. Green fetches the
-exact TASK revision through the `remote` configured in its local repository
-binding and tests it in an isolated clean checkout. HAPI carries coordination and
+exact TASK revision from the launch workspace's existing `origin` and tests it
+in an isolated clean checkout. HAPI carries coordination and
 reviewed results, never code. Green does not push diagnostic changes.
+
+Revision is optional. Include it for candidate-code validation as described
+above. Omit it for general green-environment work such as querying time, CPU/NPU
+state, service health, or other requested diagnostics; those tasks run
+in the launch workspace without Git fetch or checkout.
 
 For a listener without OPEN, run `./start-bridge.sh run <session-id>`. Each
 session automatically uses `.state/<session-id>/` and a session-specific log, so
@@ -67,14 +75,22 @@ Run the Bridge regression suite from this directory with:
 python -m unittest discover -s tests -v
 ```
 
+Agent failures use specific safe result reasons. `agent_executable_not_found`
+means `agent_command[0]` is missing or not on PATH;
+`agent_executable_not_runnable` means the file cannot execute;
+`agent_exit_nonzero` reports a nonzero CLI exit; and
+`agent_output_protocol_error` means the CLI did not return the required
+stream-json structured result. The green-local bridge log includes the exception
+type, bounded detail, exit code, and corrective action where applicable.
+
 ## Protocol boundaries
 
 TASK/ANSWER/CANCEL and ACK/PROGRESS/QUESTION/RESULT/REJECTED retain their v2
-semantics. New TASK messages do not carry repository/profile aliases; v0.3
-green runtimes accept legacy alias-bearing TASK messages only within local
-authorization. Results bind to the exact task, iteration, target, and immutable
-revision. RESULT includes every requested check; PASS requires all checks to pass
-on a clean, unmodified baseline. Missing dependencies or permissions are BLOCKED.
+semantics. TASK messages do not carry repository/profile aliases. Results bind
+to the exact task, iteration, and target, and to the
+immutable revision when one was supplied. RESULT includes every requested check;
+code-validation PASS additionally requires a clean, unmodified baseline.
+Missing dependencies or permissions are BLOCKED.
 Missing information uses QUESTION, capped at three. Green sets
 `egress_reviewed=true` only after excluding source, raw logs, credentials,
 internal addresses, absolute paths, payloads, and source-bearing artifacts.

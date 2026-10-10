@@ -71,14 +71,15 @@ class HapiContractTest(unittest.TestCase):
             self.assertNotIn("session_id", config)
             self.assertNotIn("session_url", config)
             self.assertNotIn("state_dir", config)
+            self.assertNotIn("workspace_dir", config)
             self.assertNotIn("key_env", config)
+            self.assertNotIn("task_binding", config)
+            self.assertNotIn("repositories", config)
+            self.assertNotIn("profiles", config)
+            self.assertNotIn("profile", config)
+            self.assertNotIn("egress_deny_patterns", config)
             self.assertNotIn("token", config)
             self.assertEqual(config["max_questions"], 3)
-            binding = config["task_binding"]
-            repository = config["repositories"][binding["repository"]]
-            self.assertEqual(repository["remote"], "origin")
-            self.assertIn(binding["scope_profile"], repository["profiles"])
-            self.assertIn(binding["scope_profile"], config["profiles"])
 
     def test_skill_routes_open_and_preserves_result_invariants(self) -> None:
         protocol = (SKILL / "references" / "protocol.md").read_text(encoding="utf-8")
@@ -89,22 +90,25 @@ class HapiContractTest(unittest.TestCase):
         self.assertIn("Blue must not create, inject, echo", protocol)
         self.assertIn("send one formal TASK", blue)
         self.assertIn("blue neither requests nor names", blue)
-        self.assertIn("./start-bridge.sh open <session-id>", green)
+        self.assertIn("<plugin-dir>/start-bridge.sh open <session-id>", green)
         self.assertIn("not configuration", green)
-        self.assertIn("preflighted local binding", green)
+        self.assertIn("preflighted launch workspace", green)
         self.assertIn("every requested check", protocol)
         self.assertIn("egress_reviewed=true", protocol)
         self.assertIn("creates a task-owned commit, and pushes", protocol)
         self.assertIn("prepares an isolated clean", protocol)
 
-        task_line = next(
+        task_lines = [
             line for line in protocol.splitlines()
             if line.startswith('{"protocol":"cross-zone/v2","type":"TASK"')
-        )
-        task = json.loads(task_line)
+        ]
+        task = json.loads(task_lines[0])
         self.assertNotIn("repository", task)
         self.assertNotIn("scope_profile", task)
         self.assertEqual(task["revision"], "0123456789012345678901234567890123456789")
+        general_task = json.loads(task_lines[1])
+        self.assertNotIn("revision", general_task)
+        self.assertEqual(general_task["task_id"], "machine-time")
 
     def test_removed_github_transport_is_not_shipped(self) -> None:
         self.assertFalse((SKILL / "references" / "github-access.md").exists())

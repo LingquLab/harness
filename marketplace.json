@@ -52,7 +52,7 @@
         "en": "HAPI collaboration between blue development and green protected-service AI agents.",
         "zh-CN": "通过 HAPI 协调蓝区开发 AI 与绿区受保护服务 AI。"
       },
-      "version": "0.3.0",
+      "version": "0.4.0",
       "author": {
         "name": "LingquLab",
         "url": "https://github.com/LingquLab"

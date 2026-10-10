@@ -8,24 +8,5 @@
   "max_questions": 3,
   "agent_command": ["codeagent"],
   "agent_live_log": true,
-  "agent_log_max_chars": 2000,
-  "task_binding": {
-    "repository": "candidate",
-    "scope_profile": "harness-tests"
-  },
-  "repositories": {
-    "candidate": {
-      "cwd": "./candidate",
-      "remote": "origin",
-      "profiles": ["harness-tests"]
-    }
-  },
-  "profiles": {
-    "harness-tests": {
-      "allowed_tools": ["Read", "Glob", "Grep", "Bash(git status*)", "Bash(git rev-parse*)", "Bash(python -m pytest*)"],
-      "max_turns": 30,
-      "instructions": "Run only requested checks with approved non-sensitive fixtures. Do not change shared services, credentials, or production state; do not install, push, or upload. Return BLOCKED when prerequisites or permissions are unavailable."
-    }
-  },
-  "egress_deny_patterns": []
+  "agent_log_max_chars": 2000
 }
