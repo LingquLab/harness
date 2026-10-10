@@ -31,7 +31,7 @@ task-owned detached checkouts live under `.state/<session-id>/`.
 
 ## Green-initiated collaboration
 
-Use the bundled v0.3 green runtime and its untracked `config.local.json`.
+Use the bundled v0.4 green runtime and its untracked `config.local.json`.
 
 `task_binding` selects the repository and access profile entirely inside green;
 blue never supplies or needs these aliases. Session ID, session URL, and state
@@ -56,6 +56,11 @@ exact TASK revision through the `remote` configured in its local repository
 binding and tests it in an isolated clean checkout. HAPI carries coordination and
 reviewed results, never code. Green does not push diagnostic changes.
 
+Revision is optional. Include it for candidate-code validation as described
+above. Omit it for general green-environment work such as querying time, CPU/NPU
+state, service health, or other profile-authorized diagnostics; those tasks run
+in the bound local workspace without Git fetch or checkout.
+
 For a listener without OPEN, run `./start-bridge.sh run <session-id>`. Each
 session automatically uses `.state/<session-id>/` and a session-specific log, so
 one local configuration can serve multiple concurrent sessions. See
@@ -70,11 +75,12 @@ python -m unittest discover -s tests -v
 ## Protocol boundaries
 
 TASK/ANSWER/CANCEL and ACK/PROGRESS/QUESTION/RESULT/REJECTED retain their v2
-semantics. New TASK messages do not carry repository/profile aliases; v0.3
+semantics. New TASK messages do not carry repository/profile aliases; v0.4
 green runtimes accept legacy alias-bearing TASK messages only within local
-authorization. Results bind to the exact task, iteration, target, and immutable
-revision. RESULT includes every requested check; PASS requires all checks to pass
-on a clean, unmodified baseline. Missing dependencies or permissions are BLOCKED.
+authorization. Results bind to the exact task, iteration, and target, and to the
+immutable revision when one was supplied. RESULT includes every requested check;
+code-validation PASS additionally requires a clean, unmodified baseline.
+Missing dependencies or permissions are BLOCKED.
 Missing information uses QUESTION, capped at three. Green sets
 `egress_reviewed=true` only after excluding source, raw logs, credentials,
 internal addresses, absolute paths, payloads, and source-bearing artifacts.

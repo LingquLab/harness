@@ -97,14 +97,17 @@ class HapiContractTest(unittest.TestCase):
         self.assertIn("creates a task-owned commit, and pushes", protocol)
         self.assertIn("prepares an isolated clean", protocol)
 
-        task_line = next(
+        task_lines = [
             line for line in protocol.splitlines()
             if line.startswith('{"protocol":"cross-zone/v2","type":"TASK"')
-        )
-        task = json.loads(task_line)
+        ]
+        task = json.loads(task_lines[0])
         self.assertNotIn("repository", task)
         self.assertNotIn("scope_profile", task)
         self.assertEqual(task["revision"], "0123456789012345678901234567890123456789")
+        general_task = json.loads(task_lines[1])
+        self.assertNotIn("revision", general_task)
+        self.assertEqual(general_task["task_id"], "machine-time")
 
     def test_removed_github_transport_is_not_shipped(self) -> None:
         self.assertFalse((SKILL / "references" / "github-access.md").exists())

@@ -83,7 +83,7 @@ class Bridge:
             store.emit(event, "ACK", state="QUEUED")
             LOG.info("Task queued: %s / %s", event["task_id"], event["iteration"])
             return
-        if task is None or json.loads(task["request"])["revision"] != event["revision"]:
+        if task is None or json.loads(task["request"]).get("revision") != event.get("revision"):
             store.emit(event, "REJECTED", reason="unknown_task_or_revision")
         elif event["type"] == "CANCEL":
             if task["state"] in {"QUEUED", "WAITING_ANSWER"}:

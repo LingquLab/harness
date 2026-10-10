@@ -69,7 +69,9 @@ class Store:
     def emit(self, request, kind, **fields):
         event_id = "green-" + uuid.uuid4().hex
         event = {"protocol": PROTOCOL, "type": kind, "event_id": event_id,
-                 **{k: request[k] for k in ("task_id", "iteration", "revision", "target")}, **fields}
+                 **{k: request[k] for k in ("task_id", "iteration", "target")}, **fields}
+        if "revision" in request:
+            event["revision"] = request["revision"]
         self.db.execute("INSERT INTO outbox(id,text,created) VALUES (?,?,?)", (event_id, wire(event), time.time()))
         return event_id
 

@@ -19,8 +19,8 @@ blue. Before sending OPEN, the bridge preflighted its green-local task binding.
   contains no host, credential, query, fragment, traversal, or encoded path.
 - Treat OPEN as a ready-worker signal without asking where green stores code or
   which profile it selected.
-- Prepare an immutable candidate and reproducible checks, then send one formal
-  TASK as the response that starts collaboration.
+- Prepare reproducible checks, plus an immutable pushed candidate only when code
+  validation is requested, then send one formal TASK.
 - Never create, inject, echo, or acknowledge OPEN as a protocol event.
 
 ## Failure Signals A
@@ -102,3 +102,24 @@ raw evidence back to blue.
 - Running with unrelated credentials, data, services, or unrestricted egress.
 - Returning source, patches, raw logs, internal identifiers, or exported artifacts.
 - Omitting a requested check or misreporting baseline versus local changes.
+
+## Request E: General Green-Environment Check
+
+Blue requests a bounded read-only observation such as machine time, CPU/NPU
+occupancy, or service health. No candidate code is involved.
+
+## Expected Behavior E
+
+- Send TASK without revision and without green repository/profile aliases.
+- Resolve the green-local binding and profile, then run the requested check in
+  the authorized workspace without Git fetch or checkout.
+- Bind ACK/PROGRESS/QUESTION/RESULT to task ID, iteration, and target while
+  consistently omitting revision.
+- Return every requested check with bounded sanitized evidence; PASS asserts only
+  those observations and does not claim that a code baseline passed.
+
+## Failure Signals E
+
+- Requiring a commit SHA for a task that does not validate code.
+- Fetching code or creating a checkout for a revisionless task.
+- Treating a revisionless environment result as evidence about a code revision.

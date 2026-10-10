@@ -31,6 +31,12 @@ def task(**changes):
     return event
 
 
+def general_task(**changes):
+    event = task(**changes)
+    event.pop("revision", None)
+    return event
+
+
 def output(**changes):
     value = {"kind": "RESULT", "status": "PASS", "summary": "The regression passed.",
              "checks": [{"id": "regression", "status": "PASS"}], "error_code": "", "question": "",
@@ -214,6 +220,13 @@ class ProtocolTests(unittest.TestCase):
         event.pop("scope_profile")
         self.assertEqual(parse(wire(event), "green-dev"), event)
 
+    def test_general_task_and_controls_omit_revision(self):
+        event = general_task(repository="candidate", scope_profile="isolated-test")
+        self.assertEqual(parse(wire(event), "green-dev"), event)
+        cancel = {"protocol": "cross-zone/v2", "type": "CANCEL", "event_id": "cancel-1",
+                  "task_id": event["task_id"], "iteration": 1, "target": "green-dev"}
+        self.assertEqual(parse(wire(cancel), "green-dev"), cancel)
+
     def test_ignore_user_tool_child_partial_and_examples(self):
         row = message(task(), 1)
         row["content"]["role"] = "user"
@@ -327,6 +340,19 @@ class BridgeTests(unittest.TestCase):
         request = self.agent.calls[0][0]
         self.assertEqual(request["repository"], "candidate")
         self.assertEqual(request["scope_profile"], "isolated-test")
+
+    def test_general_task_runs_without_revision_and_returns_revisionless_result(self):
+        event = general_task()
+        event.pop("repository")
+        event.pop("scope_profile")
+        self.bridge.bind()
+        self.ingest(event)
+        self.settle()
+        self.bridge.flush()
+        request = self.agent.calls[0][0]
+        self.assertNotIn("revision", request)
+        result = next(sent for _, sent in self.client.sent if sent["type"] == "RESULT")
+        self.assertNotIn("revision", result)
 
     def test_multi_page_after_and_empty_bootstrap(self):
         self.bridge.bind()
@@ -723,6 +749,21 @@ class AgentTests(unittest.TestCase):
         (checkout / "dirty.txt").write_text("uncommitted")
         result = self.run_agent("raise Exception('should not launch')\n")
         self.assertEqual(result["status"], "BLOCKED")
+
+    def test_general_task_runs_in_authorized_workspace_without_git_checkout(self):
+        event = general_task()
+        self.script.write_text("import json,sys\nsys.stdin.read()\nprint(" +
+                               repr(json.dumps({"structured_output": output()})) + ")\n",
+                               encoding="utf-8")
+        result = CodeAgentCLI(self.cfg).run(
+            event,
+            None,
+            None,
+            time.time() + 10,
+            threading.Event(),
+        )
+        self.assertEqual(result["output"]["status"], "PASS")
+        self.assertFalse((Path(self.cfg["state_dir"]) / "checkouts").exists())
 
     def test_agent_failure_does_not_export_stdout(self):
         result = self.run_agent("print('protected source text')\n")

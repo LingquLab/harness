@@ -83,7 +83,7 @@ def parse(text, target):
         raise ProtocolError("invalid_protocol")
     if event.get("target") != target:
         return None
-    base = {"protocol", "type", "event_id", "task_id", "iteration", "target", "revision"}
+    base = {"protocol", "type", "event_id", "task_id", "iteration", "target"}
     kind = event.get("type")
     if not isinstance(kind, str):
         raise ProtocolError("invalid_type")
@@ -96,10 +96,11 @@ def parse(text, target):
         "CANCEL": set(),
     }.get(kind)
     fields = set(event)
+    optional_revision = {"revision"} if "revision" in fields else set()
     legacy_aliases = {"repository", "scope_profile"}
-    valid_fields = fields == base | extra
+    valid_fields = fields == base | extra | optional_revision
     if kind == "TASK":
-        valid_fields = valid_fields or fields == base | extra | legacy_aliases
+        valid_fields = valid_fields or fields == base | extra | legacy_aliases | optional_revision
     if extra is None or not valid_fields:
         raise ProtocolError("invalid_fields")
     for field in ("event_id", "task_id", "target"):
@@ -107,7 +108,7 @@ def parse(text, target):
             raise ProtocolError("invalid_id")
     if type(event["iteration"]) is not int or not 1 <= event["iteration"] <= 10000:
         raise ProtocolError("invalid_iteration")
-    if not isinstance(event["revision"], str) or not REVISION.fullmatch(event["revision"]):
+    if "revision" in event and (not isinstance(event["revision"], str) or not REVISION.fullmatch(event["revision"])):
         raise ProtocolError("invalid_revision")
     if kind == "TASK":
         for field in legacy_aliases & fields:
