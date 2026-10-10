@@ -14,11 +14,11 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 位置；Bridge 不依赖第三方 Python 包。
 
 把 [config.windows.json](config.windows.json) 复制为已忽略的 `config.local.json`，填写
-`hub_url`、`access_key`、批准的仓库路径和 Git remote，然后执行：
+`hub_url`、`access_key` 和单一执行 profile。从绿区授权作为任务 workspace 的目录启动：
 
 ```bash
-./start-bridge.sh doctor <session-id>
-./start-bridge.sh open <session-id>
+<plugin-dir>/start-bridge.sh doctor <session-id>
+<plugin-dir>/start-bridge.sh open <session-id>
 ```
 
 蓝区已经开始派发任务时可用 `run` 代替 `open`。启动脚本写入
@@ -30,8 +30,8 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 
 使用插件内置的 v0.4 绿区运行时及不受 Git 跟踪的 `config.local.json`。
 
-`task_binding` 完全在绿区内部选择仓库和权限 profile，蓝区不提供也不需要知道这些
-别名。配置中不保存 session ID、session URL 或 state directory。`config.local.json`
+配置中不再包含仓库路径、仓库别名、Git remote 或 task binding。启动命令所在目录就是
+workspace，单一 `profile` 定义本地权限。配置中不保存 session ID、session URL 或 state directory。`config.local.json`
 含 HAPI access key，只能保存在绿区本机且不得提交。
 
 在绿区 Windows 运行时目录执行：
@@ -46,13 +46,13 @@ TASK/ANSWER/CANCEL。蓝区确认 OPEN 指向当前授权会话后，发送正�
 若不接受，则仅用普通对话说明原因。蓝区不得注入、回显或返回 OPEN 协议消息。
 
 蓝区完成并检查候选修改后，先提交并把任务分支推送到批准的 GitHub 仓库，再发送
-TASK。绿区通过本地仓库绑定中的 `remote` 拉取 TASK 指定的完整 revision，在隔离、
+TASK。如果启动 workspace 是 Git 仓库，绿区通过其现有 `origin` 拉取 TASK 指定的完整 revision，在隔离、
 干净的 checkout 中测试。HAPI 只传递协同消息和审查后的结果，不传代码；绿区不推送
 诊断修改。
 
 `revision` 是可选字段。候选代码验证按上述流程携带 revision；查询时间、CPU/NPU
 状态、服务健康度或其他 profile 已授权的绿区环境检查不携带 revision，Bridge 会跳过
-Git fetch 和 checkout，直接在本地绑定 workspace 中执行。
+Git fetch 和 checkout，直接在启动 workspace 中执行。
 
 不需要绿区主动开启时，运行 `./start-bridge.sh run <session-id>`。每个会话自动使用
 `.state/<session-id>/` 和独立日志，因此同一配置可服务多个并发会话。跨平台示例见
@@ -67,8 +67,7 @@ python -m unittest discover -s tests -v
 ## 协议边界
 
 TASK/ANSWER/CANCEL 与 ACK/PROGRESS/QUESTION/RESULT/REJECTED 保持 v2 既有语义。
-新 TASK 不携带仓库/profile 别名；v0.4 绿区运行时仅在本地授权范围内兼容旧版
-带别名 TASK。
+TASK 不携带仓库/profile 别名。
 结果必须绑定准确的任务、iteration 和 target；TASK 提供 revision 时还必须绑定该
 不可变 revision。RESULT 必须包含全部 requested checks；代码验证的 PASS 还要求所有
 检查在干净且未修改的基线上通过。依赖或权限不足返回

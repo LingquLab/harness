@@ -23,8 +23,7 @@ from cross_zone.protocol import MARKER, ProtocolError, assistant_text, open_even
 
 def task(**changes):
     event = {"protocol": "cross-zone/v2", "type": "TASK", "event_id": "blue-1", "task_id": "task-1",
-             "iteration": 1, "target": "green-dev", "revision": "a" * 40, "repository": "candidate",
-             "scope_profile": "isolated-test", "goal": "Run the regression",
+             "iteration": 1, "target": "green-dev", "revision": "a" * 40, "goal": "Run the regression",
              "checks": [{"id": "regression", "action": "Run approved tests", "expected": "All pass"}],
              "timeout_seconds": 30}
     event.update(changes)
@@ -104,12 +103,10 @@ class FakeAgent:
 def config(directory):
     return {"hub_url": "http://localhost/hapi/", "session_id": "blue-session",
             "target": "green-dev", "state_dir": str(Path(directory) / "state"), "sse": False,
+            "workspace_dir": str(Path(directory) / "repo"),
             "max_task_seconds": 30, "max_questions": 3, "poll_seconds": 0.1, "agent_command": ["codeagent"],
             "agent_live_log": True, "agent_log_max_chars": 2000,
-            "task_binding": {"repository": "candidate", "scope_profile": "isolated-test"},
-            "repositories": {"candidate": {"cwd": str(Path(directory) / "repo"), "remote": "origin",
-                                               "profiles": ["isolated-test"]}},
-            "profiles": {"isolated-test": {"allowed_tools": ["Read"], "instructions": "Read-only tests"}},
+            "profile": {"allowed_tools": ["Read"], "instructions": "Read-only tests"},
             "egress_deny_patterns": []}
 
 
@@ -143,10 +140,11 @@ class GitBashLauncherTests(unittest.TestCase):
             session_id = "19146292-52a4-4094-9cd5-6086b0c3ec05"
             launcher = Path(__file__).parents[1] / "start-bridge.sh"
             result = subprocess.run(["bash", str(launcher), "doctor", session_id, str(config_path)],
-                                    env=env, capture_output=True, text=True)
+                                    cwd=root, env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(capture.read_text(encoding="utf-8").splitlines(),
                              ["-3", "-m", "cross_zone", "--config", str(config_path),
+                              "--workspace", str(root),
                               "--session", session_id, "doctor"])
             log_path = root / "logs" / ("bridge-doctor-" + session_id + ".log")
             self.assertTrue(log_path.is_file())
@@ -177,7 +175,7 @@ class CliErrorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             value = config(directory)
             value["access_key"] = "local-config-secret"
-            for field in ("session_id", "session_url", "state_dir", "key_env"):
+            for field in ("session_id", "session_url", "state_dir", "workspace_dir", "key_env"):
                 value.pop(field, None)
             path = Path(directory) / "config.local.json"
             path.write_text(json.dumps(value), encoding="utf-8")
@@ -189,14 +187,15 @@ class CliErrorTests(unittest.TestCase):
 
     def test_config_rejects_session_and_state_fields(self):
         with tempfile.TemporaryDirectory() as directory:
-            for field in ("session_id", "session_url", "state_dir", "key_env"):
+            for field in ("session_id", "session_url", "state_dir", "workspace_dir", "key_env",
+                          "task_binding", "repositories", "profiles"):
                 value = config(directory)
-                for runtime_field in ("session_id", "state_dir"):
+                for runtime_field in ("session_id", "state_dir", "workspace_dir"):
                     value.pop(runtime_field, None)
                 value[field] = "obsolete"
                 path = Path(directory) / (field + ".json")
                 path.write_text(json.dumps(value), encoding="utf-8")
-                with self.subTest(field=field), self.assertRaisesRegex(ValueError, "deprecated"):
+                with self.subTest(field=field), self.assertRaisesRegex(ValueError, "deprecated|repository binding"):
                     load_config(path)
 
     def test_command_line_session_derives_isolated_state(self):
@@ -216,12 +215,12 @@ class ProtocolTests(unittest.TestCase):
 
     def test_new_task_omits_green_local_aliases(self):
         event = task()
-        event.pop("repository")
-        event.pop("scope_profile")
         self.assertEqual(parse(wire(event), "green-dev"), event)
+        with self.assertRaises(ProtocolError):
+            parse(wire({**event, "repository": "candidate", "scope_profile": "tests"}), "green-dev")
 
     def test_general_task_and_controls_omit_revision(self):
-        event = general_task(repository="candidate", scope_profile="isolated-test")
+        event = general_task()
         self.assertEqual(parse(wire(event), "green-dev"), event)
         cancel = {"protocol": "cross-zone/v2", "type": "CANCEL", "event_id": "cancel-1",
                   "task_id": event["task_id"], "iteration": 1, "target": "green-dev"}
@@ -332,19 +331,15 @@ class BridgeTests(unittest.TestCase):
 
     def test_new_task_uses_green_local_binding(self):
         event = task()
-        event.pop("repository")
-        event.pop("scope_profile")
         self.bridge.bind()
         self.ingest(event)
         self.settle()
         request = self.agent.calls[0][0]
-        self.assertEqual(request["repository"], "candidate")
-        self.assertEqual(request["scope_profile"], "isolated-test")
+        self.assertNotIn("repository", request)
+        self.assertNotIn("scope_profile", request)
 
     def test_general_task_runs_without_revision_and_returns_revisionless_result(self):
         event = general_task()
-        event.pop("repository")
-        event.pop("scope_profile")
         self.bridge.bind()
         self.ingest(event)
         self.settle()
@@ -608,7 +603,7 @@ class AgentTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.cfg = config(self.tmp.name)
-        self.repo = Path(self.cfg["repositories"]["candidate"]["cwd"])
+        self.repo = Path(self.cfg["workspace_dir"])
         self.repo.mkdir()
         subprocess.run(["git", "init", str(self.repo)], check=True, capture_output=True)
         subprocess.run(["git", "-C", str(self.repo), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",

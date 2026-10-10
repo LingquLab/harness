@@ -16,12 +16,12 @@ Windows, and CodeAgentCLI, then copy this plugin directory to an approved local
 location. No third-party Python package is required.
 
 Copy [config.windows.json](config.windows.json) to the ignored
-`config.local.json`, set `hub_url`, `access_key`, the approved repository path
-and Git remote, then run:
+`config.local.json`, set `hub_url`, `access_key`, and the single local execution
+profile. Start it from the directory green authorizes as the task workspace:
 
 ```bash
-./start-bridge.sh doctor <session-id>
-./start-bridge.sh open <session-id>
+<plugin-dir>/start-bridge.sh doctor <session-id>
+<plugin-dir>/start-bridge.sh open <session-id>
 ```
 
 Use `run` instead of `open` when the blue session has already dispatched work.
@@ -33,8 +33,9 @@ task-owned detached checkouts live under `.state/<session-id>/`.
 
 Use the bundled v0.4 green runtime and its untracked `config.local.json`.
 
-`task_binding` selects the repository and access profile entirely inside green;
-blue never supplies or needs these aliases. Session ID, session URL, and state
+Configuration contains no repository path, repository alias, Git remote, or task
+binding. The launch directory becomes the workspace and the single `profile`
+defines local permissions. Session ID, session URL, and state
 directory are deliberately absent from configuration. Keep `config.local.json`
 inside green and never commit it because it contains the HAPI access key.
 
@@ -52,14 +53,14 @@ ordinary conversation; it never echoes or injects OPEN.
 
 Blue completes and locally checks each candidate, commits it, and pushes its task
 branch to the approved GitHub repository before sending TASK. Green fetches the
-exact TASK revision through the `remote` configured in its local repository
-binding and tests it in an isolated clean checkout. HAPI carries coordination and
+exact TASK revision from the launch workspace's existing `origin` and tests it
+in an isolated clean checkout. HAPI carries coordination and
 reviewed results, never code. Green does not push diagnostic changes.
 
 Revision is optional. Include it for candidate-code validation as described
 above. Omit it for general green-environment work such as querying time, CPU/NPU
 state, service health, or other profile-authorized diagnostics; those tasks run
-in the bound local workspace without Git fetch or checkout.
+in the launch workspace without Git fetch or checkout.
 
 For a listener without OPEN, run `./start-bridge.sh run <session-id>`. Each
 session automatically uses `.state/<session-id>/` and a session-specific log, so
@@ -75,9 +76,8 @@ python -m unittest discover -s tests -v
 ## Protocol boundaries
 
 TASK/ANSWER/CANCEL and ACK/PROGRESS/QUESTION/RESULT/REJECTED retain their v2
-semantics. New TASK messages do not carry repository/profile aliases; v0.4
-green runtimes accept legacy alias-bearing TASK messages only within local
-authorization. Results bind to the exact task, iteration, and target, and to the
+semantics. TASK messages do not carry repository/profile aliases. Results bind
+to the exact task, iteration, and target, and to the
 immutable revision when one was supplied. RESULT includes every requested check;
 code-validation PASS additionally requires a clean, unmodified baseline.
 Missing dependencies or permissions are BLOCKED.

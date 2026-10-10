@@ -25,9 +25,9 @@ session only and has the form `sessions/<session-id>`.
 It must not contain a scheme, host, credentials, query, fragment, `..`, or
 percent-encoded path components.
 
-The bridge sends OPEN only after preflight validates its green-local task binding,
-approved Git remote, CLI, and required directories. That binding owns the working
-directory and access profile and never crosses into the protocol. Blue must not create, inject, echo,
+The bridge sends OPEN only after preflight validates its green-local launch
+workspace, execution profile, CLI, and required directories. These local choices
+never cross into the protocol. Blue must not create, inject, echo,
 or acknowledge OPEN as a protocol event. Accept it only when it arrived as a user
 message in the current HAPI conversation, the active conversation directly
 designates this agent as blue, `target` matches the expected bridge, and
@@ -61,16 +61,14 @@ the task validates candidate code; it is then a full lowercase SHA-1 or SHA-256
 Git commit ID that blue has already pushed to the approved GitHub repository.
 General environment, hardware, time, service-status, and diagnostic tasks omit
 `revision` and do not trigger Git fetch or checkout. Blue never names a green repository, working directory,
-or access profile; the bridge resolves those from its preflighted local binding.
+or access profile; the bridge uses its launch workspace and local profile.
 Include reproducible prerequisites, actions, expected outcomes, cleanup, and stop
 conditions in goal/checks. Exact duplicates are ignored; reusing a task/iteration
 with different content rejects. A later iteration requires the previous one to
 be terminal.
 
-For migration, green v0.4 may accept legacy TASK messages containing
-`repository` and `scope_profile`. It treats them only as aliases constrained by
-green-local configuration. New blue agents omit both fields. This compatibility
-path must not let blue choose a path or expand permissions.
+TASK rejects `repository` and `scope_profile`. Neither side can select a green
+path or profile through the protocol.
 
 ## Candidate transfer
 
@@ -79,8 +77,9 @@ its available checks, creates a task-owned commit, and pushes the task branch.
 This section applies only when TASK includes `revision`. TASK names that exact
 commit, never a mutable branch head or an uncommitted tree.
 
-On TASK, green fetches from the approved remote configured in its local task
-binding, verifies the requested commit exists, and prepares an isolated clean
+On a revision-bearing TASK, green requires the launch workspace to be a Git
+repository, fetches from its existing `origin`, verifies the requested commit
+exists, and prepares an isolated clean
 checkout at that commit before invoking the test agent. Green never guesses from
 an existing local HEAD, silently tests a nearby revision, or asks blue for a green
 path/profile. If the commit cannot be fetched or isolated, return BLOCKED. Green
@@ -98,7 +97,7 @@ They affect only an exact matching task.
 - QUESTION carries one bounded sanitized question; blue may send a matching
   ANSWER. The bridge permits at most three questions.
 - RESULT status is PASS, FAIL, BLOCKED, NEEDS_HUMAN, CANCELLED, or TIMED_OUT.
-- REJECTED reports an invalid binding, transition, alias, or conflicting duplicate.
+- REJECTED reports an invalid transition or conflicting duplicate.
 
 RESULT includes every requested check. PASS requires every check to be PASS. For
 a revision-bearing task it additionally requires the exact unmodified baseline,

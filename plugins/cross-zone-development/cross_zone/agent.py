@@ -53,12 +53,11 @@ def baseline(cwd, revision, require_clean=True):
     return dirty
 
 
-def prepare_checkout(repository, revision, destination):
+def prepare_checkout(source, revision, destination):
     """Fetch an immutable revision and prepare a task-owned detached worktree."""
-    source = Path(repository["cwd"])
-    remote = repository["remote"]
+    source = Path(source)
     destination = Path(destination)
-    git(source, "fetch", "--no-tags", remote, revision)
+    git(source, "fetch", "--no-tags", "origin", revision)
     git(source, "cat-file", "-e", revision + "^{commit}")
     if destination.exists():
         baseline(destination, revision)
@@ -223,16 +222,16 @@ class CodeAgentCLI:
         if stopped_result := stopped():
             return stopped_result
         config = self.config
-        repo = config["repositories"][request["repository"]]
-        profile = config["profiles"][request["scope_profile"]]
+        workspace = Path(config["workspace_dir"])
+        profile = config["profile"]
         revision = request.get("revision")
         try:
             if revision:
                 checkout = Path(config["state_dir"]) / "checkouts" / request["task_id"] / str(request["iteration"])
-                cwd = prepare_checkout(repo, revision, checkout)
+                cwd = prepare_checkout(workspace, revision, checkout)
                 baseline(cwd, revision, require_clean=not session_id)
             else:
-                cwd = Path(repo["cwd"])
+                cwd = workspace
                 if not cwd.is_dir():
                     raise ValueError("workspace_unavailable")
         except (OSError, ValueError, subprocess.TimeoutExpired):

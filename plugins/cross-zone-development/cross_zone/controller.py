@@ -24,7 +24,7 @@ class CursorReset(RuntimeError):
 class Bridge:
     def __init__(self, config, client, agent=None):
         self.config, self.client = config, client
-        binding = {k: config[k] for k in ("hub_url", "session_id", "target", "repositories", "profiles")}
+        binding = {k: config[k] for k in ("hub_url", "session_id", "target", "workspace_dir", "profile")}
         self.store = Store(Path(config["state_dir"]) / "bridge.sqlite3", binding)
         self.agent = agent or CodeAgentCLI(config)
         self.executor = ThreadPoolExecutor(max_workers=1)
@@ -66,20 +66,11 @@ class Bridge:
             reason = None
             if previous and (previous["iteration"] >= event["iteration"] or previous["state"] not in TERMINAL):
                 reason = "iteration_stale_or_previous_running"
-            binding = self.config["task_binding"]
-            repository = event.get("repository", binding["repository"])
-            scope_profile = event.get("scope_profile", binding["scope_profile"])
-            repo = self.config["repositories"].get(repository)
-            if repo is None or scope_profile not in self.config["profiles"]:
-                reason = "unknown_repository_or_profile"
-            elif scope_profile not in repo["profiles"]:
-                reason = "profile_not_authorized_for_repository"
             if reason:
                 store.emit(event, "REJECTED", reason=reason)
                 return
-            request = dict(event, repository=repository, scope_profile=scope_profile)
             store.db.execute("INSERT INTO tasks(task_id,iteration,request,digest,state) VALUES (?,?,?,?,?)",
-                             (event["task_id"], event["iteration"], canonical(request), task_digest, "QUEUED"))
+                             (event["task_id"], event["iteration"], canonical(event), task_digest, "QUEUED"))
             store.emit(event, "ACK", state="QUEUED")
             LOG.info("Task queued: %s / %s", event["task_id"], event["iteration"])
             return
