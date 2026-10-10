@@ -7,11 +7,31 @@ A Windows bridge in the green protected-service zone invokes its local Claude
 Code-compatible CLI and sends only bounded, reviewed results back to blue. GitHub
 Issues and browser automation are not part of the transport.
 
+## Green runtime setup
+
+The plugin ships the Python Bridge in [`cross_zone`](cross_zone), its Git Bash
+launcher [`start-bridge.sh`](start-bridge.sh), configuration templates, and
+offline runtime tests. On the green Windows host, install Python 3.11+, Git for
+Windows, and CodeAgentCLI, then copy this plugin directory to an approved local
+location. No third-party Python package is required.
+
+Copy [config.windows.json](config.windows.json) to the ignored
+`config.local.json`, set `hub_url`, `access_key`, the approved repository path
+and Git remote, then run:
+
+```bash
+./start-bridge.sh doctor <session-id>
+./start-bridge.sh open <session-id>
+```
+
+Use `run` instead of `open` when the blue session has already dispatched work.
+The launcher writes `.cac/bridge-<command>-<session-id>.log`; the agent's bounded
+stream output is visible there but remains local to green. Runtime state and
+task-owned detached checkouts live under `.state/<session-id>/`.
+
 ## Green-initiated collaboration
 
-Use the v0.3 green runtime. Copy [config.windows.json](config.windows.json) to
-untracked `config.local.json`, then set the HAPI Hub, access key, and green
-repository/profile aliases.
+Use the bundled v0.3 green runtime and its untracked `config.local.json`.
 
 `task_binding` selects the repository and access profile entirely inside green;
 blue never supplies or needs these aliases. Session ID, session URL, and state
@@ -40,6 +60,12 @@ For a listener without OPEN, run `./start-bridge.sh run <session-id>`. Each
 session automatically uses `.state/<session-id>/` and a session-specific log, so
 one local configuration can serve multiple concurrent sessions. See
 [config.example.json](config.example.json) for a platform-neutral template.
+
+Run the Bridge regression suite from this directory with:
+
+```bash
+python -m unittest discover -s tests -v
+```
 
 ## Protocol boundaries
 

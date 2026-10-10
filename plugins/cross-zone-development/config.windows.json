@@ -7,6 +7,8 @@
   "max_task_seconds": 1800,
   "max_questions": 3,
   "agent_command": ["C:/Program Files/CodeAgentCLI/bin/codeagentcli.exe"],
+  "agent_live_log": true,
+  "agent_log_max_chars": 2000,
   "task_binding": {
     "repository": "candidate",
     "scope_profile": "harness-tests"

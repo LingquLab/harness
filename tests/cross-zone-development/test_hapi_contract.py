@@ -110,6 +110,23 @@ class HapiContractTest(unittest.TestCase):
         self.assertFalse((SKILL / "references" / "github-access.md").exists())
         self.assertFalse((SKILL / "scripts" / "github_issue.py").exists())
 
+    def test_green_runtime_is_shipped(self) -> None:
+        for relative in (
+            "start-bridge.sh",
+            "pyproject.toml",
+            "cross_zone/__main__.py",
+            "cross_zone/agent.py",
+            "cross_zone/cli.py",
+            "cross_zone/controller.py",
+            "cross_zone/egress.py",
+            "cross_zone/hapi.py",
+            "cross_zone/protocol.py",
+            "cross_zone/store.py",
+            "tests/test_bridge.py",
+        ):
+            with self.subTest(relative=relative):
+                self.assertTrue((PLUGIN / relative).is_file())
+
 
 if __name__ == "__main__":
     unittest.main()
