@@ -13,9 +13,10 @@ def load_config(path):
     config.setdefault("access_key", None)
     if config["access_key"] is not None and (not isinstance(config["access_key"], str) or not config["access_key"].strip()):
         raise ValueError("access_key must be a non-empty string or null")
-    deprecated = {"session_id", "session_url", "state_dir", "workspace_dir", "key_env"} & set(config)
-    if deprecated:
-        raise ValueError("remove deprecated config fields: " + ", ".join(sorted(deprecated)))
+    ignored = {"session_id", "session_url", "state_dir", "workspace_dir", "key_env",
+               "task_binding", "repositories", "profiles"}
+    for field in ignored:
+        config.pop(field, None)
     config.setdefault("poll_seconds", 5)
     config.setdefault("sse", True)
     config.setdefault("max_questions", 3)
@@ -24,9 +25,6 @@ def load_config(path):
     config.setdefault("agent_command", ["codeagent"])
     config.setdefault("agent_live_log", True)
     config.setdefault("agent_log_max_chars", 2000)
-    deprecated_binding = {"task_binding", "repositories", "profiles"} & set(config)
-    if deprecated_binding:
-        raise ValueError("remove repository binding fields: " + ", ".join(sorted(deprecated_binding)))
     if not isinstance(config["agent_command"], list) or not config["agent_command"] or any(
         not isinstance(v, str) or not v for v in config["agent_command"]
     ):

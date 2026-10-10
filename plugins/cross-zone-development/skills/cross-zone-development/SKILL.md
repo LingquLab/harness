@@ -74,3 +74,4 @@ cannot cross safely, return NEEDS_HUMAN with a safe reason category.
 Use [config.example.json](../../config.example.json) as the generic runtime
 configuration reference. The access key may be stored in untracked green-local
 `config.local.json`; never put it in a committed template or protocol message.
+Removed legacy configuration fields are ignored and grant no authority.

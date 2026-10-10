@@ -185,7 +185,7 @@ class CliErrorTests(unittest.TestCase):
                                                (loaded["access_key"],)),
                              "bad [REDACTED]")
 
-    def test_config_rejects_session_and_state_fields(self):
+    def test_config_ignores_removed_session_state_and_repository_fields(self):
         with tempfile.TemporaryDirectory() as directory:
             for field in ("session_id", "session_url", "state_dir", "workspace_dir", "key_env",
                           "task_binding", "repositories", "profiles"):
@@ -195,8 +195,10 @@ class CliErrorTests(unittest.TestCase):
                 value[field] = "obsolete"
                 path = Path(directory) / (field + ".json")
                 path.write_text(json.dumps(value), encoding="utf-8")
-                with self.subTest(field=field), self.assertRaisesRegex(ValueError, "deprecated|repository binding"):
-                    load_config(path)
+                with self.subTest(field=field):
+                    loaded = load_config(path)
+                    self.assertNotIn(field, loaded)
+                    self.assertIn("profile", loaded)
 
     def test_command_line_session_derives_isolated_state(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -38,6 +38,8 @@ binding. The launch directory becomes the workspace and the single `profile`
 defines local permissions. Session ID, session URL, and state
 directory are deliberately absent from configuration. Keep `config.local.json`
 inside green and never commit it because it contains the HAPI access key.
+Removed fields from older configurations are ignored and cannot override the
+command-line session, launch workspace, or local profile.
 
 From the green Windows runtime directory, run:
 

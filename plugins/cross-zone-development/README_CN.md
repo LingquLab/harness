@@ -33,6 +33,8 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 配置中不再包含仓库路径、仓库别名、Git remote 或 task binding。启动命令所在目录就是
 workspace，单一 `profile` 定义本地权限。配置中不保存 session ID、session URL 或 state directory。`config.local.json`
 含 HAPI access key，只能保存在绿区本机且不得提交。
+旧配置中已经删除的字段会被直接忽略，不能覆盖命令行 session、启动 workspace 或本地
+profile。
 
 在绿区 Windows 运行时目录执行：
 
