@@ -1,7 +1,7 @@
 {
   "name": "cross-zone-development",
-  "version": "0.1.4",
-  "description": "Secure GitHub issue handoffs between blue development and green protected-service zones.",
+  "version": "0.3.0",
+  "description": "HAPI collaboration between blue development and green protected-service AI agents.",
   "author": {
     "name": "LingquLab",
     "url": "https://github.com/LingquLab"
@@ -11,14 +11,14 @@
   "license": "MIT",
   "keywords": [
     "cross-zone debugging",
-    "GitHub issue handoff",
+    "HAPI agent collaboration",
     "data-loss prevention"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Cross Zone Development",
-    "shortDescription": "Secure blue-to-green service debugging through GitHub issues.",
-    "longDescription": "Coordinate an auditable debug handoff with reproducible blue-zone test instructions and local green-zone fix validation, while keeping code and bulk logs inside the green zone.",
+    "shortDescription": "Secure blue/green AI validation through HAPI.",
+    "longDescription": "Let a green Windows bridge open an authorized HAPI collaboration, receive reproducible blue tasks, and return bounded results while keeping source and raw evidence inside green.",
     "developerName": "LingquLab",
     "category": "Developer Tools",
     "capabilities": [
@@ -27,7 +27,7 @@
     ],
     "websiteURL": "https://github.com/LingquLab/harness",
     "defaultPrompt": [
-      "Coordinate this cross-zone debug handoff without exposing protected code or logs."
+      "Coordinate this HAPI cross-zone workflow without exposing protected code or logs."
     ]
   }
 }
