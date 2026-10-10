@@ -16,8 +16,8 @@ Windows, and CodeAgentCLI, then copy this plugin directory to an approved local
 location. No third-party Python package is required.
 
 Copy [config.windows.json](config.windows.json) to the ignored
-`config.local.json`, set `hub_url`, `access_key`, and the single local execution
-profile. Start it from the directory green authorizes as the task workspace:
+`config.local.json` and set `hub_url` and `access_key`. Start it from the
+directory green authorizes as the task workspace:
 
 ```bash
 <plugin-dir>/start-bridge.sh doctor <session-id>
@@ -34,12 +34,12 @@ task-owned detached checkouts live under `.state/<session-id>/`.
 Use the bundled v0.4 green runtime and its untracked `config.local.json`.
 
 Configuration contains no repository path, repository alias, Git remote, or task
-binding. The launch directory becomes the workspace and the single `profile`
-defines local permissions. Session ID, session URL, and state
+binding, profile, allowed-tools list, or custom egress pattern. The launch
+directory becomes the workspace. Session ID, session URL, and state
 directory are deliberately absent from configuration. Keep `config.local.json`
 inside green and never commit it because it contains the HAPI access key.
 Removed fields from older configurations are ignored and cannot override the
-command-line session, launch workspace, or local profile.
+command-line session or launch workspace.
 
 From the green Windows runtime directory, run:
 
@@ -61,7 +61,7 @@ reviewed results, never code. Green does not push diagnostic changes.
 
 Revision is optional. Include it for candidate-code validation as described
 above. Omit it for general green-environment work such as querying time, CPU/NPU
-state, service health, or other profile-authorized diagnostics; those tasks run
+state, service health, or other requested diagnostics; those tasks run
 in the launch workspace without Git fetch or checkout.
 
 For a listener without OPEN, run `./start-bridge.sh run <session-id>`. Each

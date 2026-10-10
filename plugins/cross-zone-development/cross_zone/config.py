@@ -14,14 +14,14 @@ def load_config(path):
     if config["access_key"] is not None and (not isinstance(config["access_key"], str) or not config["access_key"].strip()):
         raise ValueError("access_key must be a non-empty string or null")
     ignored = {"session_id", "session_url", "state_dir", "workspace_dir", "key_env",
-               "task_binding", "repositories", "profiles"}
+               "task_binding", "repositories", "profiles", "profile",
+               "egress_deny_patterns"}
     for field in ignored:
         config.pop(field, None)
     config.setdefault("poll_seconds", 5)
     config.setdefault("sse", True)
     config.setdefault("max_questions", 3)
     config.setdefault("max_task_seconds", 1800)
-    config.setdefault("egress_deny_patterns", [])
     config.setdefault("agent_command", ["codeagent"])
     config.setdefault("agent_live_log", True)
     config.setdefault("agent_log_max_chars", 2000)
@@ -37,13 +37,4 @@ def load_config(path):
         raise ValueError("poll_seconds out of range")
     if not 0 <= config["max_questions"] <= 10 or not 1 <= config["max_task_seconds"] <= 86400:
         raise ValueError("task budget out of range")
-    profile = config.get("profile")
-    if not isinstance(profile, dict):
-        raise ValueError("profile must be an object")
-    if not isinstance(profile.get("allowed_tools"), list) or not profile["allowed_tools"]:
-        raise ValueError("profile needs allowed_tools")
-    if any(not isinstance(v, str) or not v for v in profile["allowed_tools"]):
-        raise ValueError("allowed_tools must contain strings")
-    if not isinstance(profile.get("instructions"), str) or not profile["instructions"]:
-        raise ValueError("profile needs instructions")
     return config

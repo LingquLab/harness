@@ -26,7 +26,7 @@ It must not contain a scheme, host, credentials, query, fragment, `..`, or
 percent-encoded path components.
 
 The bridge sends OPEN only after preflight validates its green-local launch
-workspace, execution profile, CLI, and required directories. These local choices
+workspace, CLI, and required directories. These local choices
 never cross into the protocol. Blue must not create, inject, echo,
 or acknowledge OPEN as a protocol event. Accept it only when it arrived as a user
 message in the current HAPI conversation, the active conversation directly
@@ -61,7 +61,7 @@ the task validates candidate code; it is then a full lowercase SHA-1 or SHA-256
 Git commit ID that blue has already pushed to the approved GitHub repository.
 General environment, hardware, time, service-status, and diagnostic tasks omit
 `revision` and do not trigger Git fetch or checkout. Blue never names a green repository, working directory,
-or access profile; the bridge uses its launch workspace and local profile.
+or access profile; the bridge uses its launch workspace.
 Include reproducible prerequisites, actions, expected outcomes, cleanup, and stop
 conditions in goal/checks. Exact duplicates are ignored; reusing a task/iteration
 with different content rejects. A later iteration requires the previous one to

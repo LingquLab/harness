@@ -14,7 +14,7 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 位置；Bridge 不依赖第三方 Python 包。
 
 把 [config.windows.json](config.windows.json) 复制为已忽略的 `config.local.json`，填写
-`hub_url`、`access_key` 和单一执行 profile。从绿区授权作为任务 workspace 的目录启动：
+`hub_url` 和 `access_key`。从绿区授权作为任务 workspace 的目录启动：
 
 ```bash
 <plugin-dir>/start-bridge.sh doctor <session-id>
@@ -31,10 +31,10 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 使用插件内置的 v0.4 绿区运行时及不受 Git 跟踪的 `config.local.json`。
 
 配置中不再包含仓库路径、仓库别名、Git remote 或 task binding。启动命令所在目录就是
-workspace，单一 `profile` 定义本地权限。配置中不保存 session ID、session URL 或 state directory。`config.local.json`
+workspace。配置中也不包含 profile、allowed tools 或自定义出区正则，不保存 session ID、session URL 或 state directory。`config.local.json`
 含 HAPI access key，只能保存在绿区本机且不得提交。
 旧配置中已经删除的字段会被直接忽略，不能覆盖命令行 session、启动 workspace 或本地
-profile。
+workspace。
 
 在绿区 Windows 运行时目录执行：
 
@@ -53,7 +53,7 @@ TASK。如果启动 workspace 是 Git 仓库，绿区通过其现有 `origin` �
 诊断修改。
 
 `revision` 是可选字段。候选代码验证按上述流程携带 revision；查询时间、CPU/NPU
-状态、服务健康度或其他 profile 已授权的绿区环境检查不携带 revision，Bridge 会跳过
+状态、服务健康度或其他绿区环境检查不携带 revision，Bridge 会跳过
 Git fetch 和 checkout，直接在启动 workspace 中执行。
 
 不需要绿区主动开启时，运行 `./start-bridge.sh run <session-id>`。每个会话自动使用

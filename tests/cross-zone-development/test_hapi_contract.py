@@ -76,10 +76,10 @@ class HapiContractTest(unittest.TestCase):
             self.assertNotIn("task_binding", config)
             self.assertNotIn("repositories", config)
             self.assertNotIn("profiles", config)
+            self.assertNotIn("profile", config)
+            self.assertNotIn("egress_deny_patterns", config)
             self.assertNotIn("token", config)
             self.assertEqual(config["max_questions"], 3)
-            self.assertIn("allowed_tools", config["profile"])
-            self.assertIn("instructions", config["profile"])
 
     def test_skill_routes_open_and_preserves_result_invariants(self) -> None:
         protocol = (SKILL / "references" / "protocol.md").read_text(encoding="utf-8")

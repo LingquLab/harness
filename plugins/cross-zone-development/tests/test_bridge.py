@@ -105,9 +105,7 @@ def config(directory):
             "target": "green-dev", "state_dir": str(Path(directory) / "state"), "sse": False,
             "workspace_dir": str(Path(directory) / "repo"),
             "max_task_seconds": 30, "max_questions": 3, "poll_seconds": 0.1, "agent_command": ["codeagent"],
-            "agent_live_log": True, "agent_log_max_chars": 2000,
-            "profile": {"allowed_tools": ["Read"], "instructions": "Read-only tests"},
-            "egress_deny_patterns": []}
+            "agent_live_log": True, "agent_log_max_chars": 2000}
 
 
 class OpenTests(unittest.TestCase):
@@ -188,7 +186,8 @@ class CliErrorTests(unittest.TestCase):
     def test_config_ignores_removed_session_state_and_repository_fields(self):
         with tempfile.TemporaryDirectory() as directory:
             for field in ("session_id", "session_url", "state_dir", "workspace_dir", "key_env",
-                          "task_binding", "repositories", "profiles"):
+                          "task_binding", "repositories", "profiles", "profile",
+                          "egress_deny_patterns"):
                 value = config(directory)
                 for runtime_field in ("session_id", "state_dir", "workspace_dir"):
                     value.pop(runtime_field, None)
@@ -198,7 +197,6 @@ class CliErrorTests(unittest.TestCase):
                 with self.subTest(field=field):
                     loaded = load_config(path)
                     self.assertNotIn(field, loaded)
-                    self.assertIn("profile", loaded)
 
     def test_command_line_session_derives_isolated_state(self):
         with tempfile.TemporaryDirectory() as directory:

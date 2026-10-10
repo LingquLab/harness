@@ -24,7 +24,7 @@ class CursorReset(RuntimeError):
 class Bridge:
     def __init__(self, config, client, agent=None):
         self.config, self.client = config, client
-        binding = {k: config[k] for k in ("hub_url", "session_id", "target", "workspace_dir", "profile")}
+        binding = {k: config[k] for k in ("hub_url", "session_id", "target", "workspace_dir")}
         self.store = Store(Path(config["state_dir"]) / "bridge.sqlite3", binding)
         self.agent = agent or CodeAgentCLI(config)
         self.executor = ThreadPoolExecutor(max_workers=1)
@@ -153,8 +153,7 @@ class Bridge:
             return
         try:
             output = result["output"]
-            fields = review(output, request, secrets=(self.client.access_key, self.client.token),
-                            deny_patterns=self.config["egress_deny_patterns"])
+            fields = review(output, request, secrets=(self.client.access_key, self.client.token))
             if result.get("dirty") and fields["status"] == "PASS":
                 raise ValueError("baseline_worktree_modified")
             fields["worktree_modified"] = bool(result.get("dirty"))

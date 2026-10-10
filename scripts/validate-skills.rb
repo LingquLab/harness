@@ -459,15 +459,9 @@ def validate_handoff_contract
     unless config["access_key"] == "REPLACE_WITH_HAPI_ACCESS_KEY"
       raise "#{path}: missing access_key placeholder"
     end
-    deprecated = %w[session_id session_url state_dir workspace_dir key_env task_binding repositories profiles].select { |key| config.key?(key) }
+    deprecated = %w[session_id session_url state_dir workspace_dir key_env task_binding repositories profiles profile egress_deny_patterns].select { |key| config.key?(key) }
     unless deprecated.empty?
       raise "#{path}: session/state fields must be command-line/runtime derived: #{deprecated.join(', ')}"
-    end
-    profile = config["profile"]
-    unless profile.is_a?(Hash) && profile["allowed_tools"].is_a?(Array) &&
-        !profile["allowed_tools"].empty? && profile["instructions"].is_a?(String) &&
-        !profile["instructions"].empty?
-      raise "#{path}: profile must define allowed_tools and instructions"
     end
     if config.key?("token")
       raise "#{path}: token must not be embedded"
