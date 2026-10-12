@@ -96,8 +96,12 @@ immutable revision when one was supplied. RESULT includes every requested check;
 code-validation PASS additionally requires a clean, unmodified baseline.
 Missing dependencies or permissions are BLOCKED.
 Missing information uses QUESTION, capped at three. Green sets
-`egress_reviewed=true` only after excluding source, raw logs, credentials,
-internal addresses, absolute paths, payloads, and source-bearing artifacts.
+`egress_reviewed=true` only after excluding credentials, personal or customer
+data, request/response bodies, bulk logs, complete source files, diffs, patches,
+and code or pseudocode snippets of 10 lines or more. Relevant Markdown fences,
+URLs, internal addresses, absolute paths, full stack traces, and shorter code or
+pseudocode snippets may cross. The complete structured result is limited to
+4096 bytes and `summary` to 3000 characters.
 
 The plugin contains original LingquLab material and is licensed under the
 repository MIT license.

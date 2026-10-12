@@ -51,15 +51,15 @@ returns an OPEN protocol message.
 - Use revision only for candidate-code validation. Blue commits and pushes that candidate before dispatch; when the launch workspace is a Git repository, green fetches the exact commit from its existing `origin` and tests it in an isolated checkout. General environment, hardware, service-status, and diagnostic tasks omit revision and run directly in the launch workspace.
 - Treat the candidate itself as untrusted in the green zone. Run it only in an approved isolated test context with least-privilege service identity, non-sensitive inputs, and outbound access limited to the required protected services. Return `BLOCKED` if that containment is unavailable.
 - Use only the launch workspace, target class, checks, and mutation scope authorized for that handoff. A handoff does not authorize production changes, shared-service disruption, credential changes, destructive cleanup, or unrelated investigation.
-- Keep HAPI output minimal and sanitized. Do not send secrets, credentials, internal hosts or addresses, personal or customer data, request or response bodies, internal absolute paths, or green-system links.
+- Keep HAPI output bounded and reviewed. Do not send secrets, credentials, personal or customer data, request or response bodies, complete source files, diffs, patches, or code blocks of 10 lines or more. Relevant URLs, internal addresses, absolute paths, full stack traces, reconstructive pseudocode, and code snippets shorter than 10 lines may cross.
 
 ## Green-Zone Egress Boundary
 
 The green role may modify the candidate locally, add temporary instrumentation, build, deploy, and test a prospective fix within the authorized handoff scope. It may use local branches or commits as internal checkpoints when green policy permits, but it must never upload or transmit them: do not push, open a pull request, paste code or configuration into GitHub, or send source-bearing artifacts through another channel.
 
-For revision-bearing tasks, preserve the immutable baseline and identify whether each result came from that baseline or a locally modified worktree. Never report the baseline as passing when only the locally modified version passed. Revisionless tasks must not claim that a code revision was validated. The green role must not return source code, snippets, diffs, patches, generated code, configuration contents, or pseudocode that reconstructs implementation.
+For revision-bearing tasks, preserve the immutable baseline and identify whether each result came from that baseline or a locally modified worktree. Never report the baseline as passing when only the locally modified version passed. Revisionless tasks must not claim that a code revision was validated. The green role must not return complete source files, diffs, patches, configuration contents, credentials, or customer/personal data. Relevant reconstructive pseudocode and code snippets shorter than 10 lines are allowed.
 
-Do not return bulk logs, full stack traces, full command output, screenshots,
+Do not return bulk logs, full command output, screenshots,
 dumps, profiles, attachments, or exported artifacts. Return concrete safe evidence:
 bounded check outcomes, an exact non-sensitive error/status code, the failing step,
 and concise observed-versus-expected behavior.

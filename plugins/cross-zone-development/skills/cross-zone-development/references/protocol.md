@@ -107,6 +107,9 @@ confirms only the requested green-environment observations and must not claim a
 code baseline passed. Its evidence must also describe the requested action; passing a narrower
 or unrelated command cannot satisfy the check. Missing or not-run checks are not PASS. Missing dependencies, fixtures,
 or permissions are BLOCKED. Keep local-modification evidence separate. Set
-`egress_reviewed=true` only after checking that no source, raw log, credential,
-internal address, absolute path, payload, or source-bearing artifact crosses.
+`egress_reviewed=true` only after checking that no credential, customer/personal
+data, request/response body, bulk raw log, complete source file, diff, patch, or
+code block of 10 lines or more crosses. Relevant URLs, internal addresses,
+absolute paths, full stack traces, reconstructive pseudocode, and code snippets
+shorter than 10 lines are allowed.
 Unsafe-to-export evidence and unknown process termination become NEEDS_HUMAN.
