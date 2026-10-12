@@ -53,7 +53,7 @@ A general environment task omits revision:
 
 ```text
 CROSS_ZONE_V2
-{"protocol":"cross-zone/v2","type":"TASK","event_id":"blue-task-2","task_id":"machine-time","iteration":1,"target":"green-dev","goal":"Read the green machine time without changing system state.","checks":[{"id":"time","action":"Read local time, UTC time, and timezone.","expected":"Return a bounded sanitized time summary."}],"timeout_seconds":60}
+{"protocol":"cross-zone/v2","type":"TASK","event_id":"blue-task-2","task_id":"machine-time","iteration":1,"target":"green-dev","goal":"Read the green machine time without changing system state.","checks":[{"id":"time","action":"Read local time, UTC time, and timezone.","expected":"Return a bounded sanitized time summary."}],"timeout_seconds":600}
 ```
 
 All fields shown except `revision` are mandatory. Include `revision` only when
@@ -65,7 +65,8 @@ or access profile; the bridge uses its launch workspace.
 Include reproducible prerequisites, actions, expected outcomes, cleanup, and stop
 conditions in goal/checks. Exact duplicates are ignored; reusing a task/iteration
 with different content rejects. A later iteration requires the previous one to
-be terminal.
+be terminal. `timeout_seconds` is between 600 and 86400; use at least 600 because
+green Agent startup and protected-environment checks commonly exceed five minutes.
 
 TASK rejects `repository` and `scope_profile`. Neither side can select a green
 path or profile through the protocol.

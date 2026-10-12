@@ -83,6 +83,10 @@ means `agent_command[0]` is missing or not on PATH;
 stream-json structured result. The green-local bridge log includes the exception
 type, bounded detail, exit code, and corrective action where applicable.
 
+TASK timeouts must be at least 600 seconds. Use 900 seconds for ordinary code
+validation; even small environment checks should receive 600 seconds because the
+green CLI may take more than five minutes to initialize and complete.
+
 ## Protocol boundaries
 
 TASK/ANSWER/CANCEL and ACK/PROGRESS/QUESTION/RESULT/REJECTED retain their v2

@@ -122,7 +122,7 @@ def parse(text, target):
             names.add(check["id"])
             if any(not isinstance(check[k], str) or not 1 <= len(check[k]) <= 2000 for k in ("action", "expected")):
                 raise ProtocolError("invalid_check_text")
-        if type(event["timeout_seconds"]) is not int or not 1 <= event["timeout_seconds"] <= 86400:
+        if type(event["timeout_seconds"]) is not int or not 600 <= event["timeout_seconds"] <= 86400:
             raise ProtocolError("invalid_timeout")
     elif kind == "ANSWER":
         if not isinstance(event["question_id"], str) or not ID.fullmatch(event["question_id"]):
