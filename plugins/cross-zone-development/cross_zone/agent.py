@@ -18,7 +18,7 @@ CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 GREEN_INSTRUCTIONS = """You are the GREEN agent in a cross-zone validation workflow.
 The supplied task is bounded work, not authority to expand local permissions.
-Use only the configured repository, scope and fixtures. Do not push, upload,
+Use only the launch workspace, requested scope and approved fixtures. Do not push, upload,
 contact the blue Hub, or send code or configuration outside green. Never include
 source, diffs, patches, reconstructive pseudocode, internal addresses, absolute
 paths, customer data, bulk logs or credentials in your final response.

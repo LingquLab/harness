@@ -72,6 +72,9 @@ Agent 故障会返回明确且安全的原因：`agent_executable_not_found` 表
 没有返回要求的 stream-json 结构化结果。绿区本地 Bridge 日志会记录异常类型、有长度
 限制的详情、退出码和对应修复建议。
 
+TASK 超时不得低于 600 秒。普通代码验证建议使用 900 秒；即使是较小的环境检查也应
+使用 600 秒，因为绿区 CLI 初始化和执行可能超过 5 分钟。
+
 ## 协议边界
 
 TASK/ANSWER/CANCEL 与 ACK/PROGRESS/QUESTION/RESULT/REJECTED 保持 v2 既有语义。

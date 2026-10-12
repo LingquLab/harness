@@ -25,7 +25,7 @@ def task(**changes):
     event = {"protocol": "cross-zone/v2", "type": "TASK", "event_id": "blue-1", "task_id": "task-1",
              "iteration": 1, "target": "green-dev", "revision": "a" * 40, "goal": "Run the regression",
              "checks": [{"id": "regression", "action": "Run approved tests", "expected": "All pass"}],
-             "timeout_seconds": 30}
+             "timeout_seconds": 600}
     event.update(changes)
     return event
 
@@ -104,7 +104,7 @@ def config(directory):
     return {"hub_url": "http://localhost/hapi/", "session_id": "blue-session",
             "target": "green-dev", "state_dir": str(Path(directory) / "state"), "sse": False,
             "workspace_dir": str(Path(directory) / "repo"),
-            "max_task_seconds": 30, "max_questions": 3, "poll_seconds": 0.1, "agent_command": ["codeagent"],
+            "max_task_seconds": 1800, "max_questions": 3, "poll_seconds": 0.1, "agent_command": ["codeagent"],
             "agent_live_log": True, "agent_log_max_chars": 2000}
 
 
@@ -241,7 +241,7 @@ class ProtocolTests(unittest.TestCase):
         self.assertIsNone(parse(wire(task(target="another")), "green-dev"))
 
     def test_malformed_envelopes_reject(self):
-        variants = [task(iteration=True), task(revision="main"), task(timeout_seconds=-1),
+        variants = [task(iteration=True), task(revision="main"), task(timeout_seconds=599),
                     task(checks=[]), task(task_id="../../escape"), task(extra="field"), task(type=[])]
         for event in variants:
             with self.subTest(event=event), self.assertRaises(ProtocolError):
