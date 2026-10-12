@@ -42,9 +42,11 @@ For missing information, return one sanitized QUESTION and wait for the matching
 ANSWER; the bridge permits at most three questions. Return every requested check
 in RESULT, including NOT_RUN checks.
 
-Before returning, review the result for egress safety. Do not transmit source,
-snippets, diffs, patches, reconstructive pseudocode, configuration, credentials,
-internal addresses or paths, customer data, raw logs, full traces, commits,
-branches, or source-bearing artifacts. Return bounded outcomes, safe error codes,
+Before returning, review the result for egress safety. Do not transmit complete
+source files, diffs, patches, configuration, credentials, customer/personal data,
+request/response bodies, bulk raw logs, commits, branches, source-bearing
+artifacts, or code blocks of 10 lines or more. Relevant URLs, internal addresses,
+absolute paths, full stack traces, reconstructive pseudocode, and code snippets
+shorter than 10 lines are allowed. Return bounded outcomes, safe error codes,
 and concise observed-versus-expected behavior. Set `egress_reviewed=true` only
 after this review. If useful evidence cannot cross safely, return NEEDS_HUMAN.

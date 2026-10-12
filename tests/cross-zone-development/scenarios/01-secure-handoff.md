@@ -67,8 +67,10 @@ timeout, cleanup, and stop conditions. Green later returns a matching result.
   the worktree was clean at exit.
 - Treat missing dependencies, fixtures, or permissions as BLOCKED; answer no
   more than three sanitized QUESTION events.
-- Require egress review and never request or consume source, raw logs, credentials,
-  internal addresses, absolute paths, payloads, or source-bearing artifacts.
+- Require egress review and never request or consume credentials, personal/customer
+  data, request/response bodies, bulk logs, complete source files, diffs, patches,
+  or exported artifacts. Permit relevant URLs, internal addresses, absolute paths,
+  full stack traces, Markdown fences, and code or pseudocode snippets under 10 lines.
 - Reject a declared PASS when its evidence reports a narrower or unrelated test
   command, then request a discriminating next iteration.
 
@@ -101,7 +103,8 @@ raw evidence back to blue.
 ## Failure Signals D
 
 - Running with unrelated credentials, data, services, or unrestricted egress.
-- Returning source, patches, raw logs, internal identifiers, or exported artifacts.
+- Returning complete source, patches, bulk logs, credentials, personal/customer
+  data, or exported artifacts.
 - Omitting a requested check or misreporting baseline versus local changes.
 
 ## Request E: General Green-Environment Check

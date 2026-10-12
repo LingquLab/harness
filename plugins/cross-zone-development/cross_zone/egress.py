@@ -10,7 +10,7 @@ SCHEMA = {
     "properties": {
         "kind": {"type": "string", "enum": ["RESULT", "QUESTION"]},
         "status": {"type": "string", "enum": ["PASS", "FAIL", "BLOCKED", "NEEDS_HUMAN"]},
-        "summary": {"type": "string", "maxLength": 1000},
+        "summary": {"type": "string", "maxLength": 3000},
         "checks": {"type": "array", "maxItems": 20, "items": {
             "type": "object", "additionalProperties": False,
             "properties": {"id": {"type": "string"}, "status": {"type": "string", "enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]}},
@@ -64,12 +64,10 @@ def review(value, request, secrets=(), deny_patterns=()):
     elif not value["question"]:
         raise ValueError("empty_question")
     literal = canonical(value)
-    if len(literal.encode("utf-8")) > 3200:
+    if len(literal.encode("utf-8")) > 4096:
         raise ValueError("egress_size_limit")
     # Reject; never partially redact a payload and accidentally change its meaning.
-    patterns = [r"```", r"https?://", r"(?i)\b(?:bearer|password|api[_ -]?key|access[_ -]?token)\s*[:= ]\s*\S+",
-                r"\b(?:\d{1,3}\.){3}\d{1,3}\b", r"[A-Za-z]:[\\/]", r"\\\\[A-Za-z0-9]",
-                r"(?:^|[\s\"'])/(?:home|root|tmp|var|etc|workspace|Users)/",
+    patterns = [r"(?i)\b(?:bearer|password|api[_ -]?key|access[_ -]?token)\s*[:= ]\s*\S+",
                 r"\b(?:sk-|ghp_|github_pat_)[A-Za-z0-9_-]{12,}", *deny_patterns]
     if any(secret and secret in literal for secret in secrets) or any(re.search(p, literal) for p in patterns):
         raise ValueError("egress_content_rejected")

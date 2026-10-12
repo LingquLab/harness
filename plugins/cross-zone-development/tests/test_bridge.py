@@ -257,14 +257,42 @@ class EgressTests(unittest.TestCase):
                        checks=[{"id": "regression", "status": "FAIL"}])
         self.assertEqual(review(value, task())["status"], "FAIL")
 
-    def test_reject_protected_output(self):
-        for summary in ["http://internal.example", "192.168.1.1", "C:\\work\\secret", "```python", "/root/key", "password=example"]:
+    def test_allow_diagnostic_output(self):
+        values = [
+            "http://internal.example and https://service.example/status",
+            "192.168.1.1",
+            "C:\\work\\project and \\\\server\\share",
+            "/root/key /tmp/run /workspace/repo /Users/test",
+            "```python\nprint('one')\nprint('two')\n```",
+            "Traceback:\n" + "  stack frame\n" * 12,
+            "Pseudo: fetch config, validate token, then return the parsed result.\r",
+        ]
+        for summary in values:
+            with self.subTest(summary=summary):
+                self.assertEqual(review(output(summary=summary), task())["summary"], summary)
+
+    def test_reject_credentials_and_custom_denials(self):
+        for summary in ["password=example", "Bearer secret-value", "api_key: secret-value"]:
             with self.subTest(summary=summary), self.assertRaises(ValueError):
                 review(output(summary=summary), task())
         with self.assertRaises(ValueError):
             review(output(summary="contains test-secret"), task(), secrets=["test-secret"])
         with self.assertRaises(ValueError):
             review(output(summary="projectX info"), task(), deny_patterns=["projectX"])
+
+    def test_result_and_summary_limits(self):
+        self.assertEqual(len(review(output(summary="x" * 3000), task())["summary"]), 3000)
+        with self.assertRaises(ValueError):
+            review(output(summary="x" * 3001), task())
+
+        check_ids = [f"check-{index}-" + "x" * 60 for index in range(20)]
+        request = task(checks=[{"id": check_id, "action": "observe", "expected": "ok"}
+                               for check_id in check_ids])
+        value = output(kind="QUESTION", status="BLOCKED", summary="x" * 3000,
+                       question="q" * 800,
+                       checks=[{"id": check_id, "status": "NOT_RUN"} for check_id in check_ids])
+        with self.assertRaisesRegex(ValueError, "egress_size_limit"):
+            review(value, request)
 
     def test_no_false_pass(self):
         for changes in ({"checks": []}, {"local_modification_tested": True}, {"egress_reviewed": False},

@@ -83,7 +83,9 @@ TASK 不携带仓库/profile 别名。
 不可变 revision。RESULT 必须包含全部 requested checks；代码验证的 PASS 还要求所有
 检查在干净且未修改的基线上通过。依赖或权限不足返回
 BLOCKED；信息不足发送 QUESTION，最多 3 次。绿区完成出区审查后才能设置
-`egress_reviewed=true`，不得返回源码、原始日志、凭据、内网地址、绝对路径、载荷或
-包含源码的制品。
+`egress_reviewed=true`，不得返回凭据、个人或客户数据、请求/响应正文、大批量日志、
+完整源文件、diff、patch，以及达到 10 行的代码或伪代码片段。允许返回相关的
+Markdown 围栏、URL、内网地址、绝对路径、完整堆栈，以及少于 10 行的代码或可重建
+实现的伪代码。整个结构化结果最多 4096 字节，`summary` 最多 3000 个字符。
 
 本插件为 LingquLab 原创内容，采用仓库中的 MIT 许可证。
