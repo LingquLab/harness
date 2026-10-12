@@ -24,10 +24,12 @@ directory green authorizes as the task workspace:
 <plugin-dir>/start-bridge.sh open <session-id>
 ```
 
-Use `run` instead of `open` when the blue session has already dispatched work.
-The launcher writes `.cac/bridge-<command>-<session-id>.log`; the agent's bounded
+Use `run` instead of `open` to resume an existing listener without a new OPEN.
+On first use, `run` binds at the current message head and skips historical TASKs;
+start it before blue dispatches work.
+The launcher writes `<plugin-dir>/.cac/bridge-<command>-<session-id>.log`; the agent's bounded
 stream output is visible there but remains local to green. Runtime state and
-task-owned detached checkouts live under `.state/<session-id>/`.
+task-owned detached checkouts live under the config directory’s `.state/<session-id>/`.
 
 ## Green-initiated collaboration
 
@@ -41,14 +43,14 @@ inside green and never commit it because it contains the HAPI access key.
 Removed fields from older configurations are ignored and cannot override the
 command-line session or launch workspace.
 
-From the green Windows runtime directory, run:
+From the authorized task workspace, run:
 
 ```bash
-./start-bridge.sh open <session-id>
+<plugin-dir>/start-bridge.sh open <session-id>
 ```
 
-The bridge first validates the local task binding, CLI, and directories. Only
-then does it send one green-originated OPEN user message, bind to the session,
+The bridge first validates the launch workspace, CLI, and state directory. Only
+then does it bind at the current message head, send one green-originated OPEN user message,
 and listen for TASK/ANSWER/CANCEL. Blue validates OPEN against the current
 authorized conversation. It either sends a formal TASK or explains rejection in
 ordinary conversation; it never echoes or injects OPEN.
@@ -57,7 +59,7 @@ Blue completes and locally checks each candidate, commits it, and pushes its tas
 branch to the approved GitHub repository before sending TASK. Green fetches the
 exact TASK revision from the launch workspace's existing `origin` and tests it
 in an isolated clean checkout. HAPI carries coordination and
-reviewed results, never code. Green does not push diagnostic changes.
+reviewed results, including approved short diagnostic snippets. Green does not push diagnostic changes.
 
 Revision is optional. Include it for candidate-code validation as described
 above. Omit it for general green-environment work such as querying time, CPU/NPU
@@ -83,6 +85,10 @@ means `agent_command[0]` is missing or not on PATH;
 stream-json structured result. The green-local bridge log includes the exception
 type, bounded detail, exit code, and corrective action where applicable.
 
+TASK timeouts must be at least 600 seconds. Use 900 seconds for ordinary code
+validation; even small environment checks should receive 600 seconds because the
+green CLI may take more than five minutes to initialize and complete.
+
 ## Protocol boundaries
 
 TASK/ANSWER/CANCEL and ACK/PROGRESS/QUESTION/RESULT/REJECTED retain their v2
@@ -92,8 +98,12 @@ immutable revision when one was supplied. RESULT includes every requested check;
 code-validation PASS additionally requires a clean, unmodified baseline.
 Missing dependencies or permissions are BLOCKED.
 Missing information uses QUESTION, capped at three. Green sets
-`egress_reviewed=true` only after excluding source, raw logs, credentials,
-internal addresses, absolute paths, payloads, and source-bearing artifacts.
+`egress_reviewed=true` only after excluding credentials, personal or customer
+data, request/response bodies, bulk logs, complete source files, diffs, patches,
+and code or pseudocode snippets of 10 lines or more. Relevant Markdown fences,
+URLs, internal addresses, absolute paths, full stack traces, and shorter code or
+pseudocode snippets may cross. The complete structured result is limited to
+4096 bytes and `summary` to 3000 characters.
 
 The plugin contains original LingquLab material and is licensed under the
 repository MIT license.

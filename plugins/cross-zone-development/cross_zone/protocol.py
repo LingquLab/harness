@@ -9,9 +9,6 @@ PROTOCOL = "cross-zone/v2"
 MARKER = "CROSS_ZONE_V2\n"
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}\Z")
 REVISION = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
-# HAPI session URLs look like <hub origin>/sessions/<UUID>; only the session
-# part is used, never the hub origin, credentials or query string.
-SESSION_URL = re.compile(r"^\S{1,300}$")
 
 
 class ProtocolError(ValueError):
@@ -97,8 +94,7 @@ def parse(text, target):
     }.get(kind)
     fields = set(event)
     optional_revision = {"revision"} if "revision" in fields else set()
-    valid_fields = fields == base | extra | optional_revision
-    if extra is None or not valid_fields:
+    if extra is None or fields != base | extra | optional_revision:
         raise ProtocolError("invalid_fields")
     for field in ("event_id", "task_id", "target"):
         if not isinstance(event[field], str) or not ID.fullmatch(event[field]):
@@ -122,7 +118,7 @@ def parse(text, target):
             names.add(check["id"])
             if any(not isinstance(check[k], str) or not 1 <= len(check[k]) <= 2000 for k in ("action", "expected")):
                 raise ProtocolError("invalid_check_text")
-        if type(event["timeout_seconds"]) is not int or not 1 <= event["timeout_seconds"] <= 86400:
+        if type(event["timeout_seconds"]) is not int or not 600 <= event["timeout_seconds"] <= 86400:
             raise ProtocolError("invalid_timeout")
     elif kind == "ANSWER":
         if not isinstance(event["question_id"], str) or not ID.fullmatch(event["question_id"]):

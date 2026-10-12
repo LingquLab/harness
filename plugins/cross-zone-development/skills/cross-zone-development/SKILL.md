@@ -33,8 +33,8 @@ Do not impersonate the other role. After selecting the role, read
 
 The green operator runs `./start-bridge.sh open <session-id>` from Git Bash. The
 session is selected on the command line and never stored in configuration. The
-bridge sends one green-originated `OPEN`
-user message, binds at the current message head, and listens for subsequent
+bridge binds at the current message head, sends one green-originated `OPEN`
+user message, and listens for subsequent
 `TASK`, `ANSWER`, and `CANCEL` messages.
 
 Before sending OPEN, the bridge validates its launch workspace, CLI, and required
@@ -51,25 +51,16 @@ returns an OPEN protocol message.
 - Use revision only for candidate-code validation. Blue commits and pushes that candidate before dispatch; when the launch workspace is a Git repository, green fetches the exact commit from its existing `origin` and tests it in an isolated checkout. General environment, hardware, service-status, and diagnostic tasks omit revision and run directly in the launch workspace.
 - Treat the candidate itself as untrusted in the green zone. Run it only in an approved isolated test context with least-privilege service identity, non-sensitive inputs, and outbound access limited to the required protected services. Return `BLOCKED` if that containment is unavailable.
 - Use only the launch workspace, target class, checks, and mutation scope authorized for that handoff. A handoff does not authorize production changes, shared-service disruption, credential changes, destructive cleanup, or unrelated investigation.
-- Keep HAPI output minimal and sanitized. Do not send secrets, credentials, internal hosts or addresses, personal or customer data, request or response bodies, internal absolute paths, or green-system links.
+- Keep HAPI output reviewed and within the result limits defined in [references/protocol.md](references/protocol.md).
 
-## Green-Zone Egress Boundary
+## Results and Egress
 
-The green role may modify the candidate locally, add temporary instrumentation, build, deploy, and test a prospective fix within the authorized handoff scope. It may use local branches or commits as internal checkpoints when green policy permits, but it must never upload or transmit them: do not push, open a pull request, paste code or configuration into GitHub, or send source-bearing artifacts through another channel.
-
-For revision-bearing tasks, preserve the immutable baseline and identify whether each result came from that baseline or a locally modified worktree. Never report the baseline as passing when only the locally modified version passed. Revisionless tasks must not claim that a code revision was validated. The green role must not return source code, snippets, diffs, patches, generated code, configuration contents, or pseudocode that reconstructs implementation.
-
-Do not return bulk logs, full stack traces, full command output, screenshots,
-dumps, profiles, attachments, or exported artifacts. Return concrete safe evidence:
-bounded check outcomes, an exact non-sensitive error/status code, the failing step,
-and concise observed-versus-expected behavior.
-
-RESULT includes every requested check. PASS requires every check to pass. For a
-revision-bearing task it additionally requires the exact unmodified baseline and
-a clean worktree at exit. Missing dependencies or
-permissions produce BLOCKED. Missing information produces QUESTION, capped at
-three questions. Set `egress_reviewed=true` only after review. If useful evidence
-cannot cross safely, return NEEDS_HUMAN with a safe reason category.
+Use the result and egress contract in [references/protocol.md](references/protocol.md).
+Green may diagnose and test local fixes within the task scope, but blue owns all
+published code. Keep baseline and local-fix evidence separate; do not turn a
+baseline failure into PASS. Local progress logs stay in green. Return reviewed,
+bounded evidence through HAPI, including allowed diagnostic details and short
+snippets. Never push green changes or upload artifacts through another channel.
 
 Use [config.example.json](../../config.example.json) as the generic runtime
 configuration reference. The access key may be stored in untracked green-local

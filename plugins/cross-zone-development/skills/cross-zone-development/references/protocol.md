@@ -53,7 +53,7 @@ A general environment task omits revision:
 
 ```text
 CROSS_ZONE_V2
-{"protocol":"cross-zone/v2","type":"TASK","event_id":"blue-task-2","task_id":"machine-time","iteration":1,"target":"green-dev","goal":"Read the green machine time without changing system state.","checks":[{"id":"time","action":"Read local time, UTC time, and timezone.","expected":"Return a bounded sanitized time summary."}],"timeout_seconds":60}
+{"protocol":"cross-zone/v2","type":"TASK","event_id":"blue-task-2","task_id":"machine-time","iteration":1,"target":"green-dev","goal":"Read the green machine time without changing system state.","checks":[{"id":"time","action":"Read local time, UTC time, and timezone.","expected":"Return a bounded sanitized time summary."}],"timeout_seconds":600}
 ```
 
 All fields shown except `revision` are mandatory. Include `revision` only when
@@ -65,7 +65,8 @@ or access profile; the bridge uses its launch workspace.
 Include reproducible prerequisites, actions, expected outcomes, cleanup, and stop
 conditions in goal/checks. Exact duplicates are ignored; reusing a task/iteration
 with different content rejects. A later iteration requires the previous one to
-be terminal.
+be terminal. `timeout_seconds` is between 600 and 86400; use at least 600 because
+green Agent startup and protected-environment checks commonly exceed five minutes.
 
 TASK rejects `repository` and `scope_profile`. Neither side can select a green
 path or profile through the protocol.
@@ -99,13 +100,25 @@ They affect only an exact matching task.
 - RESULT status is PASS, FAIL, BLOCKED, NEEDS_HUMAN, CANCELLED, or TIMED_OUT.
 - REJECTED reports an invalid transition or conflicting duplicate.
 
-RESULT includes every requested check. PASS requires every check to be PASS. For
+Agent-produced RESULT includes every requested check. Bridge-generated terminal
+notifications (startup/process failures, cancellation, timeout, or crash recovery)
+carry `status` and `reason` instead of check evidence; they never establish PASS. PASS requires every check to be PASS. For
 a revision-bearing task it additionally requires the exact unmodified baseline,
 no local-modification testing, and a clean worktree at exit. A revisionless PASS
 confirms only the requested green-environment observations and must not claim a
 code baseline passed. Its evidence must also describe the requested action; passing a narrower
 or unrelated command cannot satisfy the check. Missing or not-run checks are not PASS. Missing dependencies, fixtures,
 or permissions are BLOCKED. Keep local-modification evidence separate. Set
-`egress_reviewed=true` only after checking that no source, raw log, credential,
-internal address, absolute path, payload, or source-bearing artifact crosses.
+`egress_reviewed=true` only after checking that no credential, customer/personal
+data, request/response body, bulk raw log, complete source file, diff, patch, or
+code or pseudocode snippet of 10 lines or more crosses. Relevant URLs, internal addresses,
+absolute paths, full stack traces, reconstructive pseudocode, and code snippets
+shorter than 10 lines are allowed.
 Unsafe-to-export evidence and unknown process termination become NEEDS_HUMAN.
+
+The complete serialized RESULT JSON, including protocol and task-binding fields,
+is at most 4096 UTF-8 bytes; `summary` is at most 3000 characters. The marker line
+is outside that JSON budget. A full stack trace may use a Markdown fence and is
+not subject to the code-snippet line limit. The agent reviews snippet semantics;
+the runtime enforces schema, check completeness, known-secret rejection, and size.
+Local live-log truncation does not change these export limits.
