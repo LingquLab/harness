@@ -35,6 +35,8 @@ def load_config(path):
         raise ValueError("agent_log_max_chars out of range")
     if not 0.1 <= config["poll_seconds"] <= 300:
         raise ValueError("poll_seconds out of range")
-    if not 0 <= config["max_questions"] <= 10 or not 600 <= config["max_task_seconds"] <= 86400:
+    if (type(config["max_questions"]) is not int or not 0 <= config["max_questions"] <= 3
+            or type(config["max_task_seconds"]) is not int
+            or not 600 <= config["max_task_seconds"] <= 86400):
         raise ValueError("task budget out of range")
     return config

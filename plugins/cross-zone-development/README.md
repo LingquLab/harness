@@ -24,10 +24,12 @@ directory green authorizes as the task workspace:
 <plugin-dir>/start-bridge.sh open <session-id>
 ```
 
-Use `run` instead of `open` when the blue session has already dispatched work.
-The launcher writes `.cac/bridge-<command>-<session-id>.log`; the agent's bounded
+Use `run` instead of `open` to resume an existing listener without a new OPEN.
+On first use, `run` binds at the current message head and skips historical TASKs;
+start it before blue dispatches work.
+The launcher writes `<plugin-dir>/.cac/bridge-<command>-<session-id>.log`; the agent's bounded
 stream output is visible there but remains local to green. Runtime state and
-task-owned detached checkouts live under `.state/<session-id>/`.
+task-owned detached checkouts live under the config directory’s `.state/<session-id>/`.
 
 ## Green-initiated collaboration
 
@@ -41,14 +43,14 @@ inside green and never commit it because it contains the HAPI access key.
 Removed fields from older configurations are ignored and cannot override the
 command-line session or launch workspace.
 
-From the green Windows runtime directory, run:
+From the authorized task workspace, run:
 
 ```bash
-./start-bridge.sh open <session-id>
+<plugin-dir>/start-bridge.sh open <session-id>
 ```
 
-The bridge first validates the local task binding, CLI, and directories. Only
-then does it send one green-originated OPEN user message, bind to the session,
+The bridge first validates the launch workspace, CLI, and state directory. Only
+then does it bind at the current message head, send one green-originated OPEN user message,
 and listen for TASK/ANSWER/CANCEL. Blue validates OPEN against the current
 authorized conversation. It either sends a formal TASK or explains rejection in
 ordinary conversation; it never echoes or injects OPEN.
@@ -57,7 +59,7 @@ Blue completes and locally checks each candidate, commits it, and pushes its tas
 branch to the approved GitHub repository before sending TASK. Green fetches the
 exact TASK revision from the launch workspace's existing `origin` and tests it
 in an isolated clean checkout. HAPI carries coordination and
-reviewed results, never code. Green does not push diagnostic changes.
+reviewed results, including approved short diagnostic snippets. Green does not push diagnostic changes.
 
 Revision is optional. Include it for candidate-code validation as described
 above. Omit it for general green-environment work such as querying time, CPU/NPU

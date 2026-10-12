@@ -4,11 +4,11 @@ import json
 import logging
 import os
 from pathlib import Path
-import shutil
 import sys
 import traceback
 import uuid
 
+from .agent import executable_available, resolve_windows_launcher
 from .config import load_config
 from .controller import Bridge
 from .hapi import HapiClient, HapiError
@@ -48,6 +48,16 @@ def select_session(config, config_path, value):
     config["session_id"] = session_id
     config["state_dir"] = str(Path(config_path).resolve().parent / ".state" / session_id)
     return session_id
+
+
+def preflight(config):
+    workspace = Path(config["workspace_dir"])
+    if not workspace.is_dir():
+        raise ValueError(f"Launch workspace directory does not exist: {workspace}")
+    command = resolve_windows_launcher(list(config["agent_command"]))
+    if not executable_available(command[0]):
+        raise ValueError(f"Configured agent executable not found: {command[0]}")
+    Path(config["state_dir"]).mkdir(parents=True, exist_ok=True)
 
 
 class InstanceLock:
@@ -119,22 +129,25 @@ def main():
             page = client.messages(config["session_id"], limit=1)
             if "epoch" not in page.get("page", {}):
                 raise ValueError("Unsupported Hub pagination contract")
-            if not shutil.which(config["agent_command"][0]):
-                raise ValueError("Configured agent executable not found")
-            if not Path(config["workspace_dir"]).is_dir():
-                raise ValueError("Launch workspace directory does not exist")
+            preflight(config)
             print("Authentication, session, message pagination, agent executable and directories: OK")
             print("Session active:", bool(selected.get("active")))
             return
+        if args.command in ("open", "run"):
+            preflight(config)
         with InstanceLock(config["state_dir"]):
             bridge = Bridge(config, client)
             if args.command == "open":
                 # Green initiates cross-zone work with the session the operator
-                # selected by pasting its URL; the OPEN notice goes to blue first.
+                # selected on the command line. Bind before OPEN to retain an immediate TASK.
+                bridge.bind()
                 event = open_event(config["target"], "sessions/" + config["session_id"])
                 client.send(config["session_id"], _wire(event), event["event_id"])
                 print("OPEN notice sent; waiting for blue to confirm the session.", flush=True)
-                bridge.run()
+                try:
+                    bridge.run()
+                finally:
+                    bridge = None  # run owns shutdown
             elif args.command == "run":
                 try:
                     bridge.run()

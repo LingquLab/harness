@@ -36,7 +36,7 @@ echo "Bridge log: $log_file"
 
 if [[ ! -f "$config_file" ]]; then
     cp -- config.example.json "$config_file" || exit 1
-    echo "Created $config_file. Set access_key and repository cwd before running." >&2
+    echo "Created $config_file. Set hub_url, access_key, and agent_command before running." >&2
     exit 1
 fi
 

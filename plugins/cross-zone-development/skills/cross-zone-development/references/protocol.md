@@ -100,7 +100,9 @@ They affect only an exact matching task.
 - RESULT status is PASS, FAIL, BLOCKED, NEEDS_HUMAN, CANCELLED, or TIMED_OUT.
 - REJECTED reports an invalid transition or conflicting duplicate.
 
-RESULT includes every requested check. PASS requires every check to be PASS. For
+Agent-produced RESULT includes every requested check. Bridge-generated terminal
+notifications (startup/process failures, cancellation, timeout, or crash recovery)
+carry `status` and `reason` instead of check evidence; they never establish PASS. PASS requires every check to be PASS. For
 a revision-bearing task it additionally requires the exact unmodified baseline,
 no local-modification testing, and a clean worktree at exit. A revisionless PASS
 confirms only the requested green-environment observations and must not claim a
@@ -109,7 +111,14 @@ or unrelated command cannot satisfy the check. Missing or not-run checks are not
 or permissions are BLOCKED. Keep local-modification evidence separate. Set
 `egress_reviewed=true` only after checking that no credential, customer/personal
 data, request/response body, bulk raw log, complete source file, diff, patch, or
-code block of 10 lines or more crosses. Relevant URLs, internal addresses,
+code or pseudocode snippet of 10 lines or more crosses. Relevant URLs, internal addresses,
 absolute paths, full stack traces, reconstructive pseudocode, and code snippets
 shorter than 10 lines are allowed.
 Unsafe-to-export evidence and unknown process termination become NEEDS_HUMAN.
+
+The complete serialized RESULT JSON, including protocol and task-binding fields,
+is at most 4096 UTF-8 bytes; `summary` is at most 3000 characters. The marker line
+is outside that JSON budget. A full stack trace may use a Markdown fence and is
+not subject to the code-snippet line limit. The agent reviews snippet semantics;
+the runtime enforces schema, check completeness, known-secret rejection, and size.
+Local live-log truncation does not change these export limits.

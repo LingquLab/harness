@@ -23,7 +23,8 @@ general green-environment task, omit revision; the bridge skips Git transfer and
 uses its green-local launch workspace.
 Include bounded prerequisites, setup, named checks, approved fixtures, observable expectations,
 timeout, cleanup, and stop conditions. Do not include a green repository alias,
-profile, path, source, diff, credential, or protected endpoint. End the turn after
+profile, complete source, diff, or credential. Include the intended service or
+host when needed for a requested remote check; it does not select the launch workspace. End the turn after
 TASK so the bridge can consume it.
 Use at least 600 seconds for TASK timeout; 900 seconds is the normal default for
 code validation and 600 seconds for a small read-only environment check.

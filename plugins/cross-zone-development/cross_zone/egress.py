@@ -2,7 +2,7 @@
 
 import re
 
-from .protocol import canonical
+from .protocol import PROTOCOL, canonical
 
 SCHEMA = {
     "type": "object",
@@ -27,7 +27,7 @@ SCHEMA = {
 }
 
 
-def review(value, request, secrets=(), deny_patterns=()):
+def review(value, request, secrets=()):
     if not isinstance(value, dict) or set(value) != set(SCHEMA["required"]):
         raise ValueError("result_schema")
     for key, spec in SCHEMA["properties"].items():
@@ -64,11 +64,18 @@ def review(value, request, secrets=(), deny_patterns=()):
     elif not value["question"]:
         raise ValueError("empty_question")
     literal = canonical(value)
-    if len(literal.encode("utf-8")) > 4096:
+    # Reserve the final RESULT envelope, not just the agent's structured fields.
+    exported = {k: v for k, v in value.items() if k not in ("kind", "egress_reviewed")}
+    envelope = {"protocol": PROTOCOL, "type": "RESULT", "event_id": "green-" + "0" * 32,
+                **{k: request[k] for k in ("task_id", "iteration", "target")},
+                **exported, "worktree_modified": False}
+    if "revision" in request:
+        envelope["revision"] = request["revision"]
+    if len(canonical(envelope).encode("utf-8")) > 4096:
         raise ValueError("egress_size_limit")
     # Reject; never partially redact a payload and accidentally change its meaning.
     patterns = [r"(?i)\b(?:bearer|password|api[_ -]?key|access[_ -]?token)\s*[:= ]\s*\S+",
-                r"\b(?:sk-|ghp_|github_pat_)[A-Za-z0-9_-]{12,}", *deny_patterns]
+                r"\b(?:sk-|ghp_|github_pat_)[A-Za-z0-9_-]{12,}"]
     if any(secret and secret in literal for secret in secrets) or any(re.search(p, literal) for p in patterns):
         raise ValueError("egress_content_rejected")
-    return {k: v for k, v in value.items() if k not in ("kind", "egress_reviewed")}
+    return exported

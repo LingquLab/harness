@@ -13,7 +13,7 @@ from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 from cross_zone.agent import CodeAgentCLI
-from cross_zone.cli import InstanceLock, error_hint, safe_error_detail, select_session
+from cross_zone.cli import InstanceLock, error_hint, safe_error_detail, select_session, preflight, main
 from cross_zone.config import load_config
 from cross_zone.controller import Bridge, CursorReset
 from cross_zone.egress import review
@@ -198,6 +198,44 @@ class CliErrorTests(unittest.TestCase):
                     loaded = load_config(path)
                     self.assertNotIn(field, loaded)
 
+    def test_preflight_checks_workspace_and_executable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            value = config(directory)
+            value["agent_command"] = [sys.executable]
+            Path(value["workspace_dir"]).mkdir()
+            preflight(value)
+            self.assertTrue(Path(value["state_dir"]).is_dir())
+            value["agent_command"] = [str(Path(directory) / "missing-cli")]
+            with self.assertRaisesRegex(ValueError, "executable not found"):
+                preflight(value)
+
+    def test_open_preflights_and_binds_before_notification(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as directory:
+            value = config(directory)
+            value["access_key"] = "test-local-key"
+            argv = ["bridge", "--session", "19146292-52a4-4094-9cd5-6086b0c3ec05", "open"]
+            with patch("sys.argv", argv), patch("cross_zone.cli.load_config", return_value=value), \
+                 patch("cross_zone.cli.preflight", side_effect=lambda cfg: calls.append("preflight")), \
+                 patch("cross_zone.cli.InstanceLock"), patch("cross_zone.cli.HapiClient") as client, \
+                 patch("cross_zone.cli.Bridge") as bridge:
+                bridge.return_value.bind.side_effect = lambda: calls.append("bind")
+                client.return_value.send.side_effect = lambda *args: calls.append("send")
+                bridge.return_value.run.side_effect = lambda: calls.append("run")
+                main()
+                self.assertEqual(calls, ["preflight", "bind", "send", "run"])
+                bridge.return_value.close.assert_not_called()
+
+    def test_config_caps_questions_at_three(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.local.json"
+            for count in (4, True, 2.5):
+                value = config(directory)
+                value["max_questions"] = count
+                path.write_text(json.dumps(value), encoding="utf-8")
+                with self.subTest(count=count), self.assertRaises(ValueError):
+                    load_config(path)
+
     def test_command_line_session_derives_isolated_state(self):
         with tempfile.TemporaryDirectory() as directory:
             value = {}
@@ -242,7 +280,7 @@ class ProtocolTests(unittest.TestCase):
 
     def test_malformed_envelopes_reject(self):
         variants = [task(iteration=True), task(revision="main"), task(timeout_seconds=599),
-                    task(checks=[]), task(task_id="../../escape"), task(extra="field"), task(type=[])]
+                    task(checks=[]), task(task_id="../../escape"), task(extra="field"), task(type=[]), task(type="UNKNOWN")]
         for event in variants:
             with self.subTest(event=event), self.assertRaises(ProtocolError):
                 parse(wire(event), "green-dev")
@@ -271,14 +309,12 @@ class EgressTests(unittest.TestCase):
             with self.subTest(summary=summary):
                 self.assertEqual(review(output(summary=summary), task())["summary"], summary)
 
-    def test_reject_credentials_and_custom_denials(self):
+    def test_reject_credentials(self):
         for summary in ["password=example", "Bearer secret-value", "api_key: secret-value"]:
             with self.subTest(summary=summary), self.assertRaises(ValueError):
                 review(output(summary=summary), task())
         with self.assertRaises(ValueError):
             review(output(summary="contains test-secret"), task(), secrets=["test-secret"])
-        with self.assertRaises(ValueError):
-            review(output(summary="projectX info"), task(), deny_patterns=["projectX"])
 
     def test_result_and_summary_limits(self):
         self.assertEqual(len(review(output(summary="x" * 3000), task())["summary"]), 3000)
@@ -291,6 +327,17 @@ class EgressTests(unittest.TestCase):
         value = output(kind="QUESTION", status="BLOCKED", summary="x" * 3000,
                        question="q" * 800,
                        checks=[{"id": check_id, "status": "NOT_RUN"} for check_id in check_ids])
+        with self.assertRaisesRegex(ValueError, "egress_size_limit"):
+            review(value, request)
+
+    def test_size_limit_includes_transport_envelope(self):
+        # Agent fields fit under 4K; protocol/task metadata puts the actual RESULT over.
+        from cross_zone.protocol import canonical
+        value = output(summary="x" * 3000, error_code="e" * 100)
+        value["checks"] = [{"id": "c" * 78 + str(i), "status": "PASS"} for i in range(6)]
+        request = task(task_id="t" * 80, target="g" * 80,
+                       checks=[{"id": c["id"]} for c in value["checks"]])
+        self.assertLess(len(canonical(value).encode("utf-8")), 4096)
         with self.assertRaisesRegex(ValueError, "egress_size_limit"):
             review(value, request)
 

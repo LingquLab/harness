@@ -21,9 +21,10 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 <plugin-dir>/start-bridge.sh open <session-id>
 ```
 
-蓝区已经开始派发任务时可用 `run` 代替 `open`。启动脚本写入
-`.cac/bridge-<command>-<session-id>.log`；其中可以显示有长度限制的 Agent 流式输出，
-但该内容只保留在绿区。状态和任务专属 detached checkout 位于
+恢复已有监听且不需要再次发送 OPEN 时可用 `run`。首次 `run` 会绑定当前消息游标并
+跳过历史 TASK，因此应在蓝区下发任务前启动。启动脚本写入
+`<plugin-dir>/.cac/bridge-<command>-<session-id>.log`；其中可以显示有长度限制的 Agent 流式输出，
+但该内容只保留在绿区。状态和任务专属 detached checkout 位于配置文件目录下的
 `.state/<session-id>/`。
 
 ## 绿区主动开启协同
@@ -36,20 +37,20 @@ workspace。配置中也不包含 profile、allowed tools 或自定义出区正�
 旧配置中已经删除的字段会被直接忽略，不能覆盖命令行 session、启动 workspace 或本地
 workspace。
 
-在绿区 Windows 运行时目录执行：
+在绿区授权的任务 workspace 中执行：
 
 ```bash
-./start-bridge.sh open <session-id>
+<plugin-dir>/start-bridge.sh open <session-id>
 ```
 
-Bridge 先检查本地 task binding、CLI 和目录；检查通过后才以 user 消息发送一次绿区
-来源的 OPEN，然后绑定并监听该会话，等待
+Bridge 先检查启动 workspace、CLI 和状态目录；检查通过后先绑定消息游标，再以 user
+消息发送一次绿区来源的 OPEN，并监听该会话，等待
 TASK/ANSWER/CANCEL。蓝区确认 OPEN 指向当前授权会话后，发送正式 TASK 开始协同；
 若不接受，则仅用普通对话说明原因。蓝区不得注入、回显或返回 OPEN 协议消息。
 
 蓝区完成并检查候选修改后，先提交并把任务分支推送到批准的 GitHub 仓库，再发送
 TASK。如果启动 workspace 是 Git 仓库，绿区通过其现有 `origin` 拉取 TASK 指定的完整 revision，在隔离、
-干净的 checkout 中测试。HAPI 只传递协同消息和审查后的结果，不传代码；绿区不推送
+干净的 checkout 中测试。HAPI 只传递协同消息和审查后的结果，包括允许的短诊断代码片段；绿区不推送
 诊断修改。
 
 `revision` 是可选字段。候选代码验证按上述流程携带 revision；查询时间、CPU/NPU
