@@ -92,7 +92,7 @@ class HapiContractTest(unittest.TestCase):
         self.assertIn("blue neither requests nor names", blue)
         self.assertIn("<plugin-dir>/start-bridge.sh open <session-id>", green)
         self.assertIn("not configuration", green)
-        self.assertIn("preflighted launch workspace", green)
+        self.assertIn("`.state/<session-id>`", green)
         self.assertIn("every requested check", protocol)
         self.assertIn("egress_reviewed=true", protocol)
         self.assertIn("creates a task-owned commit, and pushes", protocol)
