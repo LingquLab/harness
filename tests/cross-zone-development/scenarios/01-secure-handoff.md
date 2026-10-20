@@ -131,3 +131,14 @@ occupancy, or service health. No candidate code is involved.
 - Requiring a commit SHA for a task that does not validate code.
 - Fetching code or creating a checkout for a revisionless task.
 - Treating a revisionless environment result as evidence about a code revision.
+
+## Request F: Task Times Out
+
+A multi-step TASK returns TIMED_OUT without sufficient evidence of completion.
+
+## Expected Behavior F
+
+- Split unfinished work into single-action TASKs with bounded command runtimes.
+- Wait for each result before sending the next step; do not resend the original
+  task unchanged or merely increase its timeout.
+- Check partial changes and running processes before repeating a mutation.

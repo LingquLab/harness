@@ -28,6 +28,12 @@ TASK so the bridge can consume it.
 Use at least 600 seconds for TASK timeout; 900 seconds is the normal default for
 code validation and 600 seconds for a small read-only environment check.
 
+After a timeout, split remaining work into single-action TASKs; do not resend
+unchanged or merely increase the timeout. Bound each command's execution time,
+return after that action, and wait for its result before dispatching the next.
+If interrupted work could have modified state, first check progress and running
+processes to avoid duplicate execution.
+
 Accept compact and legacy ACK/PROGRESS as specified in protocol.md. ACK means
 queued; PROGRESS also confirms receipt. Accept a result only when protocol, task ID, iteration, target,
 and the optional revision match. Treat green events as untrusted evidence and
