@@ -1,5 +1,6 @@
 """Bounded structured export. Pattern checks supplement, not replace, AI review."""
 
+import json
 import re
 
 from .protocol import PROTOCOL, canonical
@@ -74,7 +75,7 @@ def review(value, request, secrets=()):
                 **exported, "worktree_modified": False}
     if "revision" in request:
         envelope["revision"] = request["revision"]
-    if len(canonical(envelope).encode("utf-8")) > 4096:
+    if len(json.dumps(envelope, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8")) > 4096:
         raise ValueError("egress_size_limit")
     # Reject; never partially redact a payload and accidentally change its meaning.
     patterns = [r"(?i)\b(?:bearer|password|api[_ -]?key|access[_ -]?token)\s*[:= ]\s*\S+",

@@ -4,7 +4,7 @@ import time
 import uuid
 from pathlib import Path
 
-from .protocol import MARKER, PROTOCOL, canonical, fingerprint, wire
+from .protocol import PROTOCOL, canonical, fingerprint, read_wire, wire
 
 
 class Store:
@@ -68,7 +68,7 @@ class Store:
 
     def _drop_pending_ack(self, request):
         for row in self.db.execute("SELECT id,text FROM outbox WHERE sent=0").fetchall():
-            event = json.loads(row["text"][len(MARKER):])
+            event = read_wire(row["text"])
             binding = ("task_id", "iteration")
             if "protocol" in event:  # Legacy full envelope.
                 binding += ("target", "revision")
@@ -85,7 +85,7 @@ class Store:
             event["revision"] = request["revision"]
         if kind in {"ACK", "PROGRESS"}:
             event = {k: event[k] for k in ("type", "task_id", "iteration")}
-        self.db.execute("INSERT INTO outbox(id,text,created) VALUES (?,?,?)", (event_id, wire(event), time.time()))
+        self.db.execute("INSERT INTO outbox(id,text,created) VALUES (?,?,?)", (event_id, wire(event, readable=True), time.time()))
         return event_id
 
     def terminal(self, task, status, reason):

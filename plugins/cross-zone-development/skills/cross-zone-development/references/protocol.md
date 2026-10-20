@@ -1,8 +1,9 @@
 # HAPI cross-zone/v2 protocol
 
 Every live protocol message starts with a line containing exactly
-`CROSS_ZONE_V2`, followed by one JSON object. Do not wrap it in a Markdown fence
-or add leading prose. IDs contain ASCII letters, digits, `_`, `-`, or `.`, begin
+`CROSS_ZONE_V2`, followed by one JSON object. New bridge output puts indented JSON
+in a `json` code block after the marker. Accept both this format and legacy plain
+JSON; never fence the marker itself or add leading prose. IDs contain ASCII letters, digits, `_`, `-`, or `.`, begin
 with an alphanumeric character, and are at most 80 characters. Reject unknown or
 duplicate JSON fields. Deduplicate full envelopes by `event_id`; compact
 notifications use HAPI message identity.
@@ -48,10 +49,16 @@ and optional revision from the uniquely matching TASK in that session. Reject
 unknown or ambiguous bindings. Continue accepting legacy full notifications,
 validating their explicit fields against that TASK.
 
-```text
+````text
 CROSS_ZONE_V2
-{"type":"PROGRESS","task_id":"nvidia-environment-install","iteration":5}
+```json
+{
+  "type": "PROGRESS",
+  "task_id": "nvidia-environment-install",
+  "iteration": 5
+}
 ```
+````
 
 PROGRESS also confirms receipt and replaces an unsent ACK for the same task.
 Queued tasks still receive ACK; already sent ACKs remain valid. Event IDs stay
@@ -136,7 +143,7 @@ Unsafe-to-export evidence and unknown process termination become NEEDS_HUMAN.
 
 The complete serialized RESULT JSON, including protocol and task-binding fields,
 is at most 4096 UTF-8 bytes; `summary` is at most 3000 characters. The marker line
-is outside that JSON budget. A full stack trace may use a Markdown fence and is
+and code-block fences are outside that JSON budget; JSON indentation counts. A full stack trace may use a Markdown fence and is
 not subject to the code-snippet line limit. The agent reviews snippet semantics;
 the runtime enforces schema, check completeness, known-secret rejection, and size.
 Local live-log truncation does not change these export limits.

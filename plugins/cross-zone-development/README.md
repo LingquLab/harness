@@ -93,7 +93,8 @@ green CLI may take more than five minutes to initialize and complete.
 
 TASK/ANSWER/CANCEL and ACK/PROGRESS/QUESTION/RESULT/REJECTED retain their v2
 semantics. ACK/PROGRESS use compact task/iteration notifications; immediate
-starts omit a pending ACK. Legacy full notifications remain valid.
+starts omit a pending ACK. Messages use indented JSON code blocks after the
+protocol marker; legacy plain JSON and full notifications remain valid.
 TASK messages do not carry repository/profile aliases. Results bind
 to the exact task, iteration, and target, and to the
 immutable revision when one was supplied. RESULT includes every requested check;

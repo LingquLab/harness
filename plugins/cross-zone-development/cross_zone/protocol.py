@@ -67,15 +67,24 @@ def _unique_object(pairs):
     return result
 
 
-def parse(text, target):
+def read_wire(text):
     if not text or not text.startswith(MARKER):
         return None
     if len(text.encode("utf-8")) > 24000:
         raise ProtocolError("request_too_large")
+    body = text[len(MARKER):].strip()
+    if body.startswith("```json\n") and body.endswith("\n```"):
+        body = body[len("```json\n"):-len("\n```")]
     try:
-        event = json.loads(text[len(MARKER):], object_pairs_hook=_unique_object)
+        return json.loads(body, object_pairs_hook=_unique_object)
     except (ValueError, RecursionError) as exc:
         raise ProtocolError("invalid_json") from exc
+
+
+def parse(text, target):
+    if not text or not text.startswith(MARKER):
+        return None
+    event = read_wire(text)
     if not isinstance(event, dict) or event.get("protocol") != PROTOCOL:
         raise ProtocolError("invalid_protocol")
     if event.get("target") != target:
@@ -128,7 +137,10 @@ def parse(text, target):
     return event
 
 
-def wire(event):
+def wire(event, *, readable=False):
+    if readable:
+        body = json.dumps(event, ensure_ascii=False, sort_keys=True, indent=2)
+        return MARKER + "```json\n" + body + "\n```"
     return MARKER + canonical(event)
 
 

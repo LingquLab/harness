@@ -18,7 +18,7 @@ from cross_zone.config import load_config
 from cross_zone.controller import Bridge, CursorReset
 from cross_zone.egress import review
 from cross_zone.hapi import HapiClient, HapiError
-from cross_zone.protocol import MARKER, ProtocolError, assistant_text, open_event, parse, wire
+from cross_zone.protocol import MARKER, ProtocolError, assistant_text, open_event, parse, read_wire, wire
 
 
 def task(**changes):
@@ -87,7 +87,7 @@ class FakeClient:
     def send(self, session, text, event_id):
         if self.fail_send:
             raise HapiError(409)
-        self.sent.append((event_id, json.loads(text[len(MARKER):])))
+        self.sent.append((event_id, read_wire(text)))
 
 
 class FakeAgent:
@@ -247,9 +247,27 @@ class CliErrorTests(unittest.TestCase):
                 select_session({}, config_path, "not-a-session")
 
 class ProtocolTests(unittest.TestCase):
+    def test_readable_and_legacy_task_formats_are_accepted(self):
+        event = task()
+        readable = wire(event, readable=True)
+        self.assertTrue(readable.startswith(MARKER + "```json\n{\n"))
+        self.assertIn('\n  "type": "TASK"', readable)
+        self.assertEqual(parse(readable, "green-dev"), event)
+        self.assertEqual(parse(wire(event), "green-dev"), event)
+
+    def test_readable_format_rejects_trailing_prose_and_duplicate_fields(self):
+        for text in (wire(task(), readable=True) + "\nextra prose",
+                     MARKER + '```json\n{"protocol":"cross-zone/v2","protocol":"bad"}\n```'):
+            with self.subTest(text=text), self.assertRaises(ProtocolError):
+                parse(text, "green-dev")
+
     def test_roundtrip_codex_and_claude(self):
         for flavor in ("codex", "output"):
             self.assertEqual(parse(assistant_text(message(task(), 1, flavor)), "green-dev"), task())
+
+    def test_null_payload_remains_an_invalid_protocol(self):
+        with self.assertRaisesRegex(ProtocolError, "invalid_protocol"):
+            parse(MARKER + "null", "green-dev")
 
     def test_new_task_omits_green_local_aliases(self):
         event = task()
@@ -341,6 +359,13 @@ class EgressTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "egress_size_limit"):
             review(value, request)
 
+    def test_result_size_budget_counts_json_indentation(self):
+        checks = [{"id": "c" * 78 + str(i), "status": "PASS"} for i in range(6)]
+        value = output(summary="x" * 2900, checks=checks)
+        request = task(checks=[{"id": check["id"]} for check in checks])
+        with self.assertRaisesRegex(ValueError, "egress_size_limit"):
+            review(value, request)
+
     def test_result_question_placeholders_are_normalized_without_mutating_input(self):
         for question in ("", " \t\n", "None", " NONE ", "null", "Null", "N/A", " n/a "):
             with self.subTest(question=question):
@@ -428,6 +453,16 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(sum(e["type"] == "RESULT" for e in events), 1)
         self.assertTrue(any(e["type"] == "REJECTED" for e in events))
 
+    def test_new_outbox_messages_are_indented_json_code_blocks(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        rows = self.bridge.store.db.execute("SELECT text FROM outbox ORDER BY rowid").fetchall()
+        self.assertEqual(len(rows), 2)
+        for row in rows:
+            self.assertTrue(row["text"].startswith(MARKER + "```json\n{\n"))
+            self.assertTrue(row["text"].endswith("\n```"))
+
     def test_immediate_start_sends_only_compact_progress_and_full_result(self):
         self.bridge.bind()
         self.ingest(task())
@@ -508,7 +543,7 @@ class BridgeTests(unittest.TestCase):
                 self.bridge.flush()
             self.bridge.flush()
         self.assertEqual(attempts[0], attempts[1])
-        self.assertEqual(json.loads(attempts[0][0][len(MARKER):]),
+        self.assertEqual(read_wire(attempts[0][0]),
                          {"type": "PROGRESS", "task_id": "task-1", "iteration": 1})
 
     def test_legacy_outbox_retry_preserves_body_and_transport_id(self):
@@ -918,7 +953,7 @@ class AgentTests(unittest.TestCase):
                     break
                 time.sleep(0.01)
             bridge.flush()
-            events = [json.loads(p["text"][len(MARKER):]) for p in hub.posted]
+            events = [read_wire(p["text"]) for p in hub.posted]
             self.assertEqual([e["type"] for e in events], ["PROGRESS", "RESULT"])
             self.assertEqual(events[-1]["status"], "PASS")
             self.assertEqual(events[-1]["revision"], self.revision)
