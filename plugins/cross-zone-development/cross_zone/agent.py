@@ -270,7 +270,7 @@ class CodeAgentCLI:
         command += ["-p", "--skip-safe-check", "--allow-dangerously-skip-permissions",
                     "--output-format", "stream-json", "--verbose",
                     "--json-schema", canonical(SCHEMA),
-                    "--permission-mode", "dontAsk", "--max-turns", "30",
+                    "--permission-mode", "dontAsk",
                     "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}']
         if session_id:
             command += ["--resume", session_id]

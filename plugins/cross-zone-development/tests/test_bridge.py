@@ -708,6 +708,7 @@ class AgentTests(unittest.TestCase):
                                     "assert '--allow-dangerously-skip-permissions' in sys.argv\n"
                                     "assert sys.argv[sys.argv.index('--output-format') + 1] == 'stream-json'\n"
                                     "assert '--verbose' in sys.argv\n"
+                                    "assert '--max-turns' not in sys.argv\n"
                                     "assert 'cross-zone/v2' in sys.stdin.read()\n"
                                     + "print(" + repr(json.dumps({"structured_output": output(), "session_id": "green"})) + ")\n")
             self.assertEqual(result["output"]["status"], "PASS")
