@@ -80,6 +80,7 @@ TASK 超时不得低于 600 秒。普通代码验证建议使用 900 秒；即�
 ## 协议边界
 
 TASK/ANSWER/CANCEL 与 ACK/PROGRESS/QUESTION/RESULT/REJECTED 保持 v2 既有语义。
+ACK/PROGRESS 仅保留类型、任务 ID 和轮次；即时启动时合并为 PROGRESS，兼容旧格式。
 TASK 不携带仓库/profile 别名。
 结果必须绑定准确的任务、iteration 和 target；TASK 提供 revision 时还必须绑定该
 不可变 revision。RESULT 必须包含全部 requested checks；代码验证的 PASS 还要求所有

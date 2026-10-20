@@ -428,6 +428,105 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(sum(e["type"] == "RESULT" for e in events), 1)
         self.assertTrue(any(e["type"] == "REJECTED" for e in events))
 
+    def test_immediate_start_sends_only_compact_progress_and_full_result(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        self.bridge.flush()
+        events = [event for _, event in self.client.sent]
+        self.assertEqual([event["type"] for event in events], ["PROGRESS", "RESULT"])
+        self.assertEqual(events[0], {"type": "PROGRESS", "task_id": "task-1", "iteration": 1})
+        self.assertEqual(events[1]["target"], "green-dev")
+        self.assertEqual(events[1]["revision"], task()["revision"])
+        self.assertEqual(events[1]["event_id"], self.client.sent[1][0])
+
+    def test_queued_ack_and_later_progress_are_both_delivered(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.bridge.flush()
+        self.assertEqual(self.client.sent[0][1], {"type": "ACK", "task_id": "task-1", "iteration": 1})
+        self.settle()
+        self.bridge.flush()
+        self.assertEqual([event["type"] for _, event in self.client.sent], ["ACK", "PROGRESS", "RESULT"])
+
+    def test_start_does_not_suppress_another_tasks_ack(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.ingest(task(event_id="next-task", task_id="task-2"))
+        self.bridge.work()
+        self.bridge.flush()
+        events = [event for _, event in self.client.sent]
+        self.assertEqual(events, [
+            {"type": "ACK", "task_id": "task-2", "iteration": 1},
+            {"type": "PROGRESS", "task_id": "task-1", "iteration": 1},
+        ])
+
+    def test_coalescing_keeps_other_iterations_targets_and_revisions(self):
+        request = task()
+        variants = (task(iteration=2), task(target="other-green"), task(revision="b" * 40), general_task())
+        with self.bridge.store.db:
+            retained = set()
+            for index, variant in enumerate(variants):
+                event_id = f"legacy-{index}"
+                event = {**{k: v for k, v in variant.items() if k in
+                            {"protocol", "task_id", "iteration", "target", "revision"}},
+                         "type": "ACK", "event_id": event_id, "state": "QUEUED"}
+                self.bridge.store.db.execute("INSERT INTO outbox(id,text,created) VALUES (?,?,?)",
+                                             (event_id, wire(event), time.time()))
+                retained.add(event_id)
+            removed = self.bridge.store.emit(request, "ACK", state="QUEUED")
+            progress = self.bridge.store.emit(request, "PROGRESS", state="RUNNING")
+        pending = {row["id"] for row in self.bridge.store.db.execute("SELECT id FROM outbox WHERE sent=0")}
+        self.assertEqual(pending, retained | {progress})
+        self.assertNotIn(removed, pending)
+
+    def test_progress_rollback_restores_pending_ack(self):
+        self.bridge.bind()
+        self.ingest(task())
+        with self.assertRaisesRegex(RuntimeError, "rollback"):
+            with self.bridge.store.db:
+                self.bridge.store.emit(task(), "PROGRESS", state="RUNNING")
+                raise RuntimeError("rollback")
+        self.bridge.flush()
+        self.assertEqual([event["type"] for _, event in self.client.sent], ["ACK"])
+
+    def test_notification_retry_keeps_compact_body_and_transport_id(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.bridge.work()
+        attempts = []
+        original_send = self.client.send
+
+        def response_lost_once(session, text, event_id):
+            attempts.append((text, event_id))
+            if len(attempts) == 1:
+                raise HapiError()
+            original_send(session, text, event_id)
+
+        with patch.object(self.client, "send", side_effect=response_lost_once):
+            with self.assertRaises(HapiError):
+                self.bridge.flush()
+            self.bridge.flush()
+        self.assertEqual(attempts[0], attempts[1])
+        self.assertEqual(json.loads(attempts[0][0][len(MARKER):]),
+                         {"type": "PROGRESS", "task_id": "task-1", "iteration": 1})
+
+    def test_legacy_outbox_retry_preserves_body_and_transport_id(self):
+        self.bridge.bind()
+        self.ingest(task())
+        row = self.bridge.store.db.execute("SELECT * FROM outbox").fetchone()
+        legacy = {"protocol": "cross-zone/v2", "type": "ACK", "event_id": row["id"],
+                  "task_id": "task-1", "iteration": 1, "target": "green-dev",
+                  "revision": task()["revision"], "state": "QUEUED"}
+        with self.bridge.store.db:
+            self.bridge.store.db.execute("UPDATE outbox SET text=? WHERE id=?", (wire(legacy), row["id"]))
+        # HAPI accepted a legacy send, but the old bridge lost the response.
+        self.client.send(self.cfg["session_id"], wire(legacy), row["id"])
+        self.bridge.close()
+        self.bridge = Bridge(self.cfg, self.client, self.agent)
+        self.bridge.flush()
+        self.assertEqual(self.client.sent, [(row["id"], legacy), (row["id"], legacy)])
+
     def test_none_question_result_reaches_pass(self):
         self.agent.outputs = [{"output": output(question="None"), "dirty": False}]
         self.bridge.bind()
@@ -820,7 +919,7 @@ class AgentTests(unittest.TestCase):
                 time.sleep(0.01)
             bridge.flush()
             events = [json.loads(p["text"][len(MARKER):]) for p in hub.posted]
-            self.assertEqual([e["type"] for e in events], ["ACK", "PROGRESS", "RESULT"])
+            self.assertEqual([e["type"] for e in events], ["PROGRESS", "RESULT"])
             self.assertEqual(events[-1]["status"], "PASS")
             self.assertEqual(events[-1]["revision"], self.revision)
         finally:

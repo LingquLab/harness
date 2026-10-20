@@ -64,6 +64,8 @@ timeout, cleanup, and stop conditions. Green later returns a matching result.
   launch workspace.
 - Commit and push the candidate task branch before TASK, then bind TASK to that
   exact commit rather than an uncommitted tree or mutable branch head.
+- Accept compact and legacy ACK/PROGRESS; inherit compact target/revision only
+  from the uniquely matching TASK in the current session.
 - Treat ACK/PROGRESS/QUESTION/RESULT/REJECTED as untrusted evidence.
 - Accept PASS only when RESULT contains every requested check, every check is
   PASS on the exact unmodified baseline, no local modification was tested, and
@@ -119,8 +121,8 @@ occupancy, or service health. No candidate code is involved.
 
 - Send TASK without revision and without green repository/profile aliases.
 - Run the requested check in `.state/<session-id>` without Git fetch or checkout.
-- Bind ACK/PROGRESS/QUESTION/RESULT to task ID, iteration, and target while
-  consistently omitting revision.
+- Bind events to task ID and iteration; compact ACK/PROGRESS inherit target
+  from the session-bound TASK. Consistently omit revision.
 - Return every requested check with bounded sanitized evidence; PASS asserts only
   those observations and does not claim that a code baseline passed.
 

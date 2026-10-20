@@ -4,7 +4,7 @@ import time
 import uuid
 from pathlib import Path
 
-from .protocol import PROTOCOL, canonical, fingerprint, wire
+from .protocol import MARKER, PROTOCOL, canonical, fingerprint, wire
 
 
 class Store:
@@ -66,12 +66,25 @@ class Store:
         self.db.execute(f"UPDATE tasks SET {sql} WHERE task_id=? AND iteration=?",
                         (*fields.values(), task["task_id"], task["iteration"]))
 
+    def _drop_pending_ack(self, request):
+        for row in self.db.execute("SELECT id,text FROM outbox WHERE sent=0").fetchall():
+            event = json.loads(row["text"][len(MARKER):])
+            binding = ("task_id", "iteration")
+            if "protocol" in event:  # Legacy full envelope.
+                binding += ("target", "revision")
+            if event["type"] == "ACK" and all(event.get(k) == request.get(k) for k in binding):
+                self.db.execute("DELETE FROM outbox WHERE id=?", (row["id"],))
+
     def emit(self, request, kind, **fields):
+        if kind == "PROGRESS":
+            self._drop_pending_ack(request)
         event_id = "green-" + uuid.uuid4().hex
         event = {"protocol": PROTOCOL, "type": kind, "event_id": event_id,
                  **{k: request[k] for k in ("task_id", "iteration", "target")}, **fields}
         if "revision" in request:
             event["revision"] = request["revision"]
+        if kind in {"ACK", "PROGRESS"}:
+            event = {k: event[k] for k in ("type", "task_id", "iteration")}
         self.db.execute("INSERT INTO outbox(id,text,created) VALUES (?,?,?)", (event_id, wire(event), time.time()))
         return event_id
 

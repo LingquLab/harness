@@ -92,7 +92,9 @@ green CLI may take more than five minutes to initialize and complete.
 ## Protocol boundaries
 
 TASK/ANSWER/CANCEL and ACK/PROGRESS/QUESTION/RESULT/REJECTED retain their v2
-semantics. TASK messages do not carry repository/profile aliases. Results bind
+semantics. ACK/PROGRESS use compact task/iteration notifications; immediate
+starts omit a pending ACK. Legacy full notifications remain valid.
+TASK messages do not carry repository/profile aliases. Results bind
 to the exact task, iteration, and target, and to the
 immutable revision when one was supplied. RESULT includes every requested check;
 code-validation PASS additionally requires a clean, unmodified baseline.
