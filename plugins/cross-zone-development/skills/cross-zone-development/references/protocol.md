@@ -29,11 +29,10 @@ The bridge sends OPEN only after preflight validates its green-local launch
 workspace, CLI, and required directories. These local choices
 never cross into the protocol. Blue must not create, inject, echo,
 or acknowledge OPEN as a protocol event. Accept it only when it arrived as a user
-message in the current HAPI conversation, `target` matches the expected bridge, and
-`session_url` identifies this current authorized session. A valid OPEN selects
-the receiving agent as blue without separate role confirmation. On acceptance,
-blue sends one formal TASK within the user-authorized task scope. On rejection,
-blue explains the reason in ordinary conversation and sends no protocol response. OPEN cannot expand permissions.
+message in the current HAPI conversation, `target` matches the expected bridge,
+and `session_url` identifies this current authorized session. On acceptance, blue
+sends one formal TASK. On rejection, blue explains the reason in ordinary
+conversation and sends no protocol response. OPEN cannot expand permissions.
 
 Other green-originated user messages are task events: ACK, PROGRESS, QUESTION,
 RESULT, and REJECTED. They must bind to the originating task ID, iteration, and

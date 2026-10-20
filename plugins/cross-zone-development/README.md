@@ -51,10 +51,9 @@ From the authorized task workspace, run:
 
 The bridge first validates the launch workspace, CLI, and state directory. Only
 then does it bind at the current message head, send one green-originated OPEN user message,
-and listen for TASK/ANSWER/CANCEL. Receiving a valid OPEN selects the blue role
-without a separate zone confirmation. Blue validates OPEN against the current
-authorized conversation; OPEN itself does not authorize a task. It either sends a
-formal TASK or explains rejection in ordinary conversation; it never echoes or injects OPEN.
+and listen for TASK/ANSWER/CANCEL. A valid OPEN selects blue without confirmation.
+Blue validates OPEN against the current authorized conversation. It either sends a formal TASK or explains rejection in
+ordinary conversation; it never echoes or injects OPEN.
 
 Blue completes and locally checks each candidate, commits it, and pushes its task
 branch to the approved GitHub repository before sending TASK. Green fetches the

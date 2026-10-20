@@ -1,9 +1,5 @@
 # Blue role
 
-A valid green-originated OPEN in the current conversation selects the blue role
-without a separate user designation. A direct user designation can also select
-blue. Role selection does not grant task permissions.
-
 ## Receive OPEN
 
 When a user message contains OPEN, validate its exact schema, target, and session
