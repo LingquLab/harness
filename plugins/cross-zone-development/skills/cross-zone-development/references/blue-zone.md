@@ -14,6 +14,8 @@ send an OPEN acknowledgement, or claim collaboration started before TASK is sent
 
 ## Dispatch and consume
 
+Send TASK/ANSWER/CANCEL with `CROSS_ZONE_V2` outside an indented `json` code block.
+
 For candidate-code validation, finish blue implementation and available checks,
 create a task-owned commit, push it, and name the exact revision in TASK. For a
 general green-environment task, omit revision; the bridge skips Git transfer and

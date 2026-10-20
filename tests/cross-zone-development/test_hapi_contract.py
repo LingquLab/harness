@@ -98,15 +98,14 @@ class HapiContractTest(unittest.TestCase):
         self.assertIn("creates a task-owned commit, and pushes", protocol)
         self.assertIn("prepares an isolated clean", protocol)
 
-        task_lines = [
-            line for line in protocol.splitlines()
-            if line.startswith('{"protocol":"cross-zone/v2","type":"TASK"')
-        ]
-        task = json.loads(task_lines[0])
+        examples = [json.loads(block) for block in re.findall(r"```json\n(.*?)\n```", protocol, re.DOTALL)]
+        tasks = [event for event in examples if event["type"] == "TASK"]
+        self.assertEqual(len(tasks), 2)
+        task = tasks[0]
         self.assertNotIn("repository", task)
         self.assertNotIn("scope_profile", task)
         self.assertEqual(task["revision"], "0123456789012345678901234567890123456789")
-        general_task = json.loads(task_lines[1])
+        general_task = tasks[1]
         self.assertNotIn("revision", general_task)
         self.assertEqual(general_task["task_id"], "machine-time")
 

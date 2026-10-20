@@ -1,8 +1,8 @@
 # HAPI cross-zone/v2 protocol
 
 Every live protocol message starts with a line containing exactly
-`CROSS_ZONE_V2`, followed by one JSON object. New bridge output puts indented JSON
-in a `json` code block after the marker. Accept both this format and legacy plain
+`CROSS_ZONE_V2`, followed by one JSON object. Both blue commands and green messages
+use indented JSON in a `json` code block after the marker. Accept both this format and legacy plain
 JSON; never fence the marker itself or add leading prose. IDs contain ASCII letters, digits, `_`, `-`, or `.`, begin
 with an alphanumeric character, and are at most 80 characters. Reject unknown or
 duplicate JSON fields. Deduplicate full envelopes by `event_id`; compact
@@ -14,10 +14,18 @@ notifications use HAPI message identity.
 green bridge sends it as a user message after the operator runs
 `./start-bridge.sh open <session-id>`:
 
-```text
+````text
 CROSS_ZONE_V2
-{"protocol":"cross-zone/v2","type":"OPEN","event_id":"green-open-0123456789abcdef","target":"green-dev","session_url":"sessions/01234567-89ab-cdef-0123-456789abcdef"}
+```json
+{
+  "protocol": "cross-zone/v2",
+  "type": "OPEN",
+  "event_id": "green-open-0123456789abcdef",
+  "target": "green-dev",
+  "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef"
+}
 ```
+````
 
 OPEN has exactly those five fields. Its event ID is `green-open-` followed by
 lowercase hexadecimal characters. It does not carry or require `task_id`,
@@ -69,17 +77,54 @@ outbox entries are sent unchanged. Other message formats are unchanged.
 
 Blue sends TASK as a top-level assistant message:
 
-```text
+````text
 CROSS_ZONE_V2
-{"protocol":"cross-zone/v2","type":"TASK","event_id":"blue-task-1","task_id":"candidate-validation","iteration":1,"target":"green-dev","revision":"0123456789012345678901234567890123456789","goal":"Verify the immutable baseline with approved fixtures.","checks":[{"id":"regression","action":"Run the approved regression test.","expected":"The requested cases pass; unavailable fixtures are BLOCKED."}],"timeout_seconds":900}
+```json
+{
+  "protocol": "cross-zone/v2",
+  "type": "TASK",
+  "event_id": "blue-task-1",
+  "task_id": "candidate-validation",
+  "iteration": 1,
+  "target": "green-dev",
+  "revision": "0123456789012345678901234567890123456789",
+  "goal": "Verify the immutable baseline with approved fixtures.",
+  "checks": [
+    {
+      "id": "regression",
+      "action": "Run the approved regression test.",
+      "expected": "The requested cases pass; unavailable fixtures are BLOCKED."
+    }
+  ],
+  "timeout_seconds": 900
+}
 ```
+````
 
 A general environment task omits revision:
 
-```text
+````text
 CROSS_ZONE_V2
-{"protocol":"cross-zone/v2","type":"TASK","event_id":"blue-task-2","task_id":"machine-time","iteration":1,"target":"green-dev","goal":"Read the green machine time without changing system state.","checks":[{"id":"time","action":"Read local time, UTC time, and timezone.","expected":"Return a bounded sanitized time summary."}],"timeout_seconds":600}
+```json
+{
+  "protocol": "cross-zone/v2",
+  "type": "TASK",
+  "event_id": "blue-task-2",
+  "task_id": "machine-time",
+  "iteration": 1,
+  "target": "green-dev",
+  "goal": "Read the green machine time without changing system state.",
+  "checks": [
+    {
+      "id": "time",
+      "action": "Read local time, UTC time, and timezone.",
+      "expected": "Return a bounded sanitized time summary."
+    }
+  ],
+  "timeout_seconds": 600
+}
 ```
+````
 
 All fields shown except `revision` are mandatory. Include `revision` only when
 the task validates candidate code; it is then a full lowercase SHA-1 or SHA-256
