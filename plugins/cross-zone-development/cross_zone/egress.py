@@ -17,7 +17,8 @@ SCHEMA = {
             "required": ["id", "status"],
         }},
         "error_code": {"type": "string", "maxLength": 100},
-        "question": {"type": "string", "maxLength": 800},
+        "question": {"type": "string", "maxLength": 800,
+                     "description": "Use an empty string for RESULT; question text for QUESTION."},
         "local_modification_tested": {"type": "boolean"},
         "local_modification_outcome": {"type": "string", "enum": ["PASS", "FAIL", "NOT_RUN"]},
         "egress_reviewed": {"type": "boolean"},
@@ -54,6 +55,8 @@ def review(value, request, secrets=()):
         if check["status"] not in ("PASS", "FAIL", "BLOCKED", "NOT_RUN"):
             raise ValueError("result_checks")
         seen.add(check["id"])
+    if value["kind"] == "RESULT" and value["question"].strip().casefold() in {"", "none", "null", "n/a"}:
+        value = dict(value, question="")
     if value["kind"] == "RESULT":
         if seen != wanted or value["question"]:
             raise ValueError("incomplete_result")

@@ -341,6 +341,30 @@ class EgressTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "egress_size_limit"):
             review(value, request)
 
+    def test_result_question_placeholders_are_normalized_without_mutating_input(self):
+        for question in ("", " \t\n", "None", " NONE ", "null", "Null", "N/A", " n/a "):
+            with self.subTest(question=question):
+                value = output(question=question)
+                self.assertEqual(review(value, task())["question"], "")
+                self.assertEqual(value["question"], question)
+
+    def test_question_placeholder_does_not_bypass_result_checks(self):
+        for changes in ({"checks": []}, {"local_modification_tested": True},
+                        {"checks": [{"id": "regression", "status": "NOT_RUN"}]},
+                        {"egress_reviewed": False}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                review(output(question="None", **changes), task())
+
+    def test_result_with_actual_question_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "incomplete_result"):
+            review(output(question="Which fixture should I use?"), task())
+
+    def test_question_text_is_not_normalized(self):
+        for question in ("None", "null", "N/A", "Which fixture should I use?"):
+            with self.subTest(question=question):
+                value = output(kind="QUESTION", status="BLOCKED", question=question)
+                self.assertEqual(review(value, task())["question"], question)
+
     def test_no_false_pass(self):
         for changes in ({"checks": []}, {"local_modification_tested": True}, {"egress_reviewed": False},
                         {"checks": [{"id": "regression", "status": "NOT_RUN"}]}):
@@ -403,6 +427,17 @@ class BridgeTests(unittest.TestCase):
         events = [e for _, e in self.client.sent]
         self.assertEqual(sum(e["type"] == "RESULT" for e in events), 1)
         self.assertTrue(any(e["type"] == "REJECTED" for e in events))
+
+    def test_none_question_result_reaches_pass(self):
+        self.agent.outputs = [{"output": output(question="None"), "dirty": False}]
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        self.bridge.flush()
+        self.assertEqual(self.row()["state"], "PASS")
+        result = next(event for _, event in self.client.sent if event["type"] == "RESULT")
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["question"], "")
 
     def test_new_task_uses_green_local_binding(self):
         event = task()
