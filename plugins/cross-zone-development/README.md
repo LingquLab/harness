@@ -99,6 +99,7 @@ TASK messages do not carry repository/profile aliases. Results bind
 to the exact task, iteration, and target, and to the
 immutable revision when one was supplied. RESULT includes every requested check;
 code-validation PASS additionally requires a clean, unmodified baseline.
+Agent failures include bounded, redacted diagnostic details for blue.
 Missing dependencies or permissions are BLOCKED.
 Missing information uses QUESTION, capped at three. Green sets
 `egress_reviewed=true` only after excluding credentials, personal or customer

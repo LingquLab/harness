@@ -83,3 +83,22 @@ def review(value, request, secrets=()):
     if any(secret and secret in literal for secret in secrets) or any(re.search(p, literal) for p in patterns):
         raise ValueError("egress_content_rejected")
     return exported
+
+
+def failure_detail(detail, secrets=()):
+    """Export a bounded diagnostic excerpt, never the agent's stdout."""
+    if not isinstance(detail, str):
+        return ""
+    for secret in sorted((s for s in secrets if isinstance(s, str) and s), key=len, reverse=True):
+        detail = detail.replace(secret, "[REDACTED]")
+    credential = r"(?:password|passwd|api[_ -]?key|access[_ -]?(?:key|token)|token|secret)"
+    detail = re.sub(
+        r"(?i)(?:\b(?:bearer|basic)\s+|--" + credential + r"(?:=|\s+)|\b" + credential
+        + r"[\"']?\s*[:=]\s*)(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)",
+        "[REDACTED]", detail)
+    detail = re.sub(r"\b(?:sk-|gh[pousr]_|github_pat_)[A-Za-z0-9_-]{12,}", "[REDACTED]", detail)
+    detail = re.sub(r"(https?://)[^/\s@]+@", r"\1[REDACTED]@", detail)
+    detail = "".join(c if c in "\n\t" or ord(c) >= 32 else "?" for c in detail)
+    while len(json.dumps(detail, ensure_ascii=False).encode("utf-8")) > 2000:
+        detail = detail[:len(detail) // 2] + "...[truncated]"
+    return detail

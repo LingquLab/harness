@@ -219,7 +219,30 @@ def agent_failure(reason, status, detail, exc=None):
     else:
         LOG.error("Agent failure [%s]: %s: %s. %s", reason,
                   type(exc).__name__, _bounded_log_text(str(exc), 2000), detail)
-    return {"failure": reason, "status": status}
+    if exc is not None:
+        detail = f"{type(exc).__name__}: {exc}\n{detail}"
+    return {"failure": reason, "status": status, "detail": detail}
+
+
+def failure_context(stdout_path, stderr_path):
+    parts = []
+    try:
+        result = _read_agent_result(stdout_path)
+        subtype = result.get("subtype")
+        if isinstance(subtype, str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", subtype):
+            parts.append(f"Agent completed: {subtype}")
+    except (OSError, ValueError):
+        pass
+    try:
+        with stderr_path.open("rb") as stream:
+            stream.seek(0, os.SEEK_END)
+            stream.seek(max(0, stream.tell() - 4096))
+            tail = stream.read().decode("utf-8", errors="replace")
+        if tail.strip():
+            parts.append("stderr tail:\n" + "\n".join(tail.splitlines()[-8:]))
+    except OSError:
+        pass
+    return "\n".join(parts)
 
 
 class CodeAgentCLI:
@@ -254,8 +277,9 @@ class CodeAgentCLI:
             else:
                 cwd = Path(config["state_dir"])
                 cwd.mkdir(parents=True, exist_ok=True)
-        except (OSError, ValueError, subprocess.TimeoutExpired):
-            return {"failure": "baseline_revision_or_worktree_unavailable", "status": "BLOCKED"}
+        except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+            return agent_failure("baseline_revision_or_worktree_unavailable", "BLOCKED",
+                                 "Cannot prepare the task working directory or immutable baseline.", exc)
         if stopped_result := stopped():
             return stopped_result
         command = resolve_windows_launcher(list(config["agent_command"]))
@@ -331,11 +355,14 @@ class CodeAgentCLI:
                     "agent_exit_nonzero",
                     "BLOCKED",
                     f"CodeAgentCLI exited with code {process.returncode}. "
-                    f"Inspect the green-local stderr file '{stderr_path}'.",
+                    f"Inspect the green-local stderr file '{stderr_path}'.\n"
+                    + failure_context(stdout_path, stderr_path),
                 )
             result = _read_agent_result(stdout_path)
             if not isinstance(result, dict) or result.get("is_error") or result.get("permission_denials"):
-                return {"failure": "agent_error_or_permission_denied", "status": "BLOCKED"}
+                return agent_failure("agent_error_or_permission_denied", "BLOCKED",
+                                     "Agent reported an error or permission denial.\n"
+                                     + failure_context(stdout_path, stderr_path))
             dirty = baseline(cwd, revision, require_clean=False) if revision else False
             return {"output": result.get("structured_output"), "session_id": result.get("session_id"), "dirty": dirty}
         except FileNotFoundError as exc:
@@ -363,8 +390,10 @@ class CodeAgentCLI:
             if process is not None and process.poll() is None:
                 try:
                     terminate_tree(process)
-                except (OSError, RuntimeError, subprocess.SubprocessError):
-                    return {"failure": "termination_unconfirmed", "status": "NEEDS_HUMAN", "pause": True}
+                except (OSError, RuntimeError, subprocess.SubprocessError) as termination_exc:
+                    result = agent_failure("termination_unconfirmed", "NEEDS_HUMAN",
+                                           f"While handling {type(exc).__name__}: {exc}", termination_exc)
+                    return dict(result, pause=True)
             return agent_failure(
                 "agent_runtime_error",
                 "NEEDS_HUMAN",

@@ -127,7 +127,11 @@ They affect only an exact matching task.
 
 Agent-produced RESULT includes every requested check. Bridge-generated terminal
 notifications (startup/process failures, cancellation, timeout, or crash recovery)
-carry `status` and `reason` instead of check evidence; they never establish PASS. PASS requires every check to be PASS. For
+carry `status` and `reason` instead of check evidence; they never establish PASS.
+Agent failures also include optional `detail`: exception type/message, exit code,
+CLI result subtype, and up to eight stderr lines when available. The bridge
+redacts known secrets and credential patterns, limits this diagnostic field to
+2000 JSON-encoded UTF-8 bytes, and never exports stdout or bulk logs. PASS requires every check to be PASS. For
 a revision-bearing task it additionally requires the exact unmodified baseline,
 no local-modification testing, and a clean worktree at exit. A revisionless PASS
 confirms only the requested green-environment observations and must not claim a

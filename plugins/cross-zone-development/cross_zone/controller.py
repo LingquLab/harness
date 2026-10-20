@@ -7,8 +7,8 @@ import threading
 import time
 import uuid
 
-from .agent import CodeAgentCLI
-from .egress import review
+from .agent import CodeAgentCLI, agent_failure
+from .egress import failure_detail, review
 from .hapi import HapiError
 from .protocol import ProtocolError, assistant_text, canonical, fingerprint, parse
 from .store import Store
@@ -140,13 +140,14 @@ class Bridge:
         request = json.loads(task["request"])
         if result.get("pause"):
             self.store.set_meta("recovery_required", True)
+        detail = failure_detail(result.get("detail"), secrets=(self.client.access_key, self.client.token))
         if task["state"] == "CANCELLING":
             # A concurrent successful exit does not erase a requested cancellation.
             self.store.terminal(task, "NEEDS_HUMAN" if result.get("pause") else "CANCELLED",
-                                "termination_unconfirmed" if result.get("pause") else "cancelled")
+                                "termination_unconfirmed" if result.get("pause") else "cancelled", detail)
             return
         if "failure" in result:
-            self.store.terminal(task, result["status"], result["failure"])
+            self.store.terminal(task, result["status"], result["failure"], detail)
             return
         if time.time() >= task["deadline"]:
             self.store.terminal(task, "TIMED_OUT", "task_deadline_exceeded")
@@ -182,8 +183,10 @@ class Bridge:
             if future.done():
                 try:
                     result = future.result()
-                except Exception:
-                    result = {"failure": "agent_adapter_exception", "status": "NEEDS_HUMAN", "pause": True}
+                except Exception as exc:
+                    result = agent_failure("agent_adapter_exception", "NEEDS_HUMAN",
+                                           "Agent adapter raised an unexpected exception.", exc)
+                    result["pause"] = True
                 with self.store.db:
                     self._complete(task, result)
                 LOG.info("Task state: %s / %s = %s", task_id, iteration,

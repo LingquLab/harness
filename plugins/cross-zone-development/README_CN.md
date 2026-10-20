@@ -86,7 +86,7 @@ TASK 不携带仓库/profile 别名。
 结果必须绑定准确的任务、iteration 和 target；TASK 提供 revision 时还必须绑定该
 不可变 revision。RESULT 必须包含全部 requested checks；代码验证的 PASS 还要求所有
 检查在干净且未修改的基线上通过。依赖或权限不足返回
-BLOCKED；信息不足发送 QUESTION，最多 3 次。绿区完成出区审查后才能设置
+BLOCKED；Agent 故障会附带脱敏、限长的诊断详情。信息不足发送 QUESTION，最多 3 次。绿区完成出区审查后才能设置
 `egress_reviewed=true`，不得返回凭据、个人或客户数据、请求/响应正文、大批量日志、
 完整源文件、diff、patch，以及达到 10 行的代码或伪代码片段。允许返回相关的
 Markdown 围栏、URL、内网地址、绝对路径、完整堆栈，以及少于 10 行的代码或可重建

@@ -16,7 +16,7 @@ from cross_zone.agent import CodeAgentCLI
 from cross_zone.cli import InstanceLock, error_hint, safe_error_detail, select_session, preflight, main
 from cross_zone.config import load_config
 from cross_zone.controller import Bridge, CursorReset
-from cross_zone.egress import review
+from cross_zone.egress import failure_detail, review
 from cross_zone.hapi import HapiClient, HapiError
 from cross_zone.protocol import MARKER, ProtocolError, assistant_text, open_event, parse, read_wire, wire
 
@@ -359,6 +359,30 @@ class EgressTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "egress_size_limit"):
             review(value, request)
 
+    def test_failure_detail_redacts_credentials_before_truncating(self):
+        detail = ("known-secret password=abc Bearer xyz api_key: value gho_1234567890123456 "
+                  "https://user:pass@host/path password=\"quoted secret\" \"token\": 'another secret'")
+        result = failure_detail(detail, secrets=("known-secret",))
+        for secret in ("known-secret", "abc", "xyz", "value", "gho_1234567890123456", "user:pass", "quoted secret", "another secret"):
+            self.assertNotIn(secret, result)
+        self.assertIn("[REDACTED]", result)
+        bounded = failure_detail("错误\n" * 5000)
+        self.assertLessEqual(len(json.dumps(bounded, ensure_ascii=False).encode("utf-8")), 2000)
+        self.assertIn("[truncated]", bounded)
+
+    def test_failure_detail_redacts_cli_flags_and_http_basic_auth(self):
+        cases = (
+            ("error executing client --api-key confidential-value", "confidential-value"),
+            ("Authorization: Basic dXNlcjpwYXNz", "dXNlcjpwYXNz"),
+            ('client --access-token "quoted secret" failed', "quoted secret"),
+            ("client --password=example-password failed", "example-password"),
+        )
+        for detail, secret in cases:
+            with self.subTest(detail=detail):
+                exported = failure_detail(detail)
+                self.assertNotIn(secret, exported)
+                self.assertIn("[REDACTED]", exported)
+
     def test_result_size_budget_counts_json_indentation(self):
         checks = [{"id": "c" * 78 + str(i), "status": "PASS"} for i in range(6)]
         value = output(summary="x" * 2900, checks=checks)
@@ -462,6 +486,43 @@ class BridgeTests(unittest.TestCase):
         for row in rows:
             self.assertTrue(row["text"].startswith(MARKER + "```json\n{\n"))
             self.assertTrue(row["text"].endswith("\n```"))
+
+    def test_agent_failure_detail_reaches_blue_without_known_secrets(self):
+        self.agent.outputs = [{"failure": "agent_runtime_error", "status": "NEEDS_HUMAN",
+                               "detail": "RuntimeError: agent_output_reader_stuck\n" + self.client.access_key}]
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        self.bridge.flush()
+        result = next(event for _, event in self.client.sent if event["type"] == "RESULT")
+        self.assertEqual(result["reason"], "agent_runtime_error")
+        self.assertIn("RuntimeError: agent_output_reader_stuck", result["detail"])
+        self.assertNotIn(self.client.access_key, result["detail"])
+        self.assertIn("[REDACTED]", result["detail"])
+
+    def test_failure_result_with_unicode_detail_stays_within_wire_budget(self):
+        self.agent.outputs = [{"failure": "agent_runtime_error", "status": "NEEDS_HUMAN", "detail": "错误\n" * 5000}]
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        row = self.bridge.store.db.execute("SELECT text FROM outbox ORDER BY rowid DESC LIMIT 1").fetchone()
+        event = read_wire(row["text"])
+        self.assertLessEqual(len(json.dumps(event, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8")), 4096)
+        self.assertEqual(event["reason"], "agent_runtime_error")
+
+    def test_adapter_exception_details_are_reported_and_pause_execution(self):
+        def fail(*args):
+            raise RuntimeError("worker exploded")
+
+        self.agent.run = fail
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        self.bridge.flush()
+        result = next(event for _, event in self.client.sent if event["type"] == "RESULT")
+        self.assertEqual(result["reason"], "agent_adapter_exception")
+        self.assertIn("RuntimeError: worker exploded", result["detail"])
+        self.assertTrue(self.bridge.store.get_meta("recovery_required"))
 
     def test_immediate_start_sends_only_compact_progress_and_full_result(self):
         self.bridge.bind()
@@ -1022,15 +1083,33 @@ class AgentTests(unittest.TestCase):
                 task(revision=self.revision), None, None,
                 time.time() + 10, threading.Event(),
             )
-        self.assertEqual(result, {"failure": "agent_executable_not_found", "status": "BLOCKED"})
+        self.assertEqual(result["failure"], "agent_executable_not_found")
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertIn("agent_command[0]", result["detail"])
         combined = "\n".join(logs.output)
         self.assertIn("agent_executable_not_found", combined)
         self.assertIn("agent_command[0]", combined)
 
+    def test_runtime_failure_includes_exception_type_and_message(self):
+        with patch("cross_zone.agent._read_agent_result", side_effect=RuntimeError("agent_output_reader_stuck")):
+            result = self.run_agent("print('{}')\n")
+        self.assertEqual(result["failure"], "agent_runtime_error")
+        self.assertIn("RuntimeError: agent_output_reader_stuck", result["detail"])
+
+    def test_nonzero_agent_exit_includes_subtype_and_bounded_stderr(self):
+        code = ("import sys,json\nprint(json.dumps({'type':'result','subtype':'error_max_turns'}))\n"
+                "sys.stderr.write('old line\\n' * 20 + 'runtime diagnostic\\n')\nsys.exit(1)\n")
+        result = self.run_agent(code)
+        self.assertIn("error_max_turns", result["detail"])
+        self.assertIn("runtime diagnostic", result["detail"])
+        self.assertEqual(result["detail"].count("old line"), 7)
+
     def test_nonzero_agent_exit_reports_exit_code_locally(self):
         with self.assertLogs("cross_zone.agent", level="ERROR") as logs:
             result = self.run_agent("import sys\nsys.exit(7)\n")
-        self.assertEqual(result, {"failure": "agent_exit_nonzero", "status": "BLOCKED"})
+        self.assertEqual(result["failure"], "agent_exit_nonzero")
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertIn("code 7", result["detail"])
         self.assertIn("code 7", "\n".join(logs.output))
 
 

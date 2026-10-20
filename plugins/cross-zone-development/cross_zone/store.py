@@ -88,10 +88,10 @@ class Store:
         self.db.execute("INSERT INTO outbox(id,text,created) VALUES (?,?,?)", (event_id, wire(event, readable=True), time.time()))
         return event_id
 
-    def terminal(self, task, status, reason):
+    def terminal(self, task, status, reason, detail=""):
         request = json.loads(task["request"])
         self.update(task, state=status)
-        self.emit(request, "RESULT", status=status, reason=reason)
+        self.emit(request, "RESULT", status=status, reason=reason, **({"detail": detail} if detail else {}))
 
     def recover(self):
         """A crash cannot prove whether a child or its effects survived."""
