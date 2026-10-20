@@ -60,7 +60,7 @@ the task validates candidate code; it is then a full lowercase SHA-1 or SHA-256
 Git commit ID that blue has already pushed to the approved GitHub repository.
 General environment, hardware, time, service-status, and diagnostic tasks omit
 `revision` and do not trigger Git fetch or checkout. Blue never names a green repository, working directory,
-or access profile; the bridge uses its launch workspace.
+or access profile; green selects task directories locally.
 Include reproducible prerequisites, actions, expected outcomes, cleanup, and stop
 conditions in goal/checks. Exact duplicates are ignored; reusing a task/iteration
 with different content rejects. A later iteration requires the previous one to

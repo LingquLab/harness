@@ -64,7 +64,7 @@ reviewed results, including approved short diagnostic snippets. Green does not p
 Revision is optional. Include it for candidate-code validation as described
 above. Omit it for general green-environment work such as querying time, CPU/NPU
 state, service health, or other requested diagnostics; those tasks run
-in the launch workspace without Git fetch or checkout.
+in `.state/<session-id>` without Git fetch or checkout.
 
 For a listener without OPEN, run `./start-bridge.sh run <session-id>`. Each
 session automatically uses `.state/<session-id>/` and a session-specific log, so

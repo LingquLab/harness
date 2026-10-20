@@ -118,8 +118,7 @@ occupancy, or service health. No candidate code is involved.
 ## Expected Behavior E
 
 - Send TASK without revision and without green repository/profile aliases.
-- Use the launch workspace, then run the requested check in
-  the authorized workspace without Git fetch or checkout.
+- Run the requested check in `.state/<session-id>` without Git fetch or checkout.
 - Bind ACK/PROGRESS/QUESTION/RESULT to task ID, iteration, and target while
   consistently omitting revision.
 - Return every requested check with bounded sanitized evidence; PASS asserts only

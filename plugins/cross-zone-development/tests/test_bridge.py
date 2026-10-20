@@ -821,9 +821,11 @@ class AgentTests(unittest.TestCase):
         result = self.run_agent("raise Exception('should not launch')\n")
         self.assertEqual(result["status"], "BLOCKED")
 
-    def test_general_task_runs_in_authorized_workspace_without_git_checkout(self):
+    def test_general_task_runs_in_session_directory_without_git_checkout(self):
         event = general_task()
-        self.script.write_text("import json,sys\nsys.stdin.read()\nprint(" +
+        self.script.write_text("import json,sys,os\nsys.stdin.read()\n"
+                               + "assert os.getcwd() == " + repr(str(Path(self.cfg["state_dir"]).resolve())) + "\n"
+                               + "print(" +
                                repr(json.dumps({"structured_output": output()})) + ")\n",
                                encoding="utf-8")
         result = CodeAgentCLI(self.cfg).run(

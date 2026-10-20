@@ -17,7 +17,7 @@ send an OPEN acknowledgement, or claim collaboration started before TASK is sent
 For candidate-code validation, finish blue implementation and available checks,
 create a task-owned commit, push it, and name the exact revision in TASK. For a
 general green-environment task, omit revision; the bridge skips Git transfer and
-uses its green-local launch workspace.
+runs the agent in its session directory.
 Include bounded prerequisites, setup, named checks, approved fixtures, observable expectations,
 timeout, cleanup, and stop conditions. Do not include a green repository alias,
 profile, complete source, diff, or credential. Include the intended service or

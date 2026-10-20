@@ -56,7 +56,7 @@ TASK。如果启动 workspace 是 Git 仓库，绿区通过其现有 `origin` �
 
 `revision` 是可选字段。候选代码验证按上述流程携带 revision；查询时间、CPU/NPU
 状态、服务健康度或其他绿区环境检查不携带 revision，Bridge 会跳过
-Git fetch 和 checkout，直接在启动 workspace 中执行。
+Git fetch 和 checkout，直接在 `.state/<session-id>` 中执行。
 
 不需要绿区主动开启时，运行 `./start-bridge.sh run <session-id>`。每个会话自动使用
 `.state/<session-id>/` 和独立日志，因此同一配置可服务多个并发会话。跨平台示例见
