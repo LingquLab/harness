@@ -30,43 +30,56 @@ SCHEMA = {
 
 
 def review(value, request, secrets=()):
-    if not isinstance(value, dict) or set(value) != set(SCHEMA["required"]):
-        raise ValueError("result_schema")
+    if not isinstance(value, dict):
+        raise ValueError(f"result_schema: expected object, got {type(value).__name__}")
+    missing = set(SCHEMA["required"]) - set(value)
+    unexpected = set(value) - set(SCHEMA["required"])
+    if missing or unexpected:
+        raise ValueError(f"result_schema: missing fields={sorted(missing)}, unexpected field count={len(unexpected)}")
     for key, spec in SCHEMA["properties"].items():
         item = value[key]
         if spec["type"] == "string":
-            if not isinstance(item, str) or len(item) > spec.get("maxLength", 100):
-                raise ValueError("result_schema")
+            if not isinstance(item, str):
+                raise ValueError(f"result_schema: {key} expected string, got {type(item).__name__}")
+            limit = spec.get("maxLength", 100)
+            if len(item) > limit:
+                raise ValueError(f"result_schema: {key} length={len(item)} exceeds limit={limit}")
             if "enum" in spec and item not in spec["enum"]:
-                raise ValueError("result_schema")
+                raise ValueError(f"result_schema: {key} must be one of {spec['enum']}")
         elif spec["type"] == "boolean" and type(item) is not bool:
-            raise ValueError("result_schema")
+            raise ValueError(f"result_schema: {key} expected boolean, got {type(item).__name__}")
     if value["egress_reviewed"] is not True:
-        raise ValueError("egress_not_reviewed")
+        raise ValueError("egress_not_reviewed: egress_reviewed must be true after reviewing the export")
     checks = value["checks"]
-    if not isinstance(checks, list) or len(checks) > 20:
-        raise ValueError("result_checks")
+    if not isinstance(checks, list):
+        raise ValueError(f"result_checks: checks expected array, got {type(checks).__name__}")
+    if len(checks) > 20:
+        raise ValueError(f"result_checks: checks count={len(checks)} exceeds limit=20")
     wanted = {c["id"] for c in request["checks"]}
     seen = set()
-    for check in checks:
+    for index, check in enumerate(checks):
         if not isinstance(check, dict) or set(check) != {"id", "status"}:
-            raise ValueError("result_checks")
+            raise ValueError(f"result_checks: checks[{index}] must contain only id and status")
         if not isinstance(check["id"], str) or check["id"] not in wanted or check["id"] in seen:
-            raise ValueError("result_checks")
+            raise ValueError(f"result_checks: checks[{index}].id must uniquely match a requested check")
         if check["status"] not in ("PASS", "FAIL", "BLOCKED", "NOT_RUN"):
-            raise ValueError("result_checks")
+            raise ValueError(f"result_checks: checks[{index}].status must be PASS, FAIL, BLOCKED or NOT_RUN")
         seen.add(check["id"])
     if value["kind"] == "RESULT" and value["question"].strip().casefold() in {"", "none", "null", "n/a"}:
         value = dict(value, question="")
     if value["kind"] == "RESULT":
-        if seen != wanted or value["question"]:
-            raise ValueError("incomplete_result")
+        if seen != wanted:
+            raise ValueError(f"incomplete_result: missing requested checks={sorted(wanted - seen)}")
+        if value["question"]:
+            raise ValueError(f"incomplete_result: RESULT question must be empty; length={len(value['question'])}")
         if value["status"] == "PASS" and (
             any(c["status"] != "PASS" for c in checks) or value["local_modification_tested"]
         ):
-            raise ValueError("baseline_not_passed")
+            failed = [c["id"] for c in checks if c["status"] != "PASS"]
+            raise ValueError(f"baseline_not_passed: non-PASS checks={failed}; "
+                             f"local_modification_tested={value['local_modification_tested']}")
     elif not value["question"]:
-        raise ValueError("empty_question")
+        raise ValueError("empty_question: QUESTION requires non-empty question text")
     literal = canonical(value)
     # Reserve the final RESULT envelope, not just the agent's structured fields.
     exported = {k: v for k, v in value.items() if k not in ("kind", "egress_reviewed")}
@@ -75,13 +88,18 @@ def review(value, request, secrets=()):
                 **exported, "worktree_modified": False}
     if "revision" in request:
         envelope["revision"] = request["revision"]
-    if len(json.dumps(envelope, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8")) > 4096:
-        raise ValueError("egress_size_limit")
+    size = len(json.dumps(envelope, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8"))
+    if size > 4096:
+        raise ValueError(f"egress_size_limit: RESULT JSON bytes={size} exceeds limit=4096; shorten summary")
     # Reject; never partially redact a payload and accidentally change its meaning.
     patterns = [r"(?i)\b(?:bearer|password|api[_ -]?key|access[_ -]?token)\s*[:= ]\s*\S+",
                 r"\b(?:sk-|ghp_|github_pat_)[A-Za-z0-9_-]{12,}"]
     if any(secret and secret in literal for secret in secrets) or any(re.search(p, literal) for p in patterns):
-        raise ValueError("egress_content_rejected")
+        fields = [key for key, item in value.items()
+                  if any(secret and secret in canonical({key: item}) for secret in secrets)
+                  or any(re.search(p, canonical({key: item})) for p in patterns)]
+        raise ValueError(f"egress_content_rejected: credential match in fields={fields}; "
+                         "review these fields locally; matching content withheld")
     return exported
 
 

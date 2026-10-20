@@ -259,9 +259,11 @@ class CodeAgentCLI:
     def run(self, request, session_id, answer, deadline, cancel):
         def stopped():
             if cancel.is_set():
-                return {"failure": "cancelled", "status": "CANCELLED"}
+                return {"failure": "cancelled", "status": "CANCELLED",
+                        "detail": "Task was cancelled before the CLI launched."}
             if time.time() >= deadline:
-                return {"failure": "timed_out", "status": "TIMED_OUT"}
+                return {"failure": "timed_out", "status": "TIMED_OUT",
+                        "detail": "Task deadline expired before the CLI launched; no new agent process started."}
             return None
 
         if stopped_result := stopped():
@@ -344,7 +346,15 @@ class CodeAgentCLI:
                         terminate_tree(process)
                         for reader in readers:
                             reader.join(timeout=5)
-                        return {"failure": stop_reason.lower(), "status": stop_reason if stop_reason != "OUTPUT_LIMIT" else "NEEDS_HUMAN"}
+                        detail = {
+                            "TIMED_OUT": "Agent CLI exceeded the task deadline and was terminated. "
+                                         "Remote changes may persist; inspect progress before splitting remaining work.",
+                            "CANCELLED": "Agent CLI was cancelled and terminated; remote changes may persist.",
+                            "OUTPUT_LIMIT": "Agent stdout/stderr exceeded the 32 MiB local output limit. "
+                                            "CLI was terminated; inspect local logs and remote effects before continuing.",
+                        }[stop_reason]
+                        return {"failure": stop_reason.lower(), "status": stop_reason if stop_reason != "OUTPUT_LIMIT" else "NEEDS_HUMAN",
+                                "detail": detail}
                     cancel.wait(0.15)
                 for reader in readers:
                     reader.join(timeout=5)

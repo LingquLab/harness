@@ -487,6 +487,42 @@ class BridgeTests(unittest.TestCase):
             self.assertTrue(row["text"].startswith(MARKER + "```json\n{\n"))
             self.assertTrue(row["text"].endswith("\n```"))
 
+    def test_result_validation_failures_report_fields_and_limits(self):
+        cases = (
+            (output(question="Need approval"), "incomplete_result", "question must be empty"),
+            (output(summary="x" * 3001), "result_schema", "summary length=3001 exceeds limit=3000"),
+            (output(local_modification_tested="false"), "result_schema", "local_modification_tested expected boolean, got str"),
+            (output(checks=[]), "incomplete_result", "missing requested checks"),
+            (output(egress_reviewed=False), "egress_not_reviewed", "egress_reviewed must be true"),
+            (output(local_modification_tested=True), "baseline_not_passed", "local_modification_tested=True"),
+        )
+        self.bridge.bind()
+        for iteration, (value, code, condition) in enumerate(cases, 1):
+            with self.subTest(code=code, condition=condition):
+                self.agent.outputs = [{"output": value, "dirty": False}]
+                self.ingest(task(iteration=iteration, event_id=f"validation-{iteration}"))
+                self.settle()
+                self.bridge.flush()
+                event = self.client.sent[-1][1]
+                self.assertEqual(event["status"], "NEEDS_HUMAN")
+                self.assertEqual(event["reason"], "structured_result_or_egress_review_failed")
+                self.assertIn(code, event["detail"])
+                self.assertIn(condition, event["detail"])
+                self.assertIn("do not repeat remote actions", event["detail"])
+
+    def test_rejected_credentials_report_field_without_exporting_payload(self):
+        self.agent.outputs = [{"output": output(summary="sensitive-content " + self.client.access_key), "dirty": False}]
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        self.bridge.flush()
+        event = self.client.sent[-1][1]
+        self.assertEqual(event["status"], "NEEDS_HUMAN")
+        self.assertIn("egress_content_rejected", event["detail"])
+        self.assertIn("summary", event["detail"])
+        self.assertNotIn(self.client.access_key, str(event))
+        self.assertNotIn("sensitive-content", str(event))
+
     def test_agent_failure_detail_reaches_blue_without_known_secrets(self):
         self.agent.outputs = [{"failure": "agent_runtime_error", "status": "NEEDS_HUMAN",
                                "detail": "RuntimeError: agent_output_reader_stuck\n" + self.client.access_key}]
@@ -780,6 +816,10 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(self.row()["state"], "NEEDS_HUMAN")
         self.assertTrue(self.bridge.store.get_meta("recovery_required"))
         self.assertFalse(self.agent.calls)
+        self.bridge.flush()
+        result = self.client.sent[-1][1]
+        self.assertIn("Bridge restarted while task state was RUNNING", result["detail"])
+        self.assertIn("check surviving processes", result["detail"])
 
     def test_scope_and_revision_control_rejected(self):
         self.bridge.bind()
@@ -1025,6 +1065,7 @@ class AgentTests(unittest.TestCase):
     def test_timeout_and_cancel(self):
         result = self.run_agent("import time\ntime.sleep(30)\n", deadline=time.time() + 0.2)
         self.assertEqual(result["status"], "TIMED_OUT")
+        self.assertIn("deadline", result["detail"])
         cancel = threading.Event()
         cancel.set()
         result = self.run_agent("import time\ntime.sleep(30)\n", cancel=cancel)
@@ -1037,7 +1078,9 @@ class AgentTests(unittest.TestCase):
         cancel.set()
         self.assertEqual(self.run_agent(code, cancel=cancel)["status"], "CANCELLED")
         self.assertFalse(marker.exists())
-        self.assertEqual(self.run_agent(code, deadline=time.time() - 1)["status"], "TIMED_OUT")
+        expired = self.run_agent(code, deadline=time.time() - 1)
+        self.assertEqual(expired["status"], "TIMED_OUT")
+        self.assertIn("before the CLI launched", expired["detail"])
         self.assertFalse(marker.exists())
 
     def test_revision_and_dirty_baseline_block(self):

@@ -150,20 +150,23 @@ class Bridge:
             self.store.terminal(task, result["status"], result["failure"], detail)
             return
         if time.time() >= task["deadline"]:
-            self.store.terminal(task, "TIMED_OUT", "task_deadline_exceeded")
+            self.store.terminal(task, "TIMED_OUT", "task_deadline_exceeded",
+                                "Agent result arrived after the task deadline; it was not accepted. "
+                                "Check completed changes before splitting remaining work.")
             return
         try:
             output = result["output"]
             fields = review(output, request, secrets=(self.client.access_key, self.client.token))
             if result.get("dirty") and fields["status"] == "PASS":
-                raise ValueError("baseline_worktree_modified")
+                raise ValueError("baseline_worktree_modified: PASS result has a modified baseline worktree")
             fields["worktree_modified"] = bool(result.get("dirty"))
             if output["kind"] == "QUESTION":
                 sid = result.get("session_id")
                 if not isinstance(sid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", sid):
-                    raise ValueError("missing_agent_session")
+                    raise ValueError("missing_agent_session: QUESTION requires a valid CLI session ID for resuming")
                 if task["questions"] >= self.config["max_questions"]:
-                    raise ValueError("question_limit")
+                    raise ValueError(f"question_limit: already asked {task['questions']} questions; "
+                                     f"configured limit={self.config['max_questions']}")
                 question_id = "q-" + uuid.uuid4().hex
                 self.store.update(task, state="WAITING_ANSWER", session_id=sid, question_id=question_id,
                                   questions=task["questions"] + 1, answer=None)
@@ -171,8 +174,15 @@ class Bridge:
             else:
                 self.store.update(task, state=fields["status"])
                 self.store.emit(request, "RESULT", **fields)
-        except (ValueError, TypeError, KeyError):
-            self.store.terminal(task, "NEEDS_HUMAN", "structured_result_or_egress_review_failed")
+        except (ValueError, TypeError, KeyError) as exc:
+            detail = failure_detail(
+                f"Result validation failed: {type(exc).__name__}: {exc}\n"
+                "Inspect the saved result locally and correct the reported field or condition; "
+                "do not repeat remote actions until their effects are checked.",
+                secrets=(self.client.access_key, self.client.token),
+            )
+            LOG.error("%s", detail)
+            self.store.terminal(task, "NEEDS_HUMAN", "structured_result_or_egress_review_failed", detail)
 
     def work(self):
         if self.current:
@@ -194,7 +204,9 @@ class Bridge:
                 self.current = None
         with self.store.db:
             for task in self.store.db.execute("SELECT * FROM tasks WHERE state IN ('WAITING_ANSWER','QUEUED') AND deadline IS NOT NULL AND deadline<=?", (time.time(),)).fetchall():
-                self.store.terminal(task, "TIMED_OUT", "task_deadline_exceeded")
+                self.store.terminal(task, "TIMED_OUT", "task_deadline_exceeded",
+                                    f"Task deadline expired while state was {task['state']}; "
+                                    "no new agent process was launched for this step.")
         if self.current or self.store.get_meta("recovery_required") or self.stop.is_set():
             return
         task = self.store.db.execute("SELECT * FROM tasks WHERE state='QUEUED' ORDER BY rowid LIMIT 1").fetchone()

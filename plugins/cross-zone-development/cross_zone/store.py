@@ -98,7 +98,10 @@ class Store:
         with self.db:
             running = self.db.execute("SELECT * FROM tasks WHERE state IN ('RUNNING','CANCELLING')").fetchall()
             for task in running:
-                self.terminal(task, "NEEDS_HUMAN", "execution_interrupted_state_unknown")
+                self.terminal(task, "NEEDS_HUMAN", "execution_interrupted_state_unknown",
+                              f"Bridge restarted while task state was {task['state']}. "
+                              "Child-process and remote effects are unknown. Execution is paused; "
+                              "check surviving processes and completed changes before acknowledging recovery.")
             if running:
                 self.set_meta("recovery_required", True)
         return bool(running)
