@@ -86,7 +86,6 @@ CROSS_ZONE_V2
   "event_id": "blue-task-1",
   "task_id": "candidate-validation",
   "iteration": 1,
-  "target": "green-dev",
   "revision": "0123456789012345678901234567890123456789",
   "goal": "Verify the immutable baseline with approved fixtures.",
   "checks": [
@@ -112,7 +111,6 @@ CROSS_ZONE_V2
   "event_id": "blue-task-2",
   "task_id": "machine-time",
   "iteration": 1,
-  "target": "green-dev",
   "goal": "Read the green machine time without changing system state.",
   "checks": [
     {
@@ -126,6 +124,10 @@ CROSS_ZONE_V2
 ```
 ````
 
+Blue TASK/EXEC/ANSWER/CANCEL omit `target`: each session has exactly one bound
+green worker. Bridge fills its configured target before validation, deduplication
+and persistence. Legacy explicit `target` remains accepted when it matches;
+a different explicit target is ignored. OPEN and full green results are unchanged.
 All fields shown except `revision` are mandatory. Include `revision` only when
 the task validates candidate code; it is then a full lowercase SHA-1 or SHA-256
 Git commit ID that blue has already pushed to the approved GitHub repository.
@@ -168,7 +170,6 @@ CROSS_ZONE_V2
   "event_id": "blue-exec-1",
   "task_id": "remote-hostname",
   "iteration": 1,
-  "target": "green-dev",
   "goal": "Read the remote hostname once, then sanitize the output.",
   "execution": {
     "argv": ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-p", "20022", "operator@host.example", "hostname"]
@@ -229,8 +230,8 @@ an existing local HEAD, silently tests a nearby revision, or asks blue for a gre
 path/profile. If the commit cannot be fetched or isolated, return BLOCKED. Green
 does not push local diagnostics or modifications; blue owns all delivered code.
 
-ANSWER and CANCEL share `protocol`, `type`, `event_id`, `task_id`, `iteration`,
-and `target`. They include `revision` exactly when the originating TASK did.
+ANSWER and CANCEL share `protocol`, `type`, `event_id`, `task_id`, and `iteration`.
+They inherit target from the current session, with legacy explicit target accepted. They include `revision` exactly when the originating TASK did.
 ANSWER also carries `question_id` and `answer`; CANCEL has no additional fields.
 They affect only an exact matching task.
 

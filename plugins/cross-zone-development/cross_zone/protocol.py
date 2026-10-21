@@ -87,7 +87,7 @@ def parse(text, target):
     event = read_wire(text)
     if not isinstance(event, dict) or event.get("protocol") != PROTOCOL:
         raise ProtocolError("invalid_protocol")
-    if event.get("target") != target:
+    if event.get("target", target) != target:
         return None
     base = {"protocol", "type", "event_id", "task_id", "iteration", "target"}
     kind = event.get("type")
@@ -96,6 +96,9 @@ def parse(text, target):
     if kind == "OPEN":
         # Green-originated request; blue must not inject it. Green uses open_event().
         raise ProtocolError("invalid_direction")
+    # One green worker is bound to each session. Normalize before dedup/storage
+    # so compact commands and legacy explicit-target retries have identical identity.
+    event.setdefault("target", target)
     extra = {
         "TASK": {"goal", "checks", "timeout_seconds"},
         "EXEC": {"goal", "checks", "timeout_seconds", "execution", "execution_timeout_seconds"},

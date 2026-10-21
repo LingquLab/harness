@@ -32,6 +32,8 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 再结束 Bridge 进程，下一次启动即加载新版。实例锁继续生效；中断任务不会重跑。
 后续 AI 先核查遗留进程和已完成操作，状态未知时只做只读检查，无需人工解锁。
 
+蓝区指令省略 `target`，Bridge 根据当前会话补齐；兼容旧格式中匹配的显式 target。
+
 新增 `EXEC`：蓝区提供命令参数数组，或 Bash/PowerShell/Python 脚本，Bridge
 在 session 目录原样执行，再由绿区 AI 仅过滤已保存的输出并回传。退出码、超时和
 取消状态由 Bridge 保留，AI 不能把执行失败变成 PASS；原始日志只留绿区，中断不重跑。

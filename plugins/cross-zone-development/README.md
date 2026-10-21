@@ -41,6 +41,9 @@ Until those are established it may only perform read-only diagnostics and report
 concrete blockers to blue. Recovery evidence travels locally, not in the wire schema.
 Older global recovery pauses are migrated automatically on startup.
 
+Blue commands omit `target`; Bridge inherits the session-bound worker and still
+accepts matching legacy explicit targets.
+
 `EXEC` runs a blue-provided argv command or Bash/PowerShell/Python script directly
 in the session directory, then invokes green AI only to sanitize saved output.
 Bridge preserves exit code and timeout/cancellation facts even if review fails;

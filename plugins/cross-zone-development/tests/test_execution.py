@@ -29,6 +29,11 @@ class ExecutionProtocolTests(unittest.TestCase):
                       fixtures.task()):
             self.assertEqual(parse(wire(event, readable=True), "green-dev"), event)
 
+    def test_exec_inherits_session_target(self):
+        event = exec_task()
+        compact = {k: v for k, v in event.items() if k != "target"}
+        self.assertEqual(parse(wire(compact, readable=True), "green-dev"), event)
+
     def test_rejects_ambiguous_or_unbounded_execution(self):
         invalid = [{}, {"argv": []}, {"argv": [""]}, {"argv": ["echo", "a\0b"]},
                    {"argv": ["echo"] * 129}, {"argv": "echo done"},

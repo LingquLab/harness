@@ -14,6 +14,7 @@ send an OPEN acknowledgement, or claim collaboration started before TASK is sent
 
 ## Dispatch and consume
 
+Omit `target` in blue commands; the current session selects its single green worker.
 Send TASK/EXEC/ANSWER/CANCEL with `CROSS_ZONE_V2` outside an indented `json` code block.
 
 For candidate-code validation, finish blue implementation and available checks,

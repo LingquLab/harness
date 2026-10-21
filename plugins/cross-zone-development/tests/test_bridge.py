@@ -335,6 +335,21 @@ class ProtocolTests(unittest.TestCase):
                   "task_id": event["task_id"], "iteration": 1, "target": "green-dev"}
         self.assertEqual(parse(wire(cancel), "green-dev"), cancel)
 
+    def test_commands_inherit_session_target_but_explicit_mismatch_is_ignored(self):
+        controls = [task(), general_task(),
+                    {"protocol": "cross-zone/v2", "type": "CANCEL", "event_id": "cancel", "task_id": "task-1",
+                     "iteration": 1, "target": "green-dev"},
+                    {"protocol": "cross-zone/v2", "type": "ANSWER", "event_id": "answer", "task_id": "task-1",
+                     "iteration": 1, "target": "green-dev", "question_id": "q-1", "answer": "yes"}]
+        for event in controls:
+            compact = {k: v for k, v in event.items() if k != "target"}
+            with self.subTest(kind=event["type"]):
+                self.assertEqual(parse(wire(compact, readable=True), "green-dev"), event)
+                self.assertEqual(parse(wire(compact), "green-dev")["target"], "green-dev")
+                self.assertIsNone(parse(wire(dict(event, target="another")), "green-dev"))
+        with self.assertRaisesRegex(ProtocolError, "invalid_fields"):
+            parse(wire({k: v for k, v in task().items() if k not in {"target", "checks"}}), "green-dev")
+
     def test_ignore_user_tool_child_partial_and_examples(self):
         row = message(task(), 1)
         row["content"]["role"] = "user"
@@ -734,6 +749,30 @@ class BridgeTests(unittest.TestCase):
         result = next(event for _, event in self.client.sent if event["type"] == "RESULT")
         self.assertEqual(result["status"], "PASS")
         self.assertEqual(result["question"], "")
+
+    def test_compact_and_legacy_commands_share_dedup_identity(self):
+        self.bridge.bind()
+        event = task()
+        compact = {k: v for k, v in event.items() if k != "target"}
+        self.ingest(compact)
+        self.settle()
+        self.ingest(event)  # Same event ID, explicit target: no conflicting-event warning.
+        self.ingest(dict(event, event_id="legacy-retry"))
+        self.bridge.flush()
+        self.assertEqual(len(self.agent.calls), 1)
+        self.assertFalse(any(event["type"] == "REJECTED" for _, event in self.client.sent))
+        request = json.loads(self.row()["request"])
+        self.assertEqual(request["target"], "green-dev")
+        self.assertEqual(self.client.sent[-1][1]["target"], "green-dev")
+
+    def test_targetless_cancel_matches_session_task(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.ingest({"protocol": "cross-zone/v2", "type": "CANCEL", "event_id": "cancel",
+                     "task_id": "task-1", "iteration": 1, "revision": task()["revision"]})
+        self.bridge.work()
+        self.assertEqual(self.row()["state"], "CANCELLED")
+        self.assertFalse(self.agent.calls)
 
     def test_new_task_uses_green_local_binding(self):
         event = task()
