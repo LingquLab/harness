@@ -2,6 +2,7 @@ import copy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
+import signal
 from pathlib import Path
 import subprocess
 import sys
@@ -16,9 +17,9 @@ from cross_zone.agent import CodeAgentCLI
 from cross_zone.cli import InstanceLock, error_hint, safe_error_detail, select_session, preflight, main
 from cross_zone.config import load_config
 from cross_zone.controller import Bridge, CursorReset
-from cross_zone.egress import review
+from cross_zone.egress import failure_detail, review
 from cross_zone.hapi import HapiClient, HapiError
-from cross_zone.protocol import MARKER, ProtocolError, assistant_text, open_event, parse, wire
+from cross_zone.protocol import MARKER, ProtocolError, assistant_text, open_event, parse, read_wire, wire
 
 
 def task(**changes):
@@ -87,7 +88,7 @@ class FakeClient:
     def send(self, session, text, event_id):
         if self.fail_send:
             raise HapiError(409)
-        self.sent.append((event_id, json.loads(text[len(MARKER):])))
+        self.sent.append((event_id, read_wire(text)))
 
 
 class FakeAgent:
@@ -147,6 +148,58 @@ class GitBashLauncherTests(unittest.TestCase):
             log_path = root / "logs" / ("bridge-doctor-" + session_id + ".log")
             self.assertTrue(log_path.is_file())
             self.assertIn("Bridge log:", log_path.read_text(encoding="utf-8"))
+
+    @unittest.skipIf(os.name == "nt", "POSIX process-group test; launcher also targets Git Bash")
+    def test_watchdog_restarts_killed_bridge_and_stops_on_ctrl_c(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            watcher = root / "watch-bridge.sh"
+            watcher.write_text((Path(__file__).parents[1] / "watch-bridge.sh").read_text(), encoding="utf-8")
+            capture, child_pid = root / "calls", root / "child.pid"
+            (root / "start-bridge.sh").write_text(
+                '#!/bin/bash\nprintf "%s\\n" "$#" "$1" "$2" "$3" "$PWD" >> "$CAPTURE"\n'
+                'count=$(wc -l < "$CAPTURE")\n'
+                'if [[ "$count" -eq 5 ]]; then echo "$$" > "$CHILD_PID"; exec sleep 60; fi\n'
+                'if [[ "$count" -eq 10 ]]; then exit 0; fi\nexec sleep 60\n', encoding="utf-8")
+            env = dict(os.environ, CAPTURE=str(capture), CHILD_PID=str(child_pid), BRIDGE_RESTART_DELAY="0.05")
+            session = "fc85951c-ffeb-4fb3-b44f-ae052e9106f6"
+            process = subprocess.Popen(["bash", str(watcher), session, "green config.json"],
+                                       cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                       text=True, start_new_session=True)
+            try:
+                deadline = time.monotonic() + 5
+                while not child_pid.exists() and time.monotonic() < deadline:
+                    time.sleep(0.01)
+                self.assertTrue(child_pid.exists(), "child did not start")
+                os.kill(int(child_pid.read_text().strip()), signal.SIGKILL)
+                while time.monotonic() < deadline:
+                    if capture.exists() and len(capture.read_text().splitlines()) >= 15:
+                        break
+                    time.sleep(0.01)
+                records = capture.read_text().splitlines()
+                expected = ["3", "open", session, "green config.json", str(root)]
+                self.assertEqual(records, expected * 3)
+                os.killpg(process.pid, signal.SIGINT)
+                stdout, stderr = process.communicate(timeout=5)
+                self.assertEqual(process.returncode, 130, stderr)
+                self.assertIn("restarting", stdout)
+                self.assertIn("watchdog stopped", stdout)
+                self.assertEqual(capture.read_text().splitlines(), records)
+            finally:
+                if process.poll() is None:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.communicate(timeout=5)
+
+    def test_watchdog_rejects_invalid_arguments_and_restart_delay(self):
+        watcher = Path(__file__).parents[1] / "watch-bridge.sh"
+        invalid = subprocess.run(["bash", str(watcher)], capture_output=True, text=True)
+        self.assertEqual(invalid.returncode, 2)
+        for delay in ("0", "0.0", "-1", "invalid"):
+            with self.subTest(delay=delay):
+                result = subprocess.run(["bash", str(watcher), "session"],
+                                        env=dict(os.environ, BRIDGE_RESTART_DELAY=delay), capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("positive number", result.stderr)
 
     def test_launcher_rejects_unknown_command(self):
         launcher = Path(__file__).parents[1] / "start-bridge.sh"
@@ -247,9 +300,27 @@ class CliErrorTests(unittest.TestCase):
                 select_session({}, config_path, "not-a-session")
 
 class ProtocolTests(unittest.TestCase):
+    def test_readable_and_legacy_task_formats_are_accepted(self):
+        event = task()
+        readable = wire(event, readable=True)
+        self.assertTrue(readable.startswith(MARKER + "```json\n{\n"))
+        self.assertIn('\n  "type": "TASK"', readable)
+        self.assertEqual(parse(readable, "green-dev"), event)
+        self.assertEqual(parse(wire(event), "green-dev"), event)
+
+    def test_readable_format_rejects_trailing_prose_and_duplicate_fields(self):
+        for text in (wire(task(), readable=True) + "\nextra prose",
+                     MARKER + '```json\n{"protocol":"cross-zone/v2","protocol":"bad"}\n```'):
+            with self.subTest(text=text), self.assertRaises(ProtocolError):
+                parse(text, "green-dev")
+
     def test_roundtrip_codex_and_claude(self):
         for flavor in ("codex", "output"):
             self.assertEqual(parse(assistant_text(message(task(), 1, flavor)), "green-dev"), task())
+
+    def test_null_payload_remains_an_invalid_protocol(self):
+        with self.assertRaisesRegex(ProtocolError, "invalid_protocol"):
+            parse(MARKER + "null", "green-dev")
 
     def test_new_task_omits_green_local_aliases(self):
         event = task()
@@ -263,6 +334,21 @@ class ProtocolTests(unittest.TestCase):
         cancel = {"protocol": "cross-zone/v2", "type": "CANCEL", "event_id": "cancel-1",
                   "task_id": event["task_id"], "iteration": 1, "target": "green-dev"}
         self.assertEqual(parse(wire(cancel), "green-dev"), cancel)
+
+    def test_commands_inherit_session_target_but_explicit_mismatch_is_ignored(self):
+        controls = [task(), general_task(),
+                    {"protocol": "cross-zone/v2", "type": "CANCEL", "event_id": "cancel", "task_id": "task-1",
+                     "iteration": 1, "target": "green-dev"},
+                    {"protocol": "cross-zone/v2", "type": "ANSWER", "event_id": "answer", "task_id": "task-1",
+                     "iteration": 1, "target": "green-dev", "question_id": "q-1", "answer": "yes"}]
+        for event in controls:
+            compact = {k: v for k, v in event.items() if k != "target"}
+            with self.subTest(kind=event["type"]):
+                self.assertEqual(parse(wire(compact, readable=True), "green-dev"), event)
+                self.assertEqual(parse(wire(compact), "green-dev")["target"], "green-dev")
+                self.assertIsNone(parse(wire(dict(event, target="another")), "green-dev"))
+        with self.assertRaisesRegex(ProtocolError, "invalid_fields"):
+            parse(wire({k: v for k, v in task().items() if k not in {"target", "checks"}}), "green-dev")
 
     def test_ignore_user_tool_child_partial_and_examples(self):
         row = message(task(), 1)
@@ -289,6 +375,18 @@ class ProtocolTests(unittest.TestCase):
 
 
 class EgressTests(unittest.TestCase):
+    def test_revisionless_authorized_changes_can_pass(self):
+        value = output(local_modification_tested=True, local_modification_outcome="PASS")
+        self.assertEqual(review(value, general_task())["status"], "PASS")
+        with self.assertRaisesRegex(ValueError, "baseline_not_passed"):
+            review(value, task())
+
+    def test_revisionless_changes_do_not_override_failed_checks(self):
+        value = output(local_modification_tested=True, local_modification_outcome="PASS",
+                       checks=[{"id": "regression", "status": "NOT_RUN"}])
+        with self.assertRaisesRegex(ValueError, "baseline_not_passed"):
+            review(value, general_task())
+
     def test_pass_and_failed_local_fix(self):
         self.assertEqual(review(output(), task())["status"], "PASS")
         value = output(status="FAIL", local_modification_tested=True, local_modification_outcome="PASS",
@@ -340,6 +438,61 @@ class EgressTests(unittest.TestCase):
         self.assertLess(len(canonical(value).encode("utf-8")), 4096)
         with self.assertRaisesRegex(ValueError, "egress_size_limit"):
             review(value, request)
+
+    def test_failure_detail_redacts_credentials_before_truncating(self):
+        detail = ("known-secret password=abc Bearer xyz api_key: value gho_1234567890123456 "
+                  "https://user:pass@host/path password=\"quoted secret\" \"token\": 'another secret'")
+        result = failure_detail(detail, secrets=("known-secret",))
+        for secret in ("known-secret", "abc", "xyz", "value", "gho_1234567890123456", "user:pass", "quoted secret", "another secret"):
+            self.assertNotIn(secret, result)
+        self.assertIn("[REDACTED]", result)
+        bounded = failure_detail("错误\n" * 5000)
+        self.assertLessEqual(len(json.dumps(bounded, ensure_ascii=False).encode("utf-8")), 2000)
+        self.assertIn("[truncated]", bounded)
+
+    def test_failure_detail_redacts_cli_flags_and_http_basic_auth(self):
+        cases = (
+            ("error executing client --api-key confidential-value", "confidential-value"),
+            ("Authorization: Basic dXNlcjpwYXNz", "dXNlcjpwYXNz"),
+            ('client --access-token "quoted secret" failed', "quoted secret"),
+            ("client --password=example-password failed", "example-password"),
+        )
+        for detail, secret in cases:
+            with self.subTest(detail=detail):
+                exported = failure_detail(detail)
+                self.assertNotIn(secret, exported)
+                self.assertIn("[REDACTED]", exported)
+
+    def test_result_size_budget_counts_json_indentation(self):
+        checks = [{"id": "c" * 78 + str(i), "status": "PASS"} for i in range(6)]
+        value = output(summary="x" * 2900, checks=checks)
+        request = task(checks=[{"id": check["id"]} for check in checks])
+        with self.assertRaisesRegex(ValueError, "egress_size_limit"):
+            review(value, request)
+
+    def test_result_question_placeholders_are_normalized_without_mutating_input(self):
+        for question in ("", " \t\n", "None", " NONE ", "null", "Null", "N/A", " n/a "):
+            with self.subTest(question=question):
+                value = output(question=question)
+                self.assertEqual(review(value, task())["question"], "")
+                self.assertEqual(value["question"], question)
+
+    def test_question_placeholder_does_not_bypass_result_checks(self):
+        for changes in ({"checks": []}, {"local_modification_tested": True},
+                        {"checks": [{"id": "regression", "status": "NOT_RUN"}]},
+                        {"egress_reviewed": False}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                review(output(question="None", **changes), task())
+
+    def test_result_with_actual_question_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "incomplete_result"):
+            review(output(question="Which fixture should I use?"), task())
+
+    def test_question_text_is_not_normalized(self):
+        for question in ("None", "null", "N/A", "Which fixture should I use?"):
+            with self.subTest(question=question):
+                value = output(kind="QUESTION", status="BLOCKED", question=question)
+                self.assertEqual(review(value, task())["question"], question)
 
     def test_no_false_pass(self):
         for changes in ({"checks": []}, {"local_modification_tested": True}, {"egress_reviewed": False},
@@ -404,6 +557,223 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(sum(e["type"] == "RESULT" for e in events), 1)
         self.assertTrue(any(e["type"] == "REJECTED" for e in events))
 
+    def test_new_outbox_messages_are_indented_json_code_blocks(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        rows = self.bridge.store.db.execute("SELECT text FROM outbox ORDER BY rowid").fetchall()
+        self.assertEqual(len(rows), 2)
+        for row in rows:
+            self.assertTrue(row["text"].startswith(MARKER + "```json\n{\n"))
+            self.assertTrue(row["text"].endswith("\n```"))
+
+    def test_result_validation_failures_report_fields_and_limits(self):
+        cases = (
+            (output(question="Need approval"), "incomplete_result", "question must be empty"),
+            (output(summary="x" * 3001), "result_schema", "summary length=3001 exceeds limit=3000"),
+            (output(local_modification_tested="false"), "result_schema", "local_modification_tested expected boolean, got str"),
+            (output(checks=[]), "incomplete_result", "missing requested checks"),
+            (output(egress_reviewed=False), "egress_not_reviewed", "egress_reviewed must be true"),
+            (output(local_modification_tested=True), "baseline_not_passed", "local_modification_tested=True"),
+        )
+        self.bridge.bind()
+        for iteration, (value, code, condition) in enumerate(cases, 1):
+            with self.subTest(code=code, condition=condition):
+                self.agent.outputs = [{"output": value, "dirty": False}]
+                self.ingest(task(iteration=iteration, event_id=f"validation-{iteration}"))
+                self.settle()
+                self.bridge.flush()
+                event = self.client.sent[-1][1]
+                self.assertEqual(event["status"], "NEEDS_HUMAN")
+                self.assertEqual(event["reason"], "structured_result_or_egress_review_failed")
+                self.assertIn(code, event["detail"])
+                self.assertIn(condition, event["detail"])
+                self.assertIn("do not repeat remote actions", event["detail"])
+
+    def test_rejected_credentials_report_field_without_exporting_payload(self):
+        self.agent.outputs = [{"output": output(summary="sensitive-content " + self.client.access_key), "dirty": False}]
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        self.bridge.flush()
+        event = self.client.sent[-1][1]
+        self.assertEqual(event["status"], "NEEDS_HUMAN")
+        self.assertIn("egress_content_rejected", event["detail"])
+        self.assertIn("summary", event["detail"])
+        self.assertNotIn(self.client.access_key, str(event))
+        self.assertNotIn("sensitive-content", str(event))
+
+    def test_agent_failure_detail_reaches_blue_without_known_secrets(self):
+        self.agent.outputs = [{"failure": "agent_runtime_error", "status": "NEEDS_HUMAN",
+                               "detail": "RuntimeError: agent_output_reader_stuck\n" + self.client.access_key}]
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        self.bridge.flush()
+        result = next(event for _, event in self.client.sent if event["type"] == "RESULT")
+        self.assertEqual(result["reason"], "agent_runtime_error")
+        self.assertIn("RuntimeError: agent_output_reader_stuck", result["detail"])
+        self.assertNotIn(self.client.access_key, result["detail"])
+        self.assertIn("[REDACTED]", result["detail"])
+
+    def test_failure_result_with_unicode_detail_stays_within_wire_budget(self):
+        self.agent.outputs = [{"failure": "agent_runtime_error", "status": "NEEDS_HUMAN", "detail": "错误\n" * 5000}]
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        row = self.bridge.store.db.execute("SELECT text FROM outbox ORDER BY rowid DESC LIMIT 1").fetchone()
+        event = read_wire(row["text"])
+        self.assertLessEqual(len(json.dumps(event, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8")), 4096)
+        self.assertEqual(event["reason"], "agent_runtime_error")
+
+    def test_adapter_exception_details_are_reported_and_pause_execution(self):
+        def fail(*args):
+            raise RuntimeError("worker exploded")
+
+        self.agent.run = fail
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        self.bridge.flush()
+        result = next(event for _, event in self.client.sent if event["type"] == "RESULT")
+        self.assertEqual(result["reason"], "agent_adapter_exception")
+        self.assertIn("RuntimeError: worker exploded", result["detail"])
+        self.assertTrue(self.bridge.store.get_meta("recovery_required"))
+
+    def test_immediate_start_sends_only_compact_progress_and_full_result(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        self.bridge.flush()
+        events = [event for _, event in self.client.sent]
+        self.assertEqual([event["type"] for event in events], ["PROGRESS", "RESULT"])
+        self.assertEqual(events[0], {"type": "PROGRESS", "task_id": "task-1", "iteration": 1})
+        self.assertEqual(events[1]["target"], "green-dev")
+        self.assertEqual(events[1]["revision"], task()["revision"])
+        self.assertEqual(events[1]["event_id"], self.client.sent[1][0])
+
+    def test_queued_ack_and_later_progress_are_both_delivered(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.bridge.flush()
+        self.assertEqual(self.client.sent[0][1], {"type": "ACK", "task_id": "task-1", "iteration": 1})
+        self.settle()
+        self.bridge.flush()
+        self.assertEqual([event["type"] for _, event in self.client.sent], ["ACK", "PROGRESS", "RESULT"])
+
+    def test_start_does_not_suppress_another_tasks_ack(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.ingest(task(event_id="next-task", task_id="task-2"))
+        self.bridge.work()
+        self.bridge.flush()
+        events = [event for _, event in self.client.sent]
+        self.assertEqual(events, [
+            {"type": "ACK", "task_id": "task-2", "iteration": 1},
+            {"type": "PROGRESS", "task_id": "task-1", "iteration": 1},
+        ])
+
+    def test_coalescing_keeps_other_iterations_targets_and_revisions(self):
+        request = task()
+        variants = (task(iteration=2), task(target="other-green"), task(revision="b" * 40), general_task())
+        with self.bridge.store.db:
+            retained = set()
+            for index, variant in enumerate(variants):
+                event_id = f"legacy-{index}"
+                event = {**{k: v for k, v in variant.items() if k in
+                            {"protocol", "task_id", "iteration", "target", "revision"}},
+                         "type": "ACK", "event_id": event_id, "state": "QUEUED"}
+                self.bridge.store.db.execute("INSERT INTO outbox(id,text,created) VALUES (?,?,?)",
+                                             (event_id, wire(event), time.time()))
+                retained.add(event_id)
+            removed = self.bridge.store.emit(request, "ACK", state="QUEUED")
+            progress = self.bridge.store.emit(request, "PROGRESS", state="RUNNING")
+        pending = {row["id"] for row in self.bridge.store.db.execute("SELECT id FROM outbox WHERE sent=0")}
+        self.assertEqual(pending, retained | {progress})
+        self.assertNotIn(removed, pending)
+
+    def test_progress_rollback_restores_pending_ack(self):
+        self.bridge.bind()
+        self.ingest(task())
+        with self.assertRaisesRegex(RuntimeError, "rollback"):
+            with self.bridge.store.db:
+                self.bridge.store.emit(task(), "PROGRESS", state="RUNNING")
+                raise RuntimeError("rollback")
+        self.bridge.flush()
+        self.assertEqual([event["type"] for _, event in self.client.sent], ["ACK"])
+
+    def test_notification_retry_keeps_compact_body_and_transport_id(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.bridge.work()
+        attempts = []
+        original_send = self.client.send
+
+        def response_lost_once(session, text, event_id):
+            attempts.append((text, event_id))
+            if len(attempts) == 1:
+                raise HapiError()
+            original_send(session, text, event_id)
+
+        with patch.object(self.client, "send", side_effect=response_lost_once):
+            with self.assertRaises(HapiError):
+                self.bridge.flush()
+            self.bridge.flush()
+        self.assertEqual(attempts[0], attempts[1])
+        self.assertEqual(read_wire(attempts[0][0]),
+                         {"type": "PROGRESS", "task_id": "task-1", "iteration": 1})
+
+    def test_legacy_outbox_retry_preserves_body_and_transport_id(self):
+        self.bridge.bind()
+        self.ingest(task())
+        row = self.bridge.store.db.execute("SELECT * FROM outbox").fetchone()
+        legacy = {"protocol": "cross-zone/v2", "type": "ACK", "event_id": row["id"],
+                  "task_id": "task-1", "iteration": 1, "target": "green-dev",
+                  "revision": task()["revision"], "state": "QUEUED"}
+        with self.bridge.store.db:
+            self.bridge.store.db.execute("UPDATE outbox SET text=? WHERE id=?", (wire(legacy), row["id"]))
+        # HAPI accepted a legacy send, but the old bridge lost the response.
+        self.client.send(self.cfg["session_id"], wire(legacy), row["id"])
+        self.bridge.close()
+        self.bridge = Bridge(self.cfg, self.client, self.agent)
+        self.bridge.flush()
+        self.assertEqual(self.client.sent, [(row["id"], legacy), (row["id"], legacy)])
+
+    def test_none_question_result_reaches_pass(self):
+        self.agent.outputs = [{"output": output(question="None"), "dirty": False}]
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        self.bridge.flush()
+        self.assertEqual(self.row()["state"], "PASS")
+        result = next(event for _, event in self.client.sent if event["type"] == "RESULT")
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["question"], "")
+
+    def test_compact_and_legacy_commands_share_dedup_identity(self):
+        self.bridge.bind()
+        event = task()
+        compact = {k: v for k, v in event.items() if k != "target"}
+        self.ingest(compact)
+        self.settle()
+        self.ingest(event)  # Same event ID, explicit target: no conflicting-event warning.
+        self.ingest(dict(event, event_id="legacy-retry"))
+        self.bridge.flush()
+        self.assertEqual(len(self.agent.calls), 1)
+        self.assertFalse(any(event["type"] == "REJECTED" for _, event in self.client.sent))
+        request = json.loads(self.row()["request"])
+        self.assertEqual(request["target"], "green-dev")
+        self.assertEqual(self.client.sent[-1][1]["target"], "green-dev")
+
+    def test_targetless_cancel_matches_session_task(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.ingest({"protocol": "cross-zone/v2", "type": "CANCEL", "event_id": "cancel",
+                     "task_id": "task-1", "iteration": 1, "revision": task()["revision"]})
+        self.bridge.work()
+        self.assertEqual(self.row()["state"], "CANCELLED")
+        self.assertFalse(self.agent.calls)
+
     def test_new_task_uses_green_local_binding(self):
         event = task()
         self.bridge.bind()
@@ -412,6 +782,18 @@ class BridgeTests(unittest.TestCase):
         request = self.agent.calls[0][0]
         self.assertNotIn("repository", request)
         self.assertNotIn("scope_profile", request)
+
+    def test_general_task_changed_system_result_is_delivered_as_pass(self):
+        self.agent.outputs = [{"output": output(local_modification_tested=True,
+                                               local_modification_outcome="PASS"), "dirty": False}]
+        self.bridge.bind()
+        self.ingest(general_task())
+        self.settle()
+        self.bridge.flush()
+        event = self.client.sent[-1][1]
+        self.assertEqual(event["status"], "PASS")
+        self.assertTrue(event["local_modification_tested"])
+        self.assertNotIn("revision", event)
 
     def test_general_task_runs_without_revision_and_returns_revisionless_result(self):
         event = general_task()
@@ -481,7 +863,7 @@ class BridgeTests(unittest.TestCase):
     def test_cancel_running_waits_for_worker(self):
         started = threading.Event()
 
-        def waiting(request, session_id, answer, deadline, cancel):
+        def waiting(request, session_id, answer, deadline, cancel, recovery):
             started.set()
             if not cancel.wait(3):
                 return {"failure": "test_wait_expired", "status": "NEEDS_HUMAN"}
@@ -538,7 +920,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(self.row()["state"], "QUEUED")
         self.assertIsNotNone(self.bridge.store.get_task("task-2", 1))
 
-    def test_recovery_pauses_and_does_not_rerun(self):
+    def test_recovery_inspects_queued_work_without_rerunning_interrupted_task(self):
         self.bridge.bind()
         self.ingest(task())
         with self.bridge.store.db:
@@ -550,6 +932,56 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(self.row()["state"], "NEEDS_HUMAN")
         self.assertTrue(self.bridge.store.get_meta("recovery_required"))
         self.assertFalse(self.agent.calls)
+        self.bridge.flush()
+        result = self.client.sent[-1][1]
+        self.assertIn("Bridge restarted while task state was RUNNING", result["detail"])
+        self.assertIn("surviving processes", result["detail"])
+        self.assertIn("No manual recovery acknowledgement", result["detail"])
+        self.ingest(task(event_id="after-restart", iteration=2))
+        self.settle()
+        self.assertEqual(self.row()["state"], "NEEDS_HUMAN")
+        self.assertEqual(self.bridge.store.get_task("task-1", 2)["state"], "PASS")
+        self.assertEqual(len(self.agent.calls), 1)
+        self.assertEqual(self.agent.calls[0][0]["iteration"], 2)
+        self.assertEqual(self.agent.calls[0][5], [{"task_id": "task-1", "iteration": 1}])
+        self.assertTrue(self.bridge.store.get_meta("recovery_required"))
+
+    def test_recovery_migrates_old_global_pause_and_only_clears_after_valid_evidence(self):
+        self.bridge.bind()
+        self.ingest(task())
+        with self.bridge.store.db:
+            self.bridge.store.update(self.row(), state="NEEDS_HUMAN")
+            self.bridge.store.set_meta("recovery_required", True)
+        self.bridge.store.recover()
+        self.assertEqual(self.bridge.store.get_meta("recovery_tasks"),
+                         [{"task_id": "task-1", "iteration": 1}])
+        # An invalid/unsafe result must not release recovery, even if it claims success.
+        self.agent.outputs = [{"output": output(question="invalid"), "recovery_checked": True},
+                              {"output": output(), "recovery_checked": True},
+                              {"output": output()}]
+        self.ingest(task(event_id="check-2", iteration=2))
+        self.settle()
+        self.assertTrue(self.bridge.store.get_meta("recovery_required"))
+        self.ingest(task(event_id="check-3", iteration=3))
+        self.settle()
+        self.assertFalse(self.bridge.store.get_meta("recovery_required"))
+        self.assertEqual(self.bridge.store.get_meta("recovery_tasks"), [])
+        self.ingest(task(event_id="check-4", iteration=4))
+        self.settle()
+        self.assertEqual(self.agent.calls[-1][5], [])
+
+    def test_termination_uncertainty_allows_followup_diagnostics(self):
+        self.bridge.bind()
+        self.agent.outputs = [{"failure": "termination_unconfirmed", "status": "NEEDS_HUMAN", "pause": True},
+                              {"output": output(status="BLOCKED", checks=[{"id": "regression", "status": "BLOCKED"}]),
+                               "recovery_checked": False}]
+        self.ingest(task())
+        self.settle()
+        self.ingest(task(event_id="diagnostics", iteration=2))
+        self.settle()
+        self.assertEqual(len(self.agent.calls), 2)
+        self.assertTrue(self.bridge.store.get_meta("recovery_required"))
+        self.assertEqual(self.bridge.store.get_task("task-1", 2)["state"], "BLOCKED")
 
     def test_scope_and_revision_control_rejected(self):
         self.bridge.bind()
@@ -708,6 +1140,7 @@ class AgentTests(unittest.TestCase):
                                     "assert '--allow-dangerously-skip-permissions' in sys.argv\n"
                                     "assert sys.argv[sys.argv.index('--output-format') + 1] == 'stream-json'\n"
                                     "assert '--verbose' in sys.argv\n"
+                                    "assert '--max-turns' not in sys.argv\n"
                                     "assert 'cross-zone/v2' in sys.stdin.read()\n"
                                     + "print(" + repr(json.dumps({"structured_output": output(), "session_id": "green"})) + ")\n")
             self.assertEqual(result["output"]["status"], "PASS")
@@ -717,6 +1150,22 @@ class AgentTests(unittest.TestCase):
                 os.environ.pop("HAPI_ACCESS_KEY", None)
             else:
                 os.environ["HAPI_ACCESS_KEY"] = previous
+
+    def test_recovery_context_is_in_prompt_and_private_flag_is_not_exported(self):
+        self.script.write_text("import sys,json\n"
+                               "prompt = sys.stdin.read()\n"
+                               "assert 'Bridge recovery' in prompt\n"
+                               "assert 'never kill a process from its PID alone' in prompt\n"
+                               "assert 'interrupted-task' in prompt\n"
+                               "schema = json.loads(sys.argv[sys.argv.index('--json-schema') + 1])\n"
+                               "assert 'recovery_checked' in schema['required']\n"
+                               + "print(" + repr(json.dumps({"structured_output": output(recovery_checked=True)})) + ")\n",
+                               encoding="utf-8")
+        result = CodeAgentCLI(self.cfg).run(general_task(), None, None, time.time() + 10,
+                                            threading.Event(), [{"task_id": "interrupted-task", "iteration": 1}])
+        self.assertTrue(result["recovery_checked"])
+        self.assertNotIn("recovery_checked", result["output"])
+        self.assertEqual(review(result["output"], general_task())["status"], "PASS")
 
     def test_stream_json_is_logged_locally_and_final_result_is_parsed(self):
         events = [
@@ -783,8 +1232,8 @@ class AgentTests(unittest.TestCase):
                     break
                 time.sleep(0.01)
             bridge.flush()
-            events = [json.loads(p["text"][len(MARKER):]) for p in hub.posted]
-            self.assertEqual([e["type"] for e in events], ["ACK", "PROGRESS", "RESULT"])
+            events = [read_wire(p["text"]) for p in hub.posted]
+            self.assertEqual([e["type"] for e in events], ["PROGRESS", "RESULT"])
             self.assertEqual(events[-1]["status"], "PASS")
             self.assertEqual(events[-1]["revision"], self.revision)
         finally:
@@ -794,6 +1243,7 @@ class AgentTests(unittest.TestCase):
     def test_timeout_and_cancel(self):
         result = self.run_agent("import time\ntime.sleep(30)\n", deadline=time.time() + 0.2)
         self.assertEqual(result["status"], "TIMED_OUT")
+        self.assertIn("deadline", result["detail"])
         cancel = threading.Event()
         cancel.set()
         result = self.run_agent("import time\ntime.sleep(30)\n", cancel=cancel)
@@ -806,7 +1256,9 @@ class AgentTests(unittest.TestCase):
         cancel.set()
         self.assertEqual(self.run_agent(code, cancel=cancel)["status"], "CANCELLED")
         self.assertFalse(marker.exists())
-        self.assertEqual(self.run_agent(code, deadline=time.time() - 1)["status"], "TIMED_OUT")
+        expired = self.run_agent(code, deadline=time.time() - 1)
+        self.assertEqual(expired["status"], "TIMED_OUT")
+        self.assertIn("before the CLI launched", expired["detail"])
         self.assertFalse(marker.exists())
 
     def test_revision_and_dirty_baseline_block(self):
@@ -820,9 +1272,11 @@ class AgentTests(unittest.TestCase):
         result = self.run_agent("raise Exception('should not launch')\n")
         self.assertEqual(result["status"], "BLOCKED")
 
-    def test_general_task_runs_in_authorized_workspace_without_git_checkout(self):
+    def test_general_task_runs_in_session_directory_without_git_checkout(self):
         event = general_task()
-        self.script.write_text("import json,sys\nsys.stdin.read()\nprint(" +
+        self.script.write_text("import json,sys,os\nsys.stdin.read()\n"
+                               + "assert os.getcwd() == " + repr(str(Path(self.cfg["state_dir"]).resolve())) + "\n"
+                               + "print(" +
                                repr(json.dumps({"structured_output": output()})) + ")\n",
                                encoding="utf-8")
         result = CodeAgentCLI(self.cfg).run(
@@ -850,15 +1304,33 @@ class AgentTests(unittest.TestCase):
                 task(revision=self.revision), None, None,
                 time.time() + 10, threading.Event(),
             )
-        self.assertEqual(result, {"failure": "agent_executable_not_found", "status": "BLOCKED"})
+        self.assertEqual(result["failure"], "agent_executable_not_found")
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertIn("agent_command[0]", result["detail"])
         combined = "\n".join(logs.output)
         self.assertIn("agent_executable_not_found", combined)
         self.assertIn("agent_command[0]", combined)
 
+    def test_runtime_failure_includes_exception_type_and_message(self):
+        with patch("cross_zone.agent._read_agent_result", side_effect=RuntimeError("agent_output_reader_stuck")):
+            result = self.run_agent("print('{}')\n")
+        self.assertEqual(result["failure"], "agent_runtime_error")
+        self.assertIn("RuntimeError: agent_output_reader_stuck", result["detail"])
+
+    def test_nonzero_agent_exit_includes_subtype_and_bounded_stderr(self):
+        code = ("import sys,json\nprint(json.dumps({'type':'result','subtype':'error_max_turns'}))\n"
+                "sys.stderr.write('old line\\n' * 20 + 'runtime diagnostic\\n')\nsys.exit(1)\n")
+        result = self.run_agent(code)
+        self.assertIn("error_max_turns", result["detail"])
+        self.assertIn("runtime diagnostic", result["detail"])
+        self.assertEqual(result["detail"].count("old line"), 7)
+
     def test_nonzero_agent_exit_reports_exit_code_locally(self):
         with self.assertLogs("cross_zone.agent", level="ERROR") as logs:
             result = self.run_agent("import sys\nsys.exit(7)\n")
-        self.assertEqual(result, {"failure": "agent_exit_nonzero", "status": "BLOCKED"})
+        self.assertEqual(result["failure"], "agent_exit_nonzero")
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertIn("code 7", result["detail"])
         self.assertIn("code 7", "\n".join(logs.output))
 
 

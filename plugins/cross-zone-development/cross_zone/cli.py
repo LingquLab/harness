@@ -142,7 +142,7 @@ def main():
                 # selected on the command line. Bind before OPEN to retain an immediate TASK.
                 bridge.bind()
                 event = open_event(config["target"], "sessions/" + config["session_id"])
-                client.send(config["session_id"], _wire(event), event["event_id"])
+                client.send(config["session_id"], _wire(event, readable=True), event["event_id"])
                 print("OPEN notice sent; waiting for blue to confirm the session.", flush=True)
                 try:
                     bridge.run()
@@ -166,6 +166,7 @@ def main():
                 bridge.store.recover()
                 with bridge.store.db:
                     bridge.store.set_meta("recovery_required", False)
+                    bridge.store.set_meta("recovery_tasks", [])
                 print("Recovery acknowledged; interrupted tasks remain terminal and are not retried.")
     except KeyboardInterrupt:
         print("Stopped.")

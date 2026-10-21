@@ -24,6 +24,32 @@ directory green authorizes as the task workspace:
 <plugin-dir>/start-bridge.sh open <session-id>
 ```
 
+For automatic restart after a Bridge exit, keep the watchdog running in a separate
+Git Bash terminal:
+
+```bash
+<plugin-dir>/watch-bridge.sh <session-id> [config-file]
+```
+
+It reruns `start-bridge.sh open` after each exit, waiting 3 seconds between starts
+(`BRIDGE_RESTART_DELAY` overrides the delay). Stop the watchdog with `Ctrl+C`.
+Update disk code before ending the Bridge process to load the new version on
+restart. Existing instance locking still applies. Interrupted tasks are reported as
+unknown and never replayed. Queued tasks continue without manual acknowledgement;
+the agent first checks saved run receipts, surviving processes and relevant effects.
+Until those are established it may only perform read-only diagnostics and report
+concrete blockers to blue. Recovery evidence travels locally, not in the wire schema.
+Older global recovery pauses are migrated automatically on startup.
+
+Blue commands omit `target`; Bridge inherits the session-bound worker and still
+accepts matching legacy explicit targets.
+
+`EXEC` runs a blue-provided argv command or Bash/PowerShell/Python script directly
+in the session directory, then invokes green AI only to sanitize saved output.
+Bridge preserves exit code and timeout/cancellation facts even if review fails;
+commands are never automatically replayed. See the [protocol reference](skills/cross-zone-development/references/protocol.md#direct-commands-and-scripts-exec)
+for fields, examples and recovery behavior. Existing `TASK` behavior is unchanged.
+
 Use `run` instead of `open` to resume an existing listener without a new OPEN.
 On first use, `run` binds at the current message head and skips historical TASKs;
 start it before blue dispatches work.
@@ -51,8 +77,8 @@ From the authorized task workspace, run:
 
 The bridge first validates the launch workspace, CLI, and state directory. Only
 then does it bind at the current message head, send one green-originated OPEN user message,
-and listen for TASK/ANSWER/CANCEL. Blue validates OPEN against the current
-authorized conversation. It either sends a formal TASK or explains rejection in
+and listen for TASK/EXEC/ANSWER/CANCEL. A valid OPEN selects blue without confirmation.
+Blue validates OPEN against the current authorized conversation. It either sends a formal TASK or explains rejection in
 ordinary conversation; it never echoes or injects OPEN.
 
 Blue completes and locally checks each candidate, commits it, and pushes its task
@@ -64,7 +90,7 @@ reviewed results, including approved short diagnostic snippets. Green does not p
 Revision is optional. Include it for candidate-code validation as described
 above. Omit it for general green-environment work such as querying time, CPU/NPU
 state, service health, or other requested diagnostics; those tasks run
-in the launch workspace without Git fetch or checkout.
+in `.state/<session-id>` without Git fetch or checkout.
 
 For a listener without OPEN, run `./start-bridge.sh run <session-id>`. Each
 session automatically uses `.state/<session-id>/` and a session-specific log, so
@@ -91,11 +117,15 @@ green CLI may take more than five minutes to initialize and complete.
 
 ## Protocol boundaries
 
-TASK/ANSWER/CANCEL and ACK/PROGRESS/QUESTION/RESULT/REJECTED retain their v2
-semantics. TASK messages do not carry repository/profile aliases. Results bind
+TASK/EXEC/ANSWER/CANCEL and ACK/PROGRESS/QUESTION/RESULT/REJECTED retain their v2
+semantics. ACK/PROGRESS use compact task/iteration notifications; immediate
+starts omit a pending ACK. Messages use indented JSON code blocks after the
+protocol marker; legacy plain JSON and full notifications remain valid.
+TASK messages do not carry repository/profile aliases. Results bind
 to the exact task, iteration, and target, and to the
 immutable revision when one was supplied. RESULT includes every requested check;
 code-validation PASS additionally requires a clean, unmodified baseline.
+Agent failures include bounded, redacted diagnostic details for blue.
 Missing dependencies or permissions are BLOCKED.
 Missing information uses QUESTION, capped at three. Green sets
 `egress_reviewed=true` only after excluding credentials, personal or customer

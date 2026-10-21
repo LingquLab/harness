@@ -21,6 +21,24 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 <plugin-dir>/start-bridge.sh open <session-id>
 ```
 
+需要 Bridge 退出后自动重新拉起时，在单独的 Git Bash 窗口运行：
+
+```bash
+<plugin-dir>/watch-bridge.sh <session-id> [config-file]
+```
+
+守护脚本每次退出后等待 3 秒，再执行 `start-bridge.sh open`；可用
+`BRIDGE_RESTART_DELAY` 调整间隔，`Ctrl+C` 停止守护循环。先更新磁盘代码，
+再结束 Bridge 进程，下一次启动即加载新版。实例锁继续生效；中断任务不会重跑。
+后续 AI 先核查遗留进程和已完成操作，状态未知时只做只读检查，无需人工解锁。
+
+蓝区指令省略 `target`，Bridge 根据当前会话补齐；兼容旧格式中匹配的显式 target。
+
+新增 `EXEC`：蓝区提供命令参数数组，或 Bash/PowerShell/Python 脚本，Bridge
+在 session 目录原样执行，再由绿区 AI 仅过滤已保存的输出并回传。退出码、超时和
+取消状态由 Bridge 保留，AI 不能把执行失败变成 PASS；原始日志只留绿区，中断不重跑。
+字段与示例见[协议](skills/cross-zone-development/references/protocol.md#direct-commands-and-scripts-exec)。
+
 恢复已有监听且不需要再次发送 OPEN 时可用 `run`。首次 `run` 会绑定当前消息游标并
 跳过历史 TASK，因此应在蓝区下发任务前启动。启动脚本写入
 `<plugin-dir>/.cac/bridge-<command>-<session-id>.log`；其中可以显示有长度限制的 Agent 流式输出，
@@ -45,7 +63,8 @@ workspace。
 
 Bridge 先检查启动 workspace、CLI 和状态目录；检查通过后先绑定消息游标，再以 user
 消息发送一次绿区来源的 OPEN，并监听该会话，等待
-TASK/ANSWER/CANCEL。蓝区确认 OPEN 指向当前授权会话后，发送正式 TASK 开始协同；
+TASK/EXEC/ANSWER/CANCEL。收到有效 OPEN 即按蓝区处理，无需确认角色。
+蓝区确认 OPEN 指向当前授权会话后，发送正式 TASK 开始协同；
 若不接受，则仅用普通对话说明原因。蓝区不得注入、回显或返回 OPEN 协议消息。
 
 蓝区完成并检查候选修改后，先提交并把任务分支推送到批准的 GitHub 仓库，再发送
@@ -55,7 +74,7 @@ TASK。如果启动 workspace 是 Git 仓库，绿区通过其现有 `origin` �
 
 `revision` 是可选字段。候选代码验证按上述流程携带 revision；查询时间、CPU/NPU
 状态、服务健康度或其他绿区环境检查不携带 revision，Bridge 会跳过
-Git fetch 和 checkout，直接在启动 workspace 中执行。
+Git fetch 和 checkout，直接在 `.state/<session-id>` 中执行。
 
 不需要绿区主动开启时，运行 `./start-bridge.sh run <session-id>`。每个会话自动使用
 `.state/<session-id>/` 和独立日志，因此同一配置可服务多个并发会话。跨平台示例见
@@ -78,12 +97,14 @@ TASK 超时不得低于 600 秒。普通代码验证建议使用 900 秒；即�
 
 ## 协议边界
 
-TASK/ANSWER/CANCEL 与 ACK/PROGRESS/QUESTION/RESULT/REJECTED 保持 v2 既有语义。
+TASK/EXEC/ANSWER/CANCEL 与 ACK/PROGRESS/QUESTION/RESULT/REJECTED 保持 v2 既有语义。
+ACK/PROGRESS 仅保留类型、任务 ID 和轮次；即时启动时合并为 PROGRESS。
+消息在协议标记后使用缩进 JSON 代码块，兼容旧版单行 JSON 和完整通知。
 TASK 不携带仓库/profile 别名。
 结果必须绑定准确的任务、iteration 和 target；TASK 提供 revision 时还必须绑定该
 不可变 revision。RESULT 必须包含全部 requested checks；代码验证的 PASS 还要求所有
 检查在干净且未修改的基线上通过。依赖或权限不足返回
-BLOCKED；信息不足发送 QUESTION，最多 3 次。绿区完成出区审查后才能设置
+BLOCKED；Agent 故障会附带脱敏、限长的诊断详情。信息不足发送 QUESTION，最多 3 次。绿区完成出区审查后才能设置
 `egress_reviewed=true`，不得返回凭据、个人或客户数据、请求/响应正文、大批量日志、
 完整源文件、diff、patch，以及达到 10 行的代码或伪代码片段。允许返回相关的
 Markdown 围栏、URL、内网地址、绝对路径、完整堆栈，以及少于 10 行的代码或可重建

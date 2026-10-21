@@ -4,7 +4,7 @@ import time
 import uuid
 from pathlib import Path
 
-from .protocol import PROTOCOL, canonical, fingerprint, wire
+from .protocol import PROTOCOL, canonical, fingerprint, read_wire, wire
 
 
 class Store:
@@ -66,26 +66,59 @@ class Store:
         self.db.execute(f"UPDATE tasks SET {sql} WHERE task_id=? AND iteration=?",
                         (*fields.values(), task["task_id"], task["iteration"]))
 
+    def _drop_pending_ack(self, request):
+        for row in self.db.execute("SELECT id,text FROM outbox WHERE sent=0").fetchall():
+            event = read_wire(row["text"])
+            binding = ("task_id", "iteration")
+            if "protocol" in event:  # Legacy full envelope.
+                binding += ("target", "revision")
+            if event["type"] == "ACK" and all(event.get(k) == request.get(k) for k in binding):
+                self.db.execute("DELETE FROM outbox WHERE id=?", (row["id"],))
+
     def emit(self, request, kind, **fields):
+        if kind == "PROGRESS":
+            self._drop_pending_ack(request)
         event_id = "green-" + uuid.uuid4().hex
         event = {"protocol": PROTOCOL, "type": kind, "event_id": event_id,
                  **{k: request[k] for k in ("task_id", "iteration", "target")}, **fields}
         if "revision" in request:
             event["revision"] = request["revision"]
-        self.db.execute("INSERT INTO outbox(id,text,created) VALUES (?,?,?)", (event_id, wire(event), time.time()))
+        if kind in {"ACK", "PROGRESS"}:
+            event = {k: event[k] for k in ("type", "task_id", "iteration")}
+        self.db.execute("INSERT INTO outbox(id,text,created) VALUES (?,?,?)", (event_id, wire(event, readable=True), time.time()))
         return event_id
 
-    def terminal(self, task, status, reason):
+    def terminal(self, task, status, reason, detail="", execution=None):
         request = json.loads(task["request"])
         self.update(task, state=status)
-        self.emit(request, "RESULT", status=status, reason=reason)
+        fields = {"detail": detail} if detail else {}
+        if request["type"] == "EXEC":
+            fields["execution"] = execution or {"status": "NOT_STARTED" if task["state"] == "QUEUED" else "UNKNOWN",
+                                                "exit_code": None}
+        self.emit(request, "RESULT", status=status, reason=reason, **fields)
+
+    def require_recovery(self, task):
+        pending = self.get_meta("recovery_tasks") or []
+        identity = {"task_id": task["task_id"], "iteration": task["iteration"]}
+        if identity not in pending:
+            pending.append(identity)
+        self.set_meta("recovery_tasks", pending)
+        self.set_meta("recovery_required", True)
 
     def recover(self):
-        """A crash cannot prove whether a child or its effects survived."""
+        """Keep interrupted work terminal; let agents inspect before further changes."""
         with self.db:
+            # Older versions paused globally without recording the affected identities.
+            if self.get_meta("recovery_required") and not self.get_meta("recovery_tasks"):
+                for task in self.db.execute("SELECT * FROM tasks WHERE state='NEEDS_HUMAN'").fetchall():
+                    self.require_recovery(task)
             running = self.db.execute("SELECT * FROM tasks WHERE state IN ('RUNNING','CANCELLING')").fetchall()
             for task in running:
-                self.terminal(task, "NEEDS_HUMAN", "execution_interrupted_state_unknown")
-            if running:
-                self.set_meta("recovery_required", True)
+                self.require_recovery(task)
+                self.terminal(task, "NEEDS_HUMAN", "execution_interrupted_state_unknown",
+                              f"Bridge restarted while task state was {task['state']}. "
+                              "Child-process and remote effects are unknown. Interrupted work will not be retried. "
+                              "Queued tasks can run with an automatic recovery check; blue should inspect "
+                              "surviving processes and completed changes before requesting further mutations. "
+                              "No manual recovery acknowledgement is required.")
         return bool(running)
