@@ -2,6 +2,7 @@ import copy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
+import signal
 from pathlib import Path
 import subprocess
 import sys
@@ -147,6 +148,58 @@ class GitBashLauncherTests(unittest.TestCase):
             log_path = root / "logs" / ("bridge-doctor-" + session_id + ".log")
             self.assertTrue(log_path.is_file())
             self.assertIn("Bridge log:", log_path.read_text(encoding="utf-8"))
+
+    @unittest.skipIf(os.name == "nt", "POSIX process-group test; launcher also targets Git Bash")
+    def test_watchdog_restarts_killed_bridge_and_stops_on_ctrl_c(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            watcher = root / "watch-bridge.sh"
+            watcher.write_text((Path(__file__).parents[1] / "watch-bridge.sh").read_text(), encoding="utf-8")
+            capture, child_pid = root / "calls", root / "child.pid"
+            (root / "start-bridge.sh").write_text(
+                '#!/bin/bash\nprintf "%s\\n" "$#" "$1" "$2" "$3" "$PWD" >> "$CAPTURE"\n'
+                'count=$(wc -l < "$CAPTURE")\n'
+                'if [[ "$count" -eq 5 ]]; then echo "$$" > "$CHILD_PID"; exec sleep 60; fi\n'
+                'if [[ "$count" -eq 10 ]]; then exit 0; fi\nexec sleep 60\n', encoding="utf-8")
+            env = dict(os.environ, CAPTURE=str(capture), CHILD_PID=str(child_pid), BRIDGE_RESTART_DELAY="0.05")
+            session = "fc85951c-ffeb-4fb3-b44f-ae052e9106f6"
+            process = subprocess.Popen(["bash", str(watcher), session, "green config.json"],
+                                       cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                       text=True, start_new_session=True)
+            try:
+                deadline = time.monotonic() + 5
+                while not child_pid.exists() and time.monotonic() < deadline:
+                    time.sleep(0.01)
+                self.assertTrue(child_pid.exists(), "child did not start")
+                os.kill(int(child_pid.read_text().strip()), signal.SIGKILL)
+                while time.monotonic() < deadline:
+                    if capture.exists() and len(capture.read_text().splitlines()) >= 15:
+                        break
+                    time.sleep(0.01)
+                records = capture.read_text().splitlines()
+                expected = ["3", "open", session, "green config.json", str(root)]
+                self.assertEqual(records, expected * 3)
+                os.killpg(process.pid, signal.SIGINT)
+                stdout, stderr = process.communicate(timeout=5)
+                self.assertEqual(process.returncode, 130, stderr)
+                self.assertIn("restarting", stdout)
+                self.assertIn("watchdog stopped", stdout)
+                self.assertEqual(capture.read_text().splitlines(), records)
+            finally:
+                if process.poll() is None:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.communicate(timeout=5)
+
+    def test_watchdog_rejects_invalid_arguments_and_restart_delay(self):
+        watcher = Path(__file__).parents[1] / "watch-bridge.sh"
+        invalid = subprocess.run(["bash", str(watcher)], capture_output=True, text=True)
+        self.assertEqual(invalid.returncode, 2)
+        for delay in ("0", "0.0", "-1", "invalid"):
+            with self.subTest(delay=delay):
+                result = subprocess.run(["bash", str(watcher), "session"],
+                                        env=dict(os.environ, BRIDGE_RESTART_DELAY=delay), capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("positive number", result.stderr)
 
     def test_launcher_rejects_unknown_command(self):
         launcher = Path(__file__).parents[1] / "start-bridge.sh"

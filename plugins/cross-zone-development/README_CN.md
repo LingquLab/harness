@@ -21,6 +21,16 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 <plugin-dir>/start-bridge.sh open <session-id>
 ```
 
+需要 Bridge 退出后自动重新拉起时，在单独的 Git Bash 窗口运行：
+
+```bash
+<plugin-dir>/watch-bridge.sh <session-id> [config-file]
+```
+
+守护脚本每次退出后等待 3 秒，再执行 `start-bridge.sh open`；可用
+`BRIDGE_RESTART_DELAY` 调整间隔，`Ctrl+C` 停止守护循环。先更新磁盘代码，
+再结束 Bridge 进程，下一次启动即加载新版。现有实例锁和中断任务恢复保护继续生效。
+
 恢复已有监听且不需要再次发送 OPEN 时可用 `run`。首次 `run` 会绑定当前消息游标并
 跳过历史 TASK，因此应在蓝区下发任务前启动。启动脚本写入
 `<plugin-dir>/.cac/bridge-<command>-<session-id>.log`；其中可以显示有长度限制的 Agent 流式输出，

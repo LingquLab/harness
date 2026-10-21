@@ -116,6 +116,7 @@ class HapiContractTest(unittest.TestCase):
     def test_green_runtime_is_shipped(self) -> None:
         for relative in (
             "start-bridge.sh",
+            "watch-bridge.sh",
             "pyproject.toml",
             "cross_zone/__main__.py",
             "cross_zone/agent.py",

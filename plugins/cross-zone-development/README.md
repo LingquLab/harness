@@ -24,6 +24,18 @@ directory green authorizes as the task workspace:
 <plugin-dir>/start-bridge.sh open <session-id>
 ```
 
+For automatic restart after a Bridge exit, keep the watchdog running in a separate
+Git Bash terminal:
+
+```bash
+<plugin-dir>/watch-bridge.sh <session-id> [config-file]
+```
+
+It reruns `start-bridge.sh open` after each exit, waiting 3 seconds between starts
+(`BRIDGE_RESTART_DELAY` overrides the delay). Stop the watchdog with `Ctrl+C`.
+Update disk code before ending the Bridge process to load the new version on
+restart. Existing instance locking and interrupted-task recovery still apply.
+
 Use `run` instead of `open` to resume an existing listener without a new OPEN.
 On first use, `run` binds at the current message head and skips historical TASKs;
 start it before blue dispatches work.
