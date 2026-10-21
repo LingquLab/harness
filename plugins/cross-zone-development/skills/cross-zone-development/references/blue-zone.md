@@ -25,19 +25,23 @@ Include bounded prerequisites, setup, named checks, approved fixtures, observabl
 timeout, cleanup, and stop conditions. Do not include a green repository alias,
 profile, complete source, diff, or credential. Include the intended service or
 host when needed for a requested remote check; it does not select the launch workspace. End the turn after
-TASK so the bridge can consume it.
+TASK or EXEC so the bridge can consume it.
 Use at least 600 seconds for TASK timeout; 900 seconds is the normal default for
 code validation and 600 seconds for a small read-only environment check.
 
 For exact commands/scripts, use EXEC after green has loaded a version supporting
-it. Bridge executes directly; green AI only filters saved output. Set a bounded
-execution timeout and leave at least 60 seconds for review. Do not resend a failed
+it. Bridge executes directly; green AI only filters saved output. Prefer one EXEC
+per phase, combining related commands in a script instead of dispatching each
+command separately. Stop dependent steps on failure and preserve stage evidence.
+Set a bounded execution timeout and leave at least 60 seconds for review. Do not resend a failed
 or interrupted EXEC to recover output: request a read-only TASK against its saved
 receipt. Resolve pending recovery through TASK before dispatching another EXEC.
 
-After a timeout, split remaining work into single-action TASKs; do not resend
+After a TASK timeout, split remaining work into single-action TASKs; do not resend
 unchanged or merely increase the timeout. Bound each command's execution time,
 return after that action, and wait for its result before dispatching the next.
+For an EXEC timeout, inspect its saved receipt and partial effects, then split only
+the unfinished portion into smaller batches; do not repeat completed commands.
 If interrupted work could have modified state, first check progress and running
 processes to avoid duplicate execution. Bridge restarts do not require manual
 acknowledgement: interrupted iterations remain terminal, and subsequent agents

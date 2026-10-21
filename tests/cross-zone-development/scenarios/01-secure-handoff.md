@@ -142,3 +142,14 @@ A multi-step TASK returns TIMED_OUT without sufficient evidence of completion.
 - Wait for each result before sending the next step; do not resend the original
   task unchanged or merely increase its timeout.
 - Check partial changes and running processes before repeating a mutation.
+
+## Request G: Batch Direct Commands
+
+Blue has several known commands in the same authorized phase, and green supports EXEC.
+
+## Expected Behavior G
+
+- Prefer one EXEC script for the related commands to reduce cross-zone round trips.
+- Bound execution time, reserve output-review time and stop dependent steps on failure.
+- After timeout, inspect saved progress before splitting only unfinished work; do not
+  replay completed mutations or abandon batching by default.

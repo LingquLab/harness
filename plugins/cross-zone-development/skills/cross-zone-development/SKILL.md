@@ -46,7 +46,9 @@ returns an OPEN protocol message.
 - Keep HAPI output reviewed and within the result limits defined in [references/protocol.md](references/protocol.md).
 
 Use `EXEC` when blue already has an exact command or operational script: Bridge
-runs it unchanged, then green AI reviews saved output only. Use `TASK` for work
+runs it unchanged, then green AI reviews saved output only. Prefer batching related
+commands in one EXEC script to reduce cross-zone round trips; bound runtime and
+stop dependent steps on failure. Use `TASK` for work
 requiring green AI decisions or recovery checks. See the execution forms and
 limits in [references/protocol.md](references/protocol.md).
 
