@@ -98,6 +98,7 @@ def parse(text, target):
         raise ProtocolError("invalid_direction")
     extra = {
         "TASK": {"goal", "checks", "timeout_seconds"},
+        "EXEC": {"goal", "checks", "timeout_seconds", "execution", "execution_timeout_seconds"},
         "ANSWER": {"question_id", "answer"},
         "CANCEL": set(),
     }.get(kind)
@@ -112,7 +113,9 @@ def parse(text, target):
         raise ProtocolError("invalid_iteration")
     if "revision" in event and (not isinstance(event["revision"], str) or not REVISION.fullmatch(event["revision"])):
         raise ProtocolError("invalid_revision")
-    if kind == "TASK":
+    if kind == "EXEC" and "revision" in event:
+        raise ProtocolError("exec_revision_not_supported")
+    if kind in {"TASK", "EXEC"}:
         if not isinstance(event["goal"], str) or not 1 <= len(event["goal"]) <= 6000:
             raise ProtocolError("invalid_goal")
         checks = event["checks"]
@@ -129,6 +132,27 @@ def parse(text, target):
                 raise ProtocolError("invalid_check_text")
         if type(event["timeout_seconds"]) is not int or not 600 <= event["timeout_seconds"] <= 86400:
             raise ProtocolError("invalid_timeout")
+        if kind == "EXEC":
+            duration = event["execution_timeout_seconds"]
+            if type(duration) is not int or not 1 <= duration <= event["timeout_seconds"] - 60:
+                raise ProtocolError("invalid_execution_timeout")
+            execution = event["execution"]
+            if not isinstance(execution, dict):
+                raise ProtocolError("invalid_execution")
+            if set(execution) == {"argv"}:
+                argv = execution["argv"]
+                if (not isinstance(argv, list) or not 1 <= len(argv) <= 128
+                        or any(not isinstance(arg, str) or len(arg) > 4000 or "\0" in arg for arg in argv)
+                        or not argv[0]):
+                    raise ProtocolError("invalid_execution_argv")
+            elif set(execution) == {"interpreter", "script"}:
+                if execution["interpreter"] not in ("bash", "powershell", "python"):
+                    raise ProtocolError("invalid_execution_interpreter")
+                script = execution["script"]
+                if not isinstance(script, str) or not 1 <= len(script) <= 12000 or "\0" in script:
+                    raise ProtocolError("invalid_execution_script")
+            else:
+                raise ProtocolError("invalid_execution_fields")
     elif kind == "ANSWER":
         if not isinstance(event["question_id"], str) or not ID.fullmatch(event["question_id"]):
             raise ProtocolError("invalid_question_id")

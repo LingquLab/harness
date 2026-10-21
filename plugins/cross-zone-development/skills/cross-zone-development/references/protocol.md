@@ -141,9 +141,82 @@ green Agent startup and protected-environment checks commonly exceed five minute
 TASK rejects `repository` and `scope_profile`. Neither side can select a green
 path or profile through the protocol.
 
+## Direct commands and scripts (EXEC)
+
+The complete incoming message remains limited to 24000 UTF-8 bytes.
+EXEC shares TASK's binding, goal, checks and total `timeout_seconds`, but forbids
+`revision`. It adds `execution_timeout_seconds` (integer, 1 through total timeout
+minus 60) and exactly one execution form:
+
+- `"execution": {"argv": ["executable", "argument", "..."]}`: 1–128 strings,
+  each at most 4000 characters; no shell expansion or implicit shell. Empty
+  arguments are preserved. Windows batch files require an explicit interpreter
+  such as cmd.exe in argv; they are not launched implicitly.
+- `"execution": {"interpreter": "bash", "script": "..."}`: interpreter is bash,
+  powershell or python; script is 1–12000 characters. Bridge writes the script
+  locally and passes it unchanged to that interpreter (Python uses Bridge's
+  interpreter; PowerShell uses noninteractive, no-profile execution).
+
+Example (marker outside the JSON code block):
+
+````text
+CROSS_ZONE_V2
+```json
+{
+  "protocol": "cross-zone/v2",
+  "type": "EXEC",
+  "event_id": "blue-exec-1",
+  "task_id": "remote-hostname",
+  "iteration": 1,
+  "target": "green-dev",
+  "goal": "Read the remote hostname once, then sanitize the output.",
+  "execution": {
+    "argv": ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-p", "20022", "operator@host.example", "hostname"]
+  },
+  "execution_timeout_seconds": 30,
+  "checks": [
+    {
+      "id": "hostname",
+      "action": "Review the saved execution output only.",
+      "expected": "Exit zero and report the hostname without extra remote actions."
+    }
+  ],
+  "timeout_seconds": 600
+}
+```
+````
+
+EXEC is an explicit operational-script channel, not candidate repository-code
+transfer. It uses the same authorized scope as TASK, runs in the session directory,
+removes HAPI_* variables, closes stdin and does not allow cwd/env/profile overrides.
+Use foreground commands; do not detach children or treat a successful SSH exit as
+proof that remote background work completed. Original stdout/stderr, script and
+execution receipt stay under the green-local run directory. Combined output above
+32 MiB terminates execution. The effective command deadline also respects the
+configured total-task cap and reserves 60 seconds for AI review.
+
+Green AI runs only after execution to inspect those saved files and return a
+sanitized RESULT against the requested checks. It must not rerun or modify the
+command, perform extra investigation, contact remote services or change files.
+Timeout/cancellation or failed review never exports raw output. RESULT includes
+Bridge-owned `execution: {"status": "EXITED", "exit_code": 0}` (example).
+Statuses also include NOT_STARTED, START_FAILED, TIMED_OUT, CANCELLED, OUTPUT_LIMIT,
+EXECUTION_ERROR, TERMINATION_UNCONFIRMED and UNKNOWN; exit_code is null when unknown
+or not started. The AI cannot override these facts. Nonzero exit cannot produce
+PASS; command timeout remains TIMED_OUT even if AI says PASS. Exit zero alone is
+insufficient: reviewed checks and existing egress validation must also pass.
+
+EXEC has no QUESTION/ANSWER continuation. Deduplication and cancellation use the
+same task/iteration rules as TASK. A receipt is claimed before launch; an existing
+receipt or interrupted iteration is never replayed. Pending recovery blocks EXEC
+before launch; blue can dispatch a read-only TASK to establish process state and
+completed effects, which clears recovery after validated evidence. Neither this
+case nor restart recovery requires manual acknowledgement. Older Bridge versions
+do not support EXEC; confirm the updated version before dispatching it.
+
 ## Candidate transfer
 
-GitHub is the code channel, not the coordination channel. Before TASK, blue runs
+GitHub is the candidate repository-code channel, not the coordination channel. Before TASK, blue runs
 its available checks, creates a task-owned commit, and pushes the task branch.
 This section applies only when TASK includes `revision`. TASK names that exact
 commit, never a mutable branch head or an uncommitted tree.

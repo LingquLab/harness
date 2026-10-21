@@ -14,7 +14,7 @@ send an OPEN acknowledgement, or claim collaboration started before TASK is sent
 
 ## Dispatch and consume
 
-Send TASK/ANSWER/CANCEL with `CROSS_ZONE_V2` outside an indented `json` code block.
+Send TASK/EXEC/ANSWER/CANCEL with `CROSS_ZONE_V2` outside an indented `json` code block.
 
 For candidate-code validation, finish blue implementation and available checks,
 create a task-owned commit, push it, and name the exact revision in TASK. For a
@@ -27,6 +27,12 @@ host when needed for a requested remote check; it does not select the launch wor
 TASK so the bridge can consume it.
 Use at least 600 seconds for TASK timeout; 900 seconds is the normal default for
 code validation and 600 seconds for a small read-only environment check.
+
+For exact commands/scripts, use EXEC after green has loaded a version supporting
+it. Bridge executes directly; green AI only filters saved output. Set a bounded
+execution timeout and leave at least 60 seconds for review. Do not resend a failed
+or interrupted EXEC to recover output: request a read-only TASK against its saved
+receipt. Resolve pending recovery through TASK before dispatching another EXEC.
 
 After a timeout, split remaining work into single-action TASKs; do not resend
 unchanged or merely increase the timeout. Bound each command's execution time,

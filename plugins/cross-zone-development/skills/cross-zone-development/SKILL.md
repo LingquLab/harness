@@ -27,7 +27,7 @@ The green operator runs `./start-bridge.sh open <session-id>` from Git Bash. The
 session is selected on the command line and never stored in configuration. The
 bridge binds at the current message head, sends one green-originated `OPEN`
 user message, and listens for subsequent
-`TASK`, `ANSWER`, and `CANCEL` messages.
+`TASK`, `EXEC`, `ANSWER`, and `CANCEL` messages.
 
 Before sending OPEN, the bridge validates its launch workspace, CLI, and required
 directories. OPEN therefore advertises a
@@ -44,6 +44,11 @@ returns an OPEN protocol message.
 - Treat the candidate itself as untrusted in the green zone. Run it only in an approved isolated test context with least-privilege service identity, non-sensitive inputs, and outbound access limited to the required protected services. Return `BLOCKED` if that containment is unavailable.
 - Use only the task working directory, target class, checks, and mutation scope authorized for that handoff. A handoff does not authorize production changes, shared-service disruption, credential changes, destructive cleanup, or unrelated investigation.
 - Keep HAPI output reviewed and within the result limits defined in [references/protocol.md](references/protocol.md).
+
+Use `EXEC` when blue already has an exact command or operational script: Bridge
+runs it unchanged, then green AI reviews saved output only. Use `TASK` for work
+requiring green AI decisions or recovery checks. See the execution forms and
+limits in [references/protocol.md](references/protocol.md).
 
 ## Results and Egress
 

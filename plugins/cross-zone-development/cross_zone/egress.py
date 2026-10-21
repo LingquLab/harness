@@ -29,7 +29,7 @@ SCHEMA = {
 }
 
 
-def review(value, request, secrets=()):
+def review(value, request, secrets=(), execution=None):
     if not isinstance(value, dict):
         raise ValueError(f"result_schema: expected object, got {type(value).__name__}")
     missing = set(SCHEMA["required"]) - set(value)
@@ -89,6 +89,10 @@ def review(value, request, secrets=()):
                 **exported, "worktree_modified": False}
     if "revision" in request:
         envelope["revision"] = request["revision"]
+    if execution:
+        envelope["execution"] = execution
+        # Reserve the longest bridge-owned terminal status before applying execution facts.
+        envelope["status"] = "NEEDS_HUMAN"
     size = len(json.dumps(envelope, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8"))
     if size > 4096:
         raise ValueError(f"egress_size_limit: RESULT JSON bytes={size} exceeds limit=4096; shorten summary")

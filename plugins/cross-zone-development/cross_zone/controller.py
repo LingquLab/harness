@@ -9,6 +9,7 @@ import uuid
 
 from .agent import CodeAgentCLI, agent_failure
 from .egress import failure_detail, review
+from .execution import DirectExecutor
 from .hapi import HapiError
 from .protocol import ProtocolError, assistant_text, canonical, fingerprint, parse
 from .store import Store
@@ -27,6 +28,7 @@ class Bridge:
         binding = {k: config[k] for k in ("hub_url", "session_id", "target", "workspace_dir")}
         self.store = Store(Path(config["state_dir"]) / "bridge.sqlite3", binding)
         self.agent = agent or CodeAgentCLI(config)
+        self.direct_executor = DirectExecutor(config, self.agent)
         self.executor = ThreadPoolExecutor(max_workers=1)
         self.current = None
         self.stop = threading.Event()
@@ -54,7 +56,7 @@ class Bridge:
             return
         store.db.execute("INSERT INTO inbox VALUES (?,?)", (event["event_id"], digest))
         task = store.get_task(event["task_id"], event["iteration"])
-        if event["type"] == "TASK":
+        if event["type"] in {"TASK", "EXEC"}:
             # The event ID may change on transport retries; task semantics may not.
             task_digest = fingerprint({k: v for k, v in event.items() if k != "event_id"})
             if task:
@@ -138,25 +140,36 @@ class Bridge:
 
     def _complete(self, task, result):
         request = json.loads(task["request"])
+        execution = result.get("execution") if request["type"] == "EXEC" else None
         if result.get("pause"):
             self.store.require_recovery(task)
         detail = failure_detail(result.get("detail"), secrets=(self.client.access_key, self.client.token))
         if task["state"] == "CANCELLING":
             # A concurrent successful exit does not erase a requested cancellation.
             self.store.terminal(task, "NEEDS_HUMAN" if result.get("pause") else "CANCELLED",
-                                "termination_unconfirmed" if result.get("pause") else "cancelled", detail)
+                                "termination_unconfirmed" if result.get("pause") else "cancelled", detail, execution)
             return
         if "failure" in result:
-            self.store.terminal(task, result["status"], result["failure"], detail)
+            self.store.terminal(task, result["status"], result["failure"], detail, execution)
             return
         if time.time() >= task["deadline"]:
             self.store.terminal(task, "TIMED_OUT", "task_deadline_exceeded",
                                 "Agent result arrived after the task deadline; it was not accepted. "
-                                "Check completed changes before splitting remaining work.")
+                                "Check completed changes before splitting remaining work.", execution)
             return
         try:
             output = result["output"]
-            fields = review(output, request, secrets=(self.client.access_key, self.client.token))
+            if request["type"] == "EXEC" and (not isinstance(output, dict) or output.get("kind") != "RESULT"):
+                raise ValueError("exec_review: output reviewer must return RESULT; command will not be repeated")
+            fields = review(output, request, secrets=(self.client.access_key, self.client.token), execution=execution)
+            if execution:
+                fields["execution"] = execution
+                forced = {"TIMED_OUT": "TIMED_OUT", "CANCELLED": "CANCELLED", "OUTPUT_LIMIT": "NEEDS_HUMAN",
+                          "START_FAILED": "BLOCKED", "EXECUTION_ERROR": "NEEDS_HUMAN", "NOT_STARTED": "BLOCKED"}
+                if execution["status"] in forced:
+                    fields["status"] = forced[execution["status"]]
+                elif execution["status"] != "EXITED" or execution["exit_code"] != 0:
+                    fields["status"] = "FAIL"
             if result.get("dirty") and fields["status"] == "PASS":
                 raise ValueError("baseline_worktree_modified: PASS result has a modified baseline worktree")
             fields["worktree_modified"] = bool(result.get("dirty"))
@@ -185,7 +198,7 @@ class Bridge:
                 secrets=(self.client.access_key, self.client.token),
             )
             LOG.error("%s", detail)
-            self.store.terminal(task, "NEEDS_HUMAN", "structured_result_or_egress_review_failed", detail)
+            self.store.terminal(task, "NEEDS_HUMAN", "structured_result_or_egress_review_failed", detail, execution)
 
     def work(self):
         if self.current:
@@ -222,7 +235,8 @@ class Bridge:
             cancel = threading.Event()
             LOG.info("Task running: %s / %s", task["task_id"], task["iteration"])
             recovery = self.store.get_meta("recovery_tasks") or []
-            future = self.executor.submit(self.agent.run, request, task["session_id"], task["answer"], deadline, cancel, recovery)
+            runner = self.direct_executor if request["type"] == "EXEC" else self.agent
+            future = self.executor.submit(runner.run, request, task["session_id"], task["answer"], deadline, cancel, recovery)
             self.current = (task["task_id"], task["iteration"], future, cancel)
 
     def flush(self):

@@ -88,10 +88,14 @@ class Store:
         self.db.execute("INSERT INTO outbox(id,text,created) VALUES (?,?,?)", (event_id, wire(event, readable=True), time.time()))
         return event_id
 
-    def terminal(self, task, status, reason, detail=""):
+    def terminal(self, task, status, reason, detail="", execution=None):
         request = json.loads(task["request"])
         self.update(task, state=status)
-        self.emit(request, "RESULT", status=status, reason=reason, **({"detail": detail} if detail else {}))
+        fields = {"detail": detail} if detail else {}
+        if request["type"] == "EXEC":
+            fields["execution"] = execution or {"status": "NOT_STARTED" if task["state"] == "QUEUED" else "UNKNOWN",
+                                                "exit_code": None}
+        self.emit(request, "RESULT", status=status, reason=reason, **fields)
 
     def require_recovery(self, task):
         pending = self.get_meta("recovery_tasks") or []

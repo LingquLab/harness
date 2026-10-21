@@ -29,7 +29,13 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 
 守护脚本每次退出后等待 3 秒，再执行 `start-bridge.sh open`；可用
 `BRIDGE_RESTART_DELAY` 调整间隔，`Ctrl+C` 停止守护循环。先更新磁盘代码，
-再结束 Bridge 进程，下一次启动即加载新版。现有实例锁和中断任务恢复保护继续生效。
+再结束 Bridge 进程，下一次启动即加载新版。实例锁继续生效；中断任务不会重跑。
+后续 AI 先核查遗留进程和已完成操作，状态未知时只做只读检查，无需人工解锁。
+
+新增 `EXEC`：蓝区提供命令参数数组，或 Bash/PowerShell/Python 脚本，Bridge
+在 session 目录原样执行，再由绿区 AI 仅过滤已保存的输出并回传。退出码、超时和
+取消状态由 Bridge 保留，AI 不能把执行失败变成 PASS；原始日志只留绿区，中断不重跑。
+字段与示例见[协议](skills/cross-zone-development/references/protocol.md#direct-commands-and-scripts-exec)。
 
 恢复已有监听且不需要再次发送 OPEN 时可用 `run`。首次 `run` 会绑定当前消息游标并
 跳过历史 TASK，因此应在蓝区下发任务前启动。启动脚本写入
@@ -55,7 +61,7 @@ workspace。
 
 Bridge 先检查启动 workspace、CLI 和状态目录；检查通过后先绑定消息游标，再以 user
 消息发送一次绿区来源的 OPEN，并监听该会话，等待
-TASK/ANSWER/CANCEL。收到有效 OPEN 即按蓝区处理，无需确认角色。
+TASK/EXEC/ANSWER/CANCEL。收到有效 OPEN 即按蓝区处理，无需确认角色。
 蓝区确认 OPEN 指向当前授权会话后，发送正式 TASK 开始协同；
 若不接受，则仅用普通对话说明原因。蓝区不得注入、回显或返回 OPEN 协议消息。
 
@@ -89,7 +95,7 @@ TASK 超时不得低于 600 秒。普通代码验证建议使用 900 秒；即�
 
 ## 协议边界
 
-TASK/ANSWER/CANCEL 与 ACK/PROGRESS/QUESTION/RESULT/REJECTED 保持 v2 既有语义。
+TASK/EXEC/ANSWER/CANCEL 与 ACK/PROGRESS/QUESTION/RESULT/REJECTED 保持 v2 既有语义。
 ACK/PROGRESS 仅保留类型、任务 ID 和轮次；即时启动时合并为 PROGRESS。
 消息在协议标记后使用缩进 JSON 代码块，兼容旧版单行 JSON 和完整通知。
 TASK 不携带仓库/profile 别名。
