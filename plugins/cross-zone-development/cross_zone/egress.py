@@ -73,7 +73,8 @@ def review(value, request, secrets=()):
         if value["question"]:
             raise ValueError(f"incomplete_result: RESULT question must be empty; length={len(value['question'])}")
         if value["status"] == "PASS" and (
-            any(c["status"] != "PASS" for c in checks) or value["local_modification_tested"]
+            any(c["status"] != "PASS" for c in checks)
+            or ("revision" in request and value["local_modification_tested"])
         ):
             failed = [c["id"] for c in checks if c["status"] != "PASS"]
             raise ValueError(f"baseline_not_passed: non-PASS checks={failed}; "

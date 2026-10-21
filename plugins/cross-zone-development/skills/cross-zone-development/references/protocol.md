@@ -182,8 +182,9 @@ without rejected values. Recovery/output-limit failures include their stage and
 next action; timeout details distinguish pre-launch, running, and late results. PASS requires every check to be PASS. For
 a revision-bearing task it additionally requires the exact unmodified baseline,
 no local-modification testing, and a clean worktree at exit. A revisionless PASS
-confirms only the requested green-environment observations and must not claim a
-code baseline passed. Its evidence must also describe the requested action; passing a narrower
+confirms only the requested green-environment actions and must not claim a
+code baseline passed. Authorized system changes do not trigger the code-baseline
+local-modification restriction; every requested check must still pass. Its evidence must also describe the requested action; passing a narrower
 or unrelated command cannot satisfy the check. Missing or not-run checks are not PASS. Missing dependencies, fixtures,
 or permissions are BLOCKED. Keep local-modification evidence separate. Set
 `egress_reviewed=true` only after checking that no credential, customer/personal

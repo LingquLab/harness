@@ -360,6 +360,18 @@ class ProtocolTests(unittest.TestCase):
 
 
 class EgressTests(unittest.TestCase):
+    def test_revisionless_authorized_changes_can_pass(self):
+        value = output(local_modification_tested=True, local_modification_outcome="PASS")
+        self.assertEqual(review(value, general_task())["status"], "PASS")
+        with self.assertRaisesRegex(ValueError, "baseline_not_passed"):
+            review(value, task())
+
+    def test_revisionless_changes_do_not_override_failed_checks(self):
+        value = output(local_modification_tested=True, local_modification_outcome="PASS",
+                       checks=[{"id": "regression", "status": "NOT_RUN"}])
+        with self.assertRaisesRegex(ValueError, "baseline_not_passed"):
+            review(value, general_task())
+
     def test_pass_and_failed_local_fix(self):
         self.assertEqual(review(output(), task())["status"], "PASS")
         value = output(status="FAIL", local_modification_tested=True, local_modification_outcome="PASS",
@@ -731,6 +743,18 @@ class BridgeTests(unittest.TestCase):
         request = self.agent.calls[0][0]
         self.assertNotIn("repository", request)
         self.assertNotIn("scope_profile", request)
+
+    def test_general_task_changed_system_result_is_delivered_as_pass(self):
+        self.agent.outputs = [{"output": output(local_modification_tested=True,
+                                               local_modification_outcome="PASS"), "dirty": False}]
+        self.bridge.bind()
+        self.ingest(general_task())
+        self.settle()
+        self.bridge.flush()
+        event = self.client.sent[-1][1]
+        self.assertEqual(event["status"], "PASS")
+        self.assertTrue(event["local_modification_tested"])
+        self.assertNotIn("revision", event)
 
     def test_general_task_runs_without_revision_and_returns_revisionless_result(self):
         event = general_task()
