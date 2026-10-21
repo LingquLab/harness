@@ -34,7 +34,12 @@ Git Bash terminal:
 It reruns `start-bridge.sh open` after each exit, waiting 3 seconds between starts
 (`BRIDGE_RESTART_DELAY` overrides the delay). Stop the watchdog with `Ctrl+C`.
 Update disk code before ending the Bridge process to load the new version on
-restart. Existing instance locking and interrupted-task recovery still apply.
+restart. Existing instance locking still applies. Interrupted tasks are reported as
+unknown and never replayed. Queued tasks continue without manual acknowledgement;
+the agent first checks saved run receipts, surviving processes and relevant effects.
+Until those are established it may only perform read-only diagnostics and report
+concrete blockers to blue. Recovery evidence travels locally, not in the wire schema.
+Older global recovery pauses are migrated automatically on startup.
 
 Use `run` instead of `open` to resume an existing listener without a new OPEN.
 On first use, `run` binds at the current message head and skips historical TASKs;

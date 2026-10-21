@@ -166,6 +166,7 @@ def main():
                 bridge.store.recover()
                 with bridge.store.db:
                     bridge.store.set_meta("recovery_required", False)
+                    bridge.store.set_meta("recovery_tasks", [])
                 print("Recovery acknowledged; interrupted tasks remain terminal and are not retried.")
     except KeyboardInterrupt:
         print("Stopped.")

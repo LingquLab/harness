@@ -93,15 +93,28 @@ class Store:
         self.update(task, state=status)
         self.emit(request, "RESULT", status=status, reason=reason, **({"detail": detail} if detail else {}))
 
+    def require_recovery(self, task):
+        pending = self.get_meta("recovery_tasks") or []
+        identity = {"task_id": task["task_id"], "iteration": task["iteration"]}
+        if identity not in pending:
+            pending.append(identity)
+        self.set_meta("recovery_tasks", pending)
+        self.set_meta("recovery_required", True)
+
     def recover(self):
-        """A crash cannot prove whether a child or its effects survived."""
+        """Keep interrupted work terminal; let agents inspect before further changes."""
         with self.db:
+            # Older versions paused globally without recording the affected identities.
+            if self.get_meta("recovery_required") and not self.get_meta("recovery_tasks"):
+                for task in self.db.execute("SELECT * FROM tasks WHERE state='NEEDS_HUMAN'").fetchall():
+                    self.require_recovery(task)
             running = self.db.execute("SELECT * FROM tasks WHERE state IN ('RUNNING','CANCELLING')").fetchall()
             for task in running:
+                self.require_recovery(task)
                 self.terminal(task, "NEEDS_HUMAN", "execution_interrupted_state_unknown",
                               f"Bridge restarted while task state was {task['state']}. "
-                              "Child-process and remote effects are unknown. Execution is paused; "
-                              "check surviving processes and completed changes before acknowledging recovery.")
-            if running:
-                self.set_meta("recovery_required", True)
+                              "Child-process and remote effects are unknown. Interrupted work will not be retried. "
+                              "Queued tasks can run with an automatic recovery check; blue should inspect "
+                              "surviving processes and completed changes before requesting further mutations. "
+                              "No manual recovery acknowledgement is required.")
         return bool(running)

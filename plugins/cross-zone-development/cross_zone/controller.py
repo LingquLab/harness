@@ -139,7 +139,7 @@ class Bridge:
     def _complete(self, task, result):
         request = json.loads(task["request"])
         if result.get("pause"):
-            self.store.set_meta("recovery_required", True)
+            self.store.require_recovery(task)
         detail = failure_detail(result.get("detail"), secrets=(self.client.access_key, self.client.token))
         if task["state"] == "CANCELLING":
             # A concurrent successful exit does not erase a requested cancellation.
@@ -160,6 +160,9 @@ class Bridge:
             if result.get("dirty") and fields["status"] == "PASS":
                 raise ValueError("baseline_worktree_modified: PASS result has a modified baseline worktree")
             fields["worktree_modified"] = bool(result.get("dirty"))
+            if output["kind"] == "RESULT" and result.get("recovery_checked") is True:
+                self.store.set_meta("recovery_tasks", [])
+                self.store.set_meta("recovery_required", False)
             if output["kind"] == "QUESTION":
                 sid = result.get("session_id")
                 if not isinstance(sid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", sid):
@@ -207,7 +210,7 @@ class Bridge:
                 self.store.terminal(task, "TIMED_OUT", "task_deadline_exceeded",
                                     f"Task deadline expired while state was {task['state']}; "
                                     "no new agent process was launched for this step.")
-        if self.current or self.store.get_meta("recovery_required") or self.stop.is_set():
+        if self.current or self.stop.is_set():
             return
         task = self.store.db.execute("SELECT * FROM tasks WHERE state='QUEUED' ORDER BY rowid LIMIT 1").fetchone()
         if task:
@@ -218,7 +221,8 @@ class Bridge:
                 self.store.emit(request, "PROGRESS", state="RUNNING")
             cancel = threading.Event()
             LOG.info("Task running: %s / %s", task["task_id"], task["iteration"])
-            future = self.executor.submit(self.agent.run, request, task["session_id"], task["answer"], deadline, cancel)
+            recovery = self.store.get_meta("recovery_tasks") or []
+            future = self.executor.submit(self.agent.run, request, task["session_id"], task["answer"], deadline, cancel, recovery)
             self.current = (task["task_id"], task["iteration"], future, cancel)
 
     def flush(self):

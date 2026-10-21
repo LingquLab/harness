@@ -32,7 +32,10 @@ After a timeout, split remaining work into single-action TASKs; do not resend
 unchanged or merely increase the timeout. Bound each command's execution time,
 return after that action, and wait for its result before dispatching the next.
 If interrupted work could have modified state, first check progress and running
-processes to avoid duplicate execution.
+processes to avoid duplicate execution. Bridge restarts do not require manual
+acknowledgement: interrupted iterations remain terminal, and subsequent agents
+receive recovery context. Send a scoped read-only check first; use its evidence
+to decide the next action rather than replaying the interrupted task.
 
 Accept compact and legacy ACK/PROGRESS as specified in protocol.md. ACK means
 queued; PROGRESS also confirms receipt. Accept a result only when protocol, task ID, iteration, target,

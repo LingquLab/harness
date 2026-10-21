@@ -257,7 +257,7 @@ class CodeAgentCLI:
     def __init__(self, config):
         self.config = config
 
-    def run(self, request, session_id, answer, deadline, cancel):
+    def run(self, request, session_id, answer, deadline, cancel, recovery=None):
         def stopped():
             if cancel.is_set():
                 return {"failure": "cancelled", "status": "CANCELLED",
@@ -293,14 +293,34 @@ class CodeAgentCLI:
                 f"Executable '{command[0]}' does not exist or is not on PATH. "
                 "Correct agent_command[0] in config.local.json and restart the Bridge.",
             )
+        schema = SCHEMA
+        if recovery:
+            schema = {**SCHEMA, "properties": {**SCHEMA["properties"],
+                      "recovery_checked": {"type": "boolean"}},
+                      "required": [*SCHEMA["required"], "recovery_checked"]}
         command += ["-p", "--skip-safe-check", "--allow-dangerously-skip-permissions",
                     "--output-format", "stream-json", "--verbose",
-                    "--json-schema", canonical(SCHEMA),
+                    "--json-schema", canonical(schema),
                     "--permission-mode", "dontAsk",
                     "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}']
         if session_id:
             command += ["--resume", session_id]
         prompt = GREEN_INSTRUCTIONS + "\nTask:\n" + canonical(request)
+        if recovery:
+            prompt += ("\nBridge recovery (takes precedence over task step limits):\n"
+                       + canonical(recovery) + "\n"
+                       "Before any task mutation, inspect the interrupted runs' local receipts/logs under "
+                       + str(Path(config["state_dir"]) / "runs") + ". "
+                       "Use bounded, read-only process checks and, only within the requested scope, "
+                       "check completed remote effects. Saved PIDs may have been reused: verify identity, "
+                       "creation time and descendants; never kill a process from its PID alone. "
+                       "Do not rerun interrupted actions or stop processes without task authorization. "
+                       "While any surviving execution or relevant effects remain unknown, perform only "
+                       "read-only diagnostics, mark unperformed task checks NOT_RUN/BLOCKED and explain "
+                       "the exact next check to blue. Do not request a manual recovery acknowledgement. "
+                       "Set recovery_checked=true only after ALL listed interruptions are verified to "
+                       "have no surviving execution and their relevant effects are established; otherwise "
+                       "set false. Include concise recovery evidence in summary.\n")
         if answer:
             prompt += "\nAnswer to your previous question:\n" + answer
         env = {k: v for k, v in os.environ.items() if not k.upper().startswith("HAPI_")}
@@ -332,8 +352,7 @@ class CodeAgentCLI:
                 ]
                 for reader in readers:
                     reader.start()
-                # A local receipt helps the operator investigate crash recovery; no auto-kill
-                # of a saved PID, since Windows may have reused it after a restart.
+                # Recovery agents inspect this receipt; a saved PID alone never authorizes a kill.
                 (run_dir / "process.json").write_text(canonical({"pid": process.pid, "started": time.time()}), encoding="utf-8")
                 while process.poll() is None:
                     stop_reason = None
@@ -375,7 +394,15 @@ class CodeAgentCLI:
                                      "Agent reported an error or permission denial.\n"
                                      + failure_context(stdout_path, stderr_path))
             dirty = baseline(cwd, revision, require_clean=False) if revision else False
-            return {"output": result.get("structured_output"), "session_id": result.get("session_id"), "dirty": dirty}
+            structured = result.get("structured_output")
+            recovered = False
+            if recovery and isinstance(structured, dict):
+                structured = dict(structured)
+                recovered = structured.pop("recovery_checked", False)
+                if type(recovered) is not bool:
+                    raise ValueError("recovery_checked must be boolean")
+            return {"output": structured, "session_id": result.get("session_id"),
+                    "dirty": dirty, "recovery_checked": recovered}
         except FileNotFoundError as exc:
             return agent_failure(
                 "agent_executable_not_found",

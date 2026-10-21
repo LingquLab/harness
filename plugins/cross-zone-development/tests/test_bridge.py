@@ -824,7 +824,7 @@ class BridgeTests(unittest.TestCase):
     def test_cancel_running_waits_for_worker(self):
         started = threading.Event()
 
-        def waiting(request, session_id, answer, deadline, cancel):
+        def waiting(request, session_id, answer, deadline, cancel, recovery):
             started.set()
             if not cancel.wait(3):
                 return {"failure": "test_wait_expired", "status": "NEEDS_HUMAN"}
@@ -881,7 +881,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(self.row()["state"], "QUEUED")
         self.assertIsNotNone(self.bridge.store.get_task("task-2", 1))
 
-    def test_recovery_pauses_and_does_not_rerun(self):
+    def test_recovery_inspects_queued_work_without_rerunning_interrupted_task(self):
         self.bridge.bind()
         self.ingest(task())
         with self.bridge.store.db:
@@ -896,7 +896,53 @@ class BridgeTests(unittest.TestCase):
         self.bridge.flush()
         result = self.client.sent[-1][1]
         self.assertIn("Bridge restarted while task state was RUNNING", result["detail"])
-        self.assertIn("check surviving processes", result["detail"])
+        self.assertIn("surviving processes", result["detail"])
+        self.assertIn("No manual recovery acknowledgement", result["detail"])
+        self.ingest(task(event_id="after-restart", iteration=2))
+        self.settle()
+        self.assertEqual(self.row()["state"], "NEEDS_HUMAN")
+        self.assertEqual(self.bridge.store.get_task("task-1", 2)["state"], "PASS")
+        self.assertEqual(len(self.agent.calls), 1)
+        self.assertEqual(self.agent.calls[0][0]["iteration"], 2)
+        self.assertEqual(self.agent.calls[0][5], [{"task_id": "task-1", "iteration": 1}])
+        self.assertTrue(self.bridge.store.get_meta("recovery_required"))
+
+    def test_recovery_migrates_old_global_pause_and_only_clears_after_valid_evidence(self):
+        self.bridge.bind()
+        self.ingest(task())
+        with self.bridge.store.db:
+            self.bridge.store.update(self.row(), state="NEEDS_HUMAN")
+            self.bridge.store.set_meta("recovery_required", True)
+        self.bridge.store.recover()
+        self.assertEqual(self.bridge.store.get_meta("recovery_tasks"),
+                         [{"task_id": "task-1", "iteration": 1}])
+        # An invalid/unsafe result must not release recovery, even if it claims success.
+        self.agent.outputs = [{"output": output(question="invalid"), "recovery_checked": True},
+                              {"output": output(), "recovery_checked": True},
+                              {"output": output()}]
+        self.ingest(task(event_id="check-2", iteration=2))
+        self.settle()
+        self.assertTrue(self.bridge.store.get_meta("recovery_required"))
+        self.ingest(task(event_id="check-3", iteration=3))
+        self.settle()
+        self.assertFalse(self.bridge.store.get_meta("recovery_required"))
+        self.assertEqual(self.bridge.store.get_meta("recovery_tasks"), [])
+        self.ingest(task(event_id="check-4", iteration=4))
+        self.settle()
+        self.assertEqual(self.agent.calls[-1][5], [])
+
+    def test_termination_uncertainty_allows_followup_diagnostics(self):
+        self.bridge.bind()
+        self.agent.outputs = [{"failure": "termination_unconfirmed", "status": "NEEDS_HUMAN", "pause": True},
+                              {"output": output(status="BLOCKED", checks=[{"id": "regression", "status": "BLOCKED"}]),
+                               "recovery_checked": False}]
+        self.ingest(task())
+        self.settle()
+        self.ingest(task(event_id="diagnostics", iteration=2))
+        self.settle()
+        self.assertEqual(len(self.agent.calls), 2)
+        self.assertTrue(self.bridge.store.get_meta("recovery_required"))
+        self.assertEqual(self.bridge.store.get_task("task-1", 2)["state"], "BLOCKED")
 
     def test_scope_and_revision_control_rejected(self):
         self.bridge.bind()
@@ -1065,6 +1111,22 @@ class AgentTests(unittest.TestCase):
                 os.environ.pop("HAPI_ACCESS_KEY", None)
             else:
                 os.environ["HAPI_ACCESS_KEY"] = previous
+
+    def test_recovery_context_is_in_prompt_and_private_flag_is_not_exported(self):
+        self.script.write_text("import sys,json\n"
+                               "prompt = sys.stdin.read()\n"
+                               "assert 'Bridge recovery' in prompt\n"
+                               "assert 'never kill a process from its PID alone' in prompt\n"
+                               "assert 'interrupted-task' in prompt\n"
+                               "schema = json.loads(sys.argv[sys.argv.index('--json-schema') + 1])\n"
+                               "assert 'recovery_checked' in schema['required']\n"
+                               + "print(" + repr(json.dumps({"structured_output": output(recovery_checked=True)})) + ")\n",
+                               encoding="utf-8")
+        result = CodeAgentCLI(self.cfg).run(general_task(), None, None, time.time() + 10,
+                                            threading.Event(), [{"task_id": "interrupted-task", "iteration": 1}])
+        self.assertTrue(result["recovery_checked"])
+        self.assertNotIn("recovery_checked", result["output"])
+        self.assertEqual(review(result["output"], general_task())["status"], "PASS")
 
     def test_stream_json_is_logged_locally_and_final_result_is_parsed(self):
         events = [
