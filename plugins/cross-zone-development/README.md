@@ -158,4 +158,5 @@ are not repaired by the change.
 In an interactive terminal, the launcher colors Bridge log timestamps and levels
 cyan. Agent text is green, tool calls/results gray, and Agent stderr yellow;
 continuation lines retain their category color. Log files and redirected output
-remain plain text. Set `NO_COLOR=1` to disable color.
+remain plain text. Task-state PASS is bold green and FAIL bold red.
+Set `NO_COLOR=1` to disable color.

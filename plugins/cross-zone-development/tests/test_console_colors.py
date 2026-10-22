@@ -24,9 +24,10 @@ class LauncherColorTests(unittest.TestCase):
                          'assistant continuation line',
                          '2026-10-22 10:35:31,925 INFO Agent stderr: diagnostic',
                          '2026-10-22 10:35:31,926 INFO Agent session initialized',
-                         'program continuation line']
+                         'program continuation line',
+                         '2026-10-22 10:35:31,927 INFO Task state: fail-test / 1 = FAIL']
                 executable = root / 'py'
-                executable.write_text("#!/bin/sh\nprintf '%s\\n' " +
+                executable.write_text("#!/bin/sh\nprintf '%s\\r\\n' " +
                                       ' '.join("'" + line + "'" for line in lines) + '\n', encoding='utf-8')
                 executable.chmod(0o755)
                 env = {**os.environ, 'PATH': str(root) + os.pathsep + os.environ['PATH'],
@@ -61,9 +62,11 @@ class LauncherColorTests(unittest.TestCase):
                     result = subprocess.run(command, env=env, capture_output=True, timeout=10)
                     screen = result.stdout.decode('utf-8')
                 self.assertEqual(result.returncode, 0)
-                self.assertEqual(screen.count('\x1b[36m'), 2 if colored else 0)
+                self.assertEqual(screen.count('\x1b[36m'), 3 if colored else 0)
                 if colored:
                     self.assertIn('\x1b[36m2026-10-22 10:35:31,922 INFO \x1b[0mTask state: 中文', screen)
+                    self.assertIn('Task state: 中文 = \x1b[1;32mPASS\x1b[0m', screen)
+                    self.assertIn('Task state: fail-test / 1 = \x1b[1;31mFAIL\x1b[0m', screen)
                     self.assertIn('\x1b[90m' + lines[1] + '\x1b[0m', screen)
                     self.assertIn('\x1b[90mtool continuation line\x1b[0m', screen)
                     self.assertIn('\x1b[32m' + lines[3] + '\x1b[0m', screen)

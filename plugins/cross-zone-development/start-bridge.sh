@@ -33,12 +33,22 @@ log_suffix="${session_id:+-$session_id}"
 log_file="$log_dir/bridge-$command_name$log_suffix.log"
 # Color only the terminal branch, after tee has saved the plain-text log.
 color_bridge_output() {
-    local line prefix message color=""
+    local line prefix message state_prefix state color=""
+    local state_pattern='^Task state: (.* = )(PASS|FAIL)$'
     local log_pattern='^([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:,]+ (DEBUG|INFO|WARNING|ERROR|CRITICAL) )(.*)$'
     while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
         if [[ "$line" =~ $log_pattern ]]; then
             prefix="${BASH_REMATCH[1]}"
             message="${BASH_REMATCH[3]}"
+            if [[ "$message" =~ $state_pattern ]]; then
+                state_prefix="${BASH_REMATCH[1]}"
+                state="${BASH_REMATCH[2]}"
+                if [[ "$state" == PASS ]]; then color='1;32'; else color='1;31'; fi
+                printf '\033[36m%s\033[0mTask state: %s\033[%sm%s\033[0m\n' "$prefix" "$state_prefix" "$color" "$state"
+                color=""
+                continue
+            fi
             case "$message" in
                 Agent\ assistant:*|Agent\ user:*|Agent\ stdout:*) color=32 ;;
                 Agent\ tool\ *) color=90 ;;
