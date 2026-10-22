@@ -66,3 +66,12 @@ authorize unrelated delivery, merge, or history rewriting.
 Validate RESULT evidence against each requested action, not only its declared
 status. A PASS that reports running a narrower or unrelated command is not a valid
 PASS; send a more discriminating next iteration against the same pushed commit.
+
+### Simple EXEC results without AI review
+
+EXEC may set `"ai_review": false` for known non-sensitive time, count or boolean
+output. Omit it (default true) for normal green AI filtering, especially logs or
+uncertain output. In direct mode encode all checks as command assertions; Bridge
+returns bounded stdout and exit status without invoking AI. All output/credential
+limits and recovery rules still apply. See the protocol reference's Optional AI review
+contract for exact output limits and failure behavior.

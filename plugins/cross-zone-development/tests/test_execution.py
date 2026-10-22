@@ -29,6 +29,16 @@ class ExecutionProtocolTests(unittest.TestCase):
                       fixtures.task()):
             self.assertEqual(parse(wire(event, readable=True), "green-dev"), event)
 
+    def test_ai_review_is_optional_exec_only_boolean(self):
+        for flag in (True, False):
+            event = exec_task(ai_review=flag)
+            self.assertEqual(parse(wire(event), "green-dev"), event)
+        for flag in (None, 0, 1, "false"):
+            with self.assertRaises(ProtocolError):
+                parse(wire(exec_task(ai_review=flag)), "green-dev")
+        with self.assertRaises(ProtocolError):
+            parse(wire(fixtures.general_task(ai_review=False)), "green-dev")
+
     def test_exec_inherits_session_target(self):
         event = exec_task()
         compact = {k: v for k, v in event.items() if k != "target"}
@@ -67,6 +77,36 @@ class DirectExecutionTests(unittest.TestCase):
 
     def receipt(self):
         return Path(self.cfg["state_dir"]) / "runs/task-1/1/execution/execution.json"
+
+    def test_direct_output_skips_ai_and_passes_machine_egress(self):
+        event = exec_task(ai_review=False)
+        result = self.run_command(event)
+        self.assertEqual(self.reviewer.calls, [])
+        self.assertFalse(result["output"]["egress_reviewed"])
+        fields = review(result["output"], event, execution=result["execution"])
+        self.assertIn("done", fields["summary"])
+        self.assertEqual(fields["status"], "PASS")
+
+    def test_direct_output_rejects_known_secrets_at_egress(self):
+        event = exec_task(ai_review=False,
+                          execution={"argv": [sys.executable, "-c", "print('private-value')"]})
+        result = self.run_command(event)
+        with self.assertRaisesRegex(ValueError, "egress_content_rejected"):
+            review(result["output"], event, secrets=("private-value",), execution=result["execution"])
+        self.assertEqual(self.reviewer.calls, [])
+
+    def test_direct_output_withholds_failures_and_unexpected_output(self):
+        scripts = ["print('x'*2001)", "import sys;sys.stderr.write('private')",
+                   "import sys;sys.stdout.buffer.write(bytes([255]))", "print(chr(1))", "print(chr(11))", "print(chr(127))",
+                   "import sys;print('private');sys.exit(1)"]
+        for index, script in enumerate(scripts):
+            event = exec_task(ai_review=False, task_id='direct-' + str(index),
+                              execution={"argv": [sys.executable, "-c", script]})
+            result = self.run_command(event)
+            self.assertIn("failure", result)
+            self.assertNotIn("private", json.dumps(result))
+            self.assertNotIn("output", result)
+        self.assertEqual(self.reviewer.calls, [])
 
     def test_literal_argv_cwd_environment_and_receipt_precede_review(self):
         literal = '空 格;$(echo wrong) `echo wrong` "quoted"'
@@ -220,6 +260,19 @@ class ExecutionBridgeTests(unittest.TestCase):
                 return self.client.sent[-1][1]
             time.sleep(0.01)
         self.fail("executor did not settle")
+
+    def test_direct_results_reach_hapi_and_secrets_are_withheld(self):
+        for iteration, text in enumerate(("42", self.client.access_key, "password=private"), 1):
+            self.ingest(exec_task(ai_review=False, iteration=iteration, event_id=f"direct-{iteration}",
+                                 execution={"argv": [sys.executable, "-c", f"print({text!r})"]}))
+            result = self.finish()
+            self.assertEqual(result["execution"], {"status": "EXITED", "exit_code": 0})
+            self.assertEqual(result["status"], "PASS" if iteration == 1 else "NEEDS_HUMAN")
+            if iteration == 1:
+                self.assertIn("42", result["summary"])
+            else:
+                self.assertNotIn(text, json.dumps(result))
+        self.assertEqual(self.reviewer.calls, [])
 
     def test_failed_command_cannot_become_pass_and_duplicates_do_not_replay(self):
         event = exec_task(execution={"argv": [sys.executable, "-c", "print('private raw output');raise SystemExit(7)"]})

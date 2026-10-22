@@ -107,6 +107,10 @@ def parse(text, target):
     }.get(kind)
     fields = set(event)
     optional_revision = {"revision"} if "revision" in fields else set()
+    if kind == "EXEC" and "ai_review" in fields:
+        extra = extra | {"ai_review"}
+        if type(event["ai_review"]) is not bool:
+            raise ProtocolError("invalid_ai_review")
     if extra is None or fields != base | extra | optional_revision:
         raise ProtocolError("invalid_fields")
     for field in ("event_id", "task_id", "target"):
