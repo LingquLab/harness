@@ -72,6 +72,7 @@ class DirectExecutor:
                 script.write_bytes(spec["script"].encode("utf-8-sig" if interpreter == "powershell" else "utf-8"))
                 command = [*prefix, str(script)]
             env = {k: v for k, v in os.environ.items() if not k.upper().startswith("HAPI_")}
+            env.update(PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
             options = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
             command_deadline = min(time.time() + request["execution_timeout_seconds"], deadline - REVIEW_SECONDS)
             with stdout.open("wb") as out, stderr.open("wb") as err:

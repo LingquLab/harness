@@ -122,6 +122,19 @@ class OpenTests(unittest.TestCase):
             parse(wire(event), "green-dev")
 
 
+class ConsoleEncodingTests(unittest.TestCase):
+    def test_redirected_console_and_logs_are_utf8_under_legacy_encoding(self):
+        code = ("from cross_zone.cli import configure_console\n"
+                "import logging,sys\nconfigure_console()\n"
+                "print('检查成功')\nlogging.basicConfig(level=logging.INFO)\n"
+                "logging.info('服务器可访问')\n")
+        env = {**os.environ, "PYTHONIOENCODING": "gbk", "PYTHONUTF8": "0"}
+        result = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("检查成功", result.stdout.decode("utf-8"))
+        self.assertIn("服务器可访问", result.stderr.decode("utf-8"))
+
+
 class GitBashLauncherTests(unittest.TestCase):
     def test_launcher_forwards_command_and_config_to_py(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -131,6 +144,9 @@ class GitBashLauncherTests(unittest.TestCase):
             config_path = root / "green config.json"
             config_path.write_text("{}", encoding="utf-8")
             fake_py.write_text("#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$CAPTURE\"\n", encoding="utf-8")
+            fake_py.write_text(fake_py.read_text(encoding="utf-8") +
+                               'test "$PYTHONUTF8" = 1 && test "$PYTHONIOENCODING" = utf-8 || exit 42\n',
+                               encoding="utf-8")
             fake_py.chmod(0o755)
             env = os.environ.copy()
             env["PATH"] = str(root) + os.pathsep + env["PATH"]
@@ -1190,6 +1206,18 @@ class AgentTests(unittest.TestCase):
         self.assertIn("Agent tool Bash", combined)
         self.assertIn("tests completed", combined)
         self.assertIn("Agent completed: success", combined)
+
+    def test_agent_stdin_and_live_output_preserve_chinese_under_legacy_encoding(self):
+        text = "检查成功，服务器可访问"
+        event = {"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}}
+        result_event = {"type": "result", "subtype": "success", "structured_output": output(summary=text)}
+        code = "import sys,json\nsys.stdin.read()\n"
+        code += "print(json.dumps(" + repr(event) + ", ensure_ascii=False), flush=True)\n"
+        code += "print(json.dumps(" + repr(result_event) + ", ensure_ascii=False), flush=True)\n"
+        with patch.dict(os.environ, {"PYTHONIOENCODING": "gbk", "PYTHONUTF8": "0"}), self.assertLogs("cross_zone.agent", level="INFO") as logs:
+            result = self.run_agent(code)
+        self.assertEqual(result["output"]["summary"], text)
+        self.assertIn(text, "\n".join(logs.output))
 
     def test_codeagent_structured_output_tool_is_used_as_result(self):
         events = [
