@@ -29,10 +29,9 @@ TASK or EXEC so the bridge can consume it.
 Use at least 600 seconds for TASK timeout; 900 seconds is the normal default for
 code validation and 600 seconds for a small read-only environment check.
 
-For exact commands/scripts, use EXEC after green has loaded a version supporting
-it. Bridge executes directly; green AI only filters saved output. Prefer one EXEC
-per phase, combining related commands in a script instead of dispatching each
-command separately. Stop dependent steps on failure and preserve stage evidence.
+For exact commands/scripts, use EXEC. Bridge executes directly; green AI only
+filters saved output. Prefer one EXEC per phase, combining related commands in a
+script instead of dispatching each command separately. Stop dependent steps on failure and preserve stage evidence.
 Set a bounded execution timeout and leave at least 60 seconds for review. Do not resend a failed
 or interrupted EXEC to recover output: request a read-only TASK against its saved
 receipt. Resolve pending recovery through TASK before dispatching another EXEC.

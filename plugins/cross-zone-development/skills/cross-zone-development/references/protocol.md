@@ -212,8 +212,7 @@ same task/iteration rules as TASK. A receipt is claimed before launch; an existi
 receipt or interrupted iteration is never replayed. Pending recovery blocks EXEC
 before launch; blue can dispatch a read-only TASK to establish process state and
 completed effects, which clears recovery after validated evidence. Neither this
-case nor restart recovery requires manual acknowledgement. Older Bridge versions
-do not support EXEC; confirm the updated version before dispatching it.
+case nor restart recovery requires manual acknowledgement.
 
 ### Optional AI review
 
