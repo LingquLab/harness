@@ -336,6 +336,7 @@ class CodeAgentCLI:
         if answer:
             prompt += "\nAnswer to your previous question:\n" + answer
         env = {k: v for k, v in os.environ.items() if not k.upper().startswith("HAPI_")}
+        env.update(PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
         run_dir = Path(config["state_dir"]) / "runs" / request["task_id"] / str(request["iteration"])
         run_dir.mkdir(parents=True, exist_ok=True)
         run_name = str(time.time_ns())

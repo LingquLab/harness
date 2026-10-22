@@ -146,3 +146,11 @@ uncertain output. In direct mode encode all checks as command assertions; Bridge
 returns bounded stdout and exit status without invoking AI. All output/credential
 limits and recovery rules still apply. See the protocol reference's Optional AI review
 contract for exact output limits and failure behavior.
+
+### Chinese console output
+
+Bridge logs and Python subprocess streams use UTF-8, including when redirected
+through Git Bash and tee on Windows. Restart Bridge after updating to inherit
+these settings. This does not transcode arbitrary native-command output; commands
+that use a different encoding must explicitly emit UTF-8. Existing damaged logs
+are not repaired by the change.

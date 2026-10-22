@@ -78,6 +78,14 @@ class DirectExecutionTests(unittest.TestCase):
     def receipt(self):
         return Path(self.cfg["state_dir"]) / "runs/task-1/1/execution/execution.json"
 
+    def test_direct_python_stdout_is_utf8_under_legacy_parent_encoding(self):
+        text = "检查成功，服务器可访问"
+        event = exec_task(ai_review=False, execution={"interpreter": "python", "script": f"print({text!r})"})
+        with patch.dict(os.environ, {"PYTHONIOENCODING": "gbk", "PYTHONUTF8": "0"}):
+            result = self.run_command(event)
+        self.assertIn(text, result["output"]["summary"])
+        self.assertEqual((self.receipt().parent / "stdout.log").read_bytes(), (text + os.linesep).encode("utf-8"))
+
     def test_direct_output_skips_ai_and_passes_machine_egress(self):
         event = exec_task(ai_review=False)
         result = self.run_command(event)

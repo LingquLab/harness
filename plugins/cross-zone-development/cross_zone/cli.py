@@ -89,7 +89,16 @@ class InstanceLock:
         self.file.close()
 
 
+def configure_console():
+    """Keep redirected logs and terminal output UTF-8, including on Windows."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="backslashreplace")
+
+
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(description="HAPI cross-zone bridge (Windows / CodeAgent CLI)")
     parser.add_argument("--config", default="config.local.json")
     parser.add_argument("--workspace", default=os.getcwd(), help="authorized workspace; defaults to launch directory")

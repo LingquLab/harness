@@ -41,6 +41,9 @@ if [[ ! -f "$config_file" ]]; then
 fi
 
 export PYTHONUNBUFFERED=1
+# Windows pipes otherwise inherit the legacy ANSI code page.
+export PYTHONUTF8=1
+export PYTHONIOENCODING=utf-8
 python_args=(-m cross_zone --config "$config_file" --workspace "$workspace_dir")
 [[ -z "$session_id" ]] || python_args+=(--session "$session_id")
 python_args+=("$command_name")
