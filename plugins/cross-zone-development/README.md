@@ -154,3 +154,9 @@ through Git Bash and tee on Windows. Restart Bridge after updating to inherit
 these settings. This does not transcode arbitrary native-command output; commands
 that use a different encoding must explicitly emit UTF-8. Existing damaged logs
 are not repaired by the change.
+
+In an interactive terminal, the launcher colors Bridge log timestamps and levels
+cyan. Agent text is green, tool calls/results gray, and Agent stderr yellow;
+continuation lines retain their category color. Log files and redirected output
+remain plain text. Task-state PASS is bold green and FAIL bold red.
+Set `NO_COLOR=1` to disable color.
