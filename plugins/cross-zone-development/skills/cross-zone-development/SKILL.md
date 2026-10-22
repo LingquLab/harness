@@ -52,6 +52,10 @@ stop dependent steps on failure. Use `TASK` for work
 requiring green AI decisions or recovery checks. See the execution forms and
 limits in [references/protocol.md](references/protocol.md).
 
+For diagnostics and recovery checks, read
+[references/state-checks.md](references/state-checks.md). Define the subject and
+evidence, bound execution, and stop when the scoped question is answered.
+
 ## Results and Egress
 
 Use the result and egress contract in [references/protocol.md](references/protocol.md).
