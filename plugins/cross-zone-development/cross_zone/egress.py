@@ -48,7 +48,10 @@ def review(value, request, secrets=(), execution=None):
                 raise ValueError(f"result_schema: {key} must be one of {spec['enum']}")
         elif spec["type"] == "boolean" and type(item) is not bool:
             raise ValueError(f"result_schema: {key} expected boolean, got {type(item).__name__}")
-    if value["egress_reviewed"] is not True:
+    direct = request.get("type") == "EXEC" and request.get("ai_review", True) is False
+    if direct and (not execution or value["egress_reviewed"] is not False):
+        raise ValueError("direct_result: requires execution facts and no AI review claim")
+    if not direct and value["egress_reviewed"] is not True:
         raise ValueError("egress_not_reviewed: egress_reviewed must be true after reviewing the export")
     checks = value["checks"]
     if not isinstance(checks, list):
@@ -81,7 +84,9 @@ def review(value, request, secrets=(), execution=None):
                              f"local_modification_tested={value['local_modification_tested']}")
     elif not value["question"]:
         raise ValueError("empty_question: QUESTION requires non-empty question text")
-    literal = canonical(value)
+    # Scan actual text: JSON-escaped newlines can hide word boundaries.
+    literal = "\n".join(item if isinstance(item, str) else canonical({key: item})
+                        for key, item in value.items())
     # Reserve the final RESULT envelope, not just the agent's structured fields.
     exported = {k: v for k, v in value.items() if k not in ("kind", "egress_reviewed")}
     envelope = {"protocol": PROTOCOL, "type": "RESULT", "event_id": "green-" + "0" * 32,
@@ -102,7 +107,7 @@ def review(value, request, secrets=(), execution=None):
     if any(secret and secret in literal for secret in secrets) or any(re.search(p, literal) for p in patterns):
         fields = [key for key, item in value.items()
                   if any(secret and secret in canonical({key: item}) for secret in secrets)
-                  or any(re.search(p, canonical({key: item})) for p in patterns)]
+                  or any(re.search(p, item if isinstance(item, str) else canonical({key: item})) for p in patterns)]
         raise ValueError(f"egress_content_rejected: credential match in fields={fields}; "
                          "review these fields locally; matching content withheld")
     return exported

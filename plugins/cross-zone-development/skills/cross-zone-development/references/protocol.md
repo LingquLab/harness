@@ -128,7 +128,7 @@ Blue TASK/EXEC/ANSWER/CANCEL omit `target`: each session has exactly one bound
 green worker. Bridge fills its configured target before validation, deduplication
 and persistence. Legacy explicit `target` remains accepted when it matches;
 a different explicit target is ignored. OPEN and full green results are unchanged.
-All fields shown except `revision` are mandatory. Include `revision` only when
+All fields shown except `revision` are mandatory. EXEC also permits optional `ai_review`. Include `revision` only when
 the task validates candidate code; it is then a full lowercase SHA-1 or SHA-256
 Git commit ID that blue has already pushed to the approved GitHub repository.
 General environment, hardware, time, service-status, and diagnostic tasks omit
@@ -196,7 +196,7 @@ execution receipt stay under the green-local run directory. Combined output abov
 32 MiB terminates execution. The effective command deadline also respects the
 configured total-task cap and reserves 60 seconds for AI review.
 
-Green AI runs only after execution to inspect those saved files and return a
+By default, green AI runs only after execution to inspect those saved files and return a
 sanitized RESULT against the requested checks. It must not rerun or modify the
 command, perform extra investigation, contact remote services or change files.
 Timeout/cancellation or failed review never exports raw output. RESULT includes
@@ -204,8 +204,8 @@ Bridge-owned `execution: {"status": "EXITED", "exit_code": 0}` (example).
 Statuses also include NOT_STARTED, START_FAILED, TIMED_OUT, CANCELLED, OUTPUT_LIMIT,
 EXECUTION_ERROR, TERMINATION_UNCONFIRMED and UNKNOWN; exit_code is null when unknown
 or not started. The AI cannot override these facts. Nonzero exit cannot produce
-PASS; command timeout remains TIMED_OUT even if AI says PASS. Exit zero alone is
-insufficient: reviewed checks and existing egress validation must also pass.
+PASS; command timeout remains TIMED_OUT even if AI says PASS. In AI-reviewed mode,
+exit zero alone is insufficient: reviewed checks and egress validation must also pass.
 
 EXEC has no QUESTION/ANSWER continuation. Deduplication and cancellation use the
 same task/iteration rules as TASK. A receipt is claimed before launch; an existing
@@ -214,6 +214,30 @@ before launch; blue can dispatch a read-only TASK to establish process state and
 completed effects, which clears recovery after validated evidence. Neither this
 case nor restart recovery requires manual acknowledgement. Older Bridge versions
 do not support EXEC; confirm the updated version before dispatching it.
+
+### Optional AI review
+
+EXEC accepts optional boolean `ai_review` (default `true`; no other message type
+accepts it). Use `false` for simple, deliberately non-sensitive output such as UTC
+time, a count, or a boolean. Decide before dispatch from the command and its data
+sources; do not use it for logs, configuration, service responses, or output whose
+confidentiality is uncertain. This exception skips the green AI, not command
+isolation, recovery, execution receipts, credential detection, or RESULT limits.
+
+With `ai_review=false`, encode every requested check as a command assertion:
+exit zero means those assertions passed; Bridge does not interpret natural-language
+expectations. Bridge returns successful stdout directly in the RESULT summary,
+labelled as having no AI review. Stdout must be valid UTF-8, at most 2000 bytes,
+with no control characters other than newline/tab (CRLF is normalized to LF);
+stderr must be empty. It is
+never truncated. Unexpected output is withheld as NEEDS_HUMAN. Nonzero exits and
+other execution failures withhold output and retain authoritative execution status.
+Existing secret-pattern, known-secret and final 4096-byte envelope checks still
+apply; rejection never triggers automatic rerun or AI fallback.
+
+Bridge constructs the direct result with `egress_reviewed=false`; this is accepted
+only for explicit direct-mode EXEC with execution facts. It never claims an AI
+review occurred. Omitted/true retains the original AI-reviewed result contract.
 
 ## Candidate transfer
 

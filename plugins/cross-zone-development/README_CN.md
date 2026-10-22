@@ -35,7 +35,7 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 蓝区指令省略 `target`，Bridge 根据当前会话补齐；兼容旧格式中匹配的显式 target。
 
 新增 `EXEC`：蓝区提供命令参数数组，或 Bash/PowerShell/Python 脚本，Bridge
-在 session 目录原样执行，再由绿区 AI 仅过滤已保存的输出并回传。退出码、超时和
+在 session 目录原样执行，默认再由绿区 AI 仅过滤已保存的输出并回传。退出码、超时和
 取消状态由 Bridge 保留，AI 不能把执行失败变成 PASS；原始日志只留绿区，中断不重跑。
 字段与示例见[协议](skills/cross-zone-development/references/protocol.md#direct-commands-and-scripts-exec)。
 
@@ -111,3 +111,12 @@ Markdown 围栏、URL、内网地址、绝对路径、完整堆栈，以及少�
 实现的伪代码。整个结构化结果最多 4096 字节，`summary` 最多 3000 个字符。
 
 本插件为 LingquLab 原创内容，采用仓库中的 MIT 许可证。
+
+### 简单 EXEC 结果跳过 AI
+
+EXEC 新增可选布尔字段 `ai_review`，默认 `true`。对于时间、计数、布尔值等
+已确定不含保密信息的简单输出，可设置 `false`，由 Bridge 直接返回结果，不启动
+绿区 AI。所有检查必须在命令中用断言完成，退出码为零才表示通过。输出须为
+不超过 2000 字节的 UTF-8 stdout，stderr 必须为空；异常输出不截断外发。
+凭据检测、结果大小限制、执行回执和恢复规则仍生效。不确定输出内容或涉及日志时
+保留默认 AI 审查。完整契约见协议中的 Optional AI review。

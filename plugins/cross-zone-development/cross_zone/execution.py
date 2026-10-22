@@ -1,4 +1,4 @@
-"""Exact, noninteractive execution followed by local AI egress review."""
+"""Exact, noninteractive execution with optional local AI egress review."""
 
 import os
 from pathlib import Path
@@ -124,6 +124,32 @@ class DirectExecutor:
         if cancel.is_set():
             return {"failure": "cancelled", "status": "CANCELLED",
                     "detail": "Execution cancelled; raw output remains green-local and was not exported.",
+                    "execution": execution}
+        if request.get("ai_review", True) is False:
+            # Only successful, small stdout is eligible for direct export. Never
+            # return stderr or exception text from the command through this path.
+            if execution["status"] != "EXITED" or execution["exit_code"] != 0:
+                status = {"TIMED_OUT": "TIMED_OUT", "OUTPUT_LIMIT": "NEEDS_HUMAN",
+                          "START_FAILED": "BLOCKED", "NOT_STARTED": "BLOCKED",
+                          "EXECUTION_ERROR": "NEEDS_HUMAN"}.get(execution["status"], "FAIL")
+                return {"failure": "direct_execution_failed", "status": status,
+                        "detail": "Direct command did not exit successfully; output remains green-local.",
+                        "execution": execution}
+            try:
+                if stdout.stat().st_size > 2000 or stderr.stat().st_size:
+                    raise ValueError("unexpected output")
+                summary = stdout.read_bytes().decode("utf-8-sig").replace("\r\n", "\n")
+                if any((ord(c) < 32 or 127 <= ord(c) <= 159) and c not in "\n\t" for c in summary):
+                    raise ValueError("control characters")
+            except (OSError, UnicodeError, ValueError):
+                return {"failure": "direct_output_rejected", "status": "NEEDS_HUMAN",
+                        "detail": "Direct output is oversized, invalid UTF-8, contains control characters, or stderr is nonempty; output withheld.",
+                        "execution": execution}
+            return {"output": {"kind": "RESULT", "status": "PASS",
+                               "summary": "Direct EXEC (no AI review):\n" + summary.strip(),
+                               "checks": [{"id": c["id"], "status": "PASS"} for c in request["checks"]],
+                               "error_code": "", "question": "", "local_modification_tested": False,
+                               "local_modification_outcome": "NOT_RUN", "egress_reviewed": False},
                     "execution": execution}
         context = {"receipt": str(receipt), "stdout": str(stdout), "stderr": str(stderr),
                    "execution": execution}

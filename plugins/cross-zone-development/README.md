@@ -45,7 +45,7 @@ Blue commands omit `target`; Bridge inherits the session-bound worker and still
 accepts matching legacy explicit targets.
 
 `EXEC` runs a blue-provided argv command or Bash/PowerShell/Python script directly
-in the session directory, then invokes green AI only to sanitize saved output.
+in the session directory, then by default invokes green AI to sanitize saved output.
 Bridge preserves exit code and timeout/cancellation facts even if review fails;
 commands are never automatically replayed. See the [protocol reference](skills/cross-zone-development/references/protocol.md#direct-commands-and-scripts-exec)
 for fields, examples and recovery behavior. Existing `TASK` behavior is unchanged.
@@ -137,3 +137,12 @@ pseudocode snippets may cross. The complete structured result is limited to
 
 The plugin contains original LingquLab material and is licensed under the
 repository MIT license.
+
+### Simple EXEC results without AI review
+
+EXEC may set `"ai_review": false` for known non-sensitive time, count or boolean
+output. Omit it (default true) for normal green AI filtering, especially logs or
+uncertain output. In direct mode encode all checks as command assertions; Bridge
+returns bounded stdout and exit status without invoking AI. All output/credential
+limits and recovery rules still apply. See the protocol reference's Optional AI review
+contract for exact output limits and failure behavior.

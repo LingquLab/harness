@@ -46,7 +46,7 @@ returns an OPEN protocol message.
 - Keep HAPI output reviewed and within the result limits defined in [references/protocol.md](references/protocol.md).
 
 Use `EXEC` when blue already has an exact command or operational script: Bridge
-runs it unchanged, then green AI reviews saved output only. Prefer batching related
+runs it unchanged, by default green AI then reviews saved output only. Prefer batching related
 commands in one EXEC script to reduce cross-zone round trips; bound runtime and
 stop dependent steps on failure. Use `TASK` for work
 requiring green AI decisions or recovery checks. See the execution forms and
@@ -65,3 +65,12 @@ Use [config.example.json](../../config.example.json) as the generic runtime
 configuration reference. The access key may be stored in untracked green-local
 `config.local.json`; never put it in a committed template or protocol message.
 Removed legacy configuration fields are ignored and grant no authority.
+
+### Simple EXEC results without AI review
+
+EXEC may set `"ai_review": false` for known non-sensitive time, count or boolean
+output. Omit it (default true) for normal green AI filtering, especially logs or
+uncertain output. In direct mode encode all checks as command assertions; Bridge
+returns bounded stdout and exit status without invoking AI. All output/credential
+limits and recovery rules still apply. See the protocol reference's Optional AI review
+contract for exact output limits and failure behavior.
