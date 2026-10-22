@@ -52,10 +52,9 @@ stop dependent steps on failure. Use `TASK` for work
 requiring green AI decisions or recovery checks. See the execution forms and
 limits in [references/protocol.md](references/protocol.md).
 
-For task-state or receipt checks, read
-[references/state-checks.md](references/state-checks.md). Keep the target task
-separate from the current diagnostic task, query only the requested evidence,
-and stop at the stated boundary. This reference also covers Windows shell quoting.
+For diagnostics and recovery checks, read
+[references/state-checks.md](references/state-checks.md). Define the subject and
+evidence, bound execution, and stop when the scoped question is answered.
 
 ## Results and Egress
 

@@ -1,60 +1,50 @@
-# Bounded task-state checks
+# Bounded diagnostics
 
-## Define the question before querying
+## Define the question and evidence
 
-Keep the target task ID and iteration distinct from the current diagnostic task.
-A similarly named directory, this agent's process, or its live transcript is not
-evidence about the target. Use the current authorized session's state; do not
-search other sessions or task histories unless explicitly scoped.
+Identify the exact subject of the check and distinguish it from the diagnostic
+agent, its helpers and related work. State the question, authorized scope,
+relevant evidence sources and what would answer it. Start with the smallest
+authoritative observation; expand only when needed and permitted by the handoff.
+Prefer targeted queries and structured fields over broad dumps or exploratory
+history searches. Do not let similar names substitute for verified identity.
 
-For a record-only check, query only the exact target row in `tasks` and its
-`runs/<target-task>/<iteration>/execution/execution.json` receipt. Open SQLite
-read-only with a short lock timeout and use bound query parameters. Select only
-needed columns, such as task_id, iteration and state; read only required receipt
-fields, such as status, exit_code, pid, started and finished. Do not dump tables,
-traverse unrelated directories, read lock files or inspect agent transcripts.
-Do not create helper files for a read-only task; pass a short script on stdin.
+Keep conclusions proportional to evidence. Missing data means it was not found
+in the inspected source; a failed query does not establish absence. A successful
+diagnostic command does not by itself prove the underlying operation succeeded.
+Separate observed state, interpretation and unresolved uncertainty. For example,
+finding no task receipt does not prove that no process exists elsewhere.
 
-Report absent records as absent in the inspected session. Missing records and
-receipts do not prove that no related process exists anywhere. A record-query
-PASS is not a server-check PASS, command success, or recovery clearance. Report
-receipt state as recorded: STARTING/RUNNING is not completion; EXITED alone does
-not validate the requested checks.
+## Bound work and stop deliberately
 
-## Stop instead of broadening
+Choose EXEC for a known command or script and TASK when local judgment is needed,
+subject to existing recovery rules. Scope the handoff to the decisions needed
+next, with a time budget and explicit stopping conditions. Enforce command and
+subprocess timeouts with execution tools; an outer agent deadline or prose alone
+does not bound individual actions.
 
-Blue should give a small diagnostic one bounded action and an explicit stop
-condition. Green applies the requested timeout to the tool/subprocess, not just
-the outer TASK deadline. For example, a one-shot record query can use a 30-second
-command timeout while leaving the protocol's minimum total timeout for agent
-startup and result delivery. Instructions alone do not enforce a wall-clock cap.
+Return when the question is answered. If evidence or prerequisites are unavailable,
+report the limitation and the appropriate non-PASS status. Recover from a local
+error only within the authorized scope and budget; do not turn repeated failed
+attempts into an open-ended investigation or silently broaden the task. Respect
+one-shot checks that explicitly prohibit retries. Recovery clearance requires its
+own evidence about unfinished effects; it cannot be inferred from a narrower
+status lookup. Preserve read-only scope and avoid unnecessary helper artifacts.
 
-Return immediately once the scoped question is answered. Missing prerequisites,
-unreadable records, command failure or timeout end a one-shot query with BLOCKED
-and concise evidence; do not switch tools or extend the search to fill the task
-budget. If process recovery is actually needed, scope it separately. Match a
-recorded PID with its start time and task identity; exclude the current diagnostic
-agent and helper processes. A failed process query is not proof of no processes.
-Do not clear recovery without the required process/effect evidence.
+## Make execution boundaries explicit
 
-Prefer EXEC for a known deterministic diagnostic script and TASK when green AI
-judgment is needed, subject to Bridge's existing recovery rules. Use
-`ai_review=false` only for deliberately non-sensitive bounded output. A generic
-"Malformed cross-zone envelope ignored" warning indicates protocol rejection,
-not proof of a particular unsupported field or execution outcome. Diagnose from
-specific validation evidence rather than repeatedly dispatching capability probes.
+Determine which shell or interpreter actually runs each command; the host OS does
+not determine the AI tool's shell. Prefer structured argv or an explicit script
+interpreter over nested command strings. Account for every parser boundary so
+variables and quoting reach the intended interpreter unchanged. For example,
+Bash expands PowerShell `$_` inside double quotes; a quoted heredoc or direct
+interpreter invocation avoids that extra expansion. Use bounded, structured
+output rather than parsing formatted dumps when possible.
 
-## Windows shell boundaries
+## Return only supported conclusions
 
-Distinguish the AI tool's shell from EXEC's chosen interpreter. On Windows an AI
-Bash tool may be Git Bash; it does not make PowerShell the default. EXEC selects
-Bash, PowerShell or Python explicitly; argv execution has no implicit shell.
-
-Avoid nested Bash/PowerShell/Python command strings. For Python through Bash, use
-a single-quoted heredoc delimiter (`python - <<'PY'`) so Bash does not expand the
-script. If Python must invoke PowerShell, pass an argv list with the PowerShell
-script as one literal argument and a subprocess timeout. Never place PowerShell
-`$_` or `$name` unescaped inside a Bash double-quoted command: Bash expands it
-before PowerShell receives it. Prefer structured output and exact fields over
-formatted process dumps and loose substring matches. On quoting failure, follow
-the handoff's stop condition instead of iterating through nested quoting variants.
+Generic warnings and timeouts identify symptoms, not their root cause. Use specific
+validation or execution evidence before attributing failure to a version, field,
+permission or remote service. Distinguish receipt, launch, completion and validated
+outcome. Use `ai_review=false` only for deliberately non-sensitive bounded output;
+all existing egress, execution and recovery rules still apply.

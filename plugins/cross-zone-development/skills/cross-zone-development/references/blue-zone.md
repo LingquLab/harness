@@ -48,10 +48,9 @@ acknowledgement: interrupted iterations remain terminal, and subsequent agents
 receive recovery context. Send a scoped read-only check first; use its evidence
 to decide the next action rather than replaying the interrupted task.
 
-For a state-only handoff, use the bounded query contract in
-[state-checks.md](state-checks.md). Specify the exact target task/iteration,
-evidence, command timeout and stopping condition. A successful status query
-proves only the queried state, not command execution or server reachability.
+For diagnostic handoffs, use [state-checks.md](state-checks.md). Define the
+subject, authorized evidence, time budget and stopping conditions. Keep the
+requested conclusion within what those observations can establish.
 
 Accept compact and legacy ACK/PROGRESS as specified in protocol.md. ACK means
 queued; PROGRESS also confirms receipt. Accept a result only when protocol, task ID, iteration, target,
