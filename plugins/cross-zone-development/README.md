@@ -159,9 +159,15 @@ starting CodeAgent or enabling model tools. Configure `exec_review` in the ignor
   "base_url": "http://techdev.hicomputing.huawei.com:18000/v1",
   "model": "Qwen3.8",
   "api_key": "REPLACE_WITH_REVIEW_API_KEY",
-  "timeout_seconds": 60
+  "timeout_seconds": 300
 }
 ```
+
+Review defaults to 300 seconds, bounded by the remaining total task deadline.
+Existing local configs with an explicit 60-second timeout keep that value: change
+`exec_review.timeout_seconds` to 300 or omit it to use the new default, then restart
+the Bridge. For reviewed EXEC, allow the command timeout plus the configured review
+budget in the total task timeout.
 
 Replace the placeholder locally; never commit the real key. Existing local configs
 need this section before requesting reviewed EXEC. `base_url` is the API prefix;

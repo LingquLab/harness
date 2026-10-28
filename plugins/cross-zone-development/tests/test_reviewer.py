@@ -273,12 +273,15 @@ class ReviewConfigTests(unittest.TestCase):
     def test_defaults_and_template_placeholders(self):
         cfg = self.load()["exec_review"]
         self.assertEqual(cfg["model"], "Qwen3.8")
+        self.assertEqual(cfg["timeout_seconds"], 300)
+        self.assertEqual(self.load({"timeout_seconds": 60})["exec_review"]["timeout_seconds"], 60)
         self.assertEqual(cfg["base_url"], "http://techdev.hicomputing.huawei.com:18000/v1")
         self.assertIsNone(cfg["api_key"])
         root = Path(__file__).resolve().parents[1]
         for name in ("config.example.json", "config.windows.json"):
             cfg = load_config(root / name)["exec_review"]
             self.assertEqual(cfg["api_key"], "REPLACE_WITH_REVIEW_API_KEY")
+            self.assertEqual(cfg["timeout_seconds"], 300)
 
     def test_invalid_config_is_rejected_without_disclosing_key(self):
         invalid = [[], {"extra": True}, {"base_url": "file:///tmp"}, {"base_url": "http://user:private@host/v1"},

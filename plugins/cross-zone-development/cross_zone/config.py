@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from urllib.parse import urlsplit
 
+DEFAULT_REVIEW_TIMEOUT_SECONDS = 300
+
 
 def load_config(path):
     path = Path(path).resolve()
@@ -50,7 +52,7 @@ def load_config(path):
     settings.setdefault("base_url", "http://techdev.hicomputing.huawei.com:18000/v1")
     settings.setdefault("model", "Qwen3.8")
     settings.setdefault("api_key", None)
-    settings.setdefault("timeout_seconds", 60)
+    settings.setdefault("timeout_seconds", DEFAULT_REVIEW_TIMEOUT_SECONDS)
     endpoint = urlsplit(settings["base_url"]) if isinstance(settings["base_url"], str) else None
     if (endpoint is None or endpoint.scheme not in ("http", "https") or not endpoint.netloc
             or endpoint.username or endpoint.password or endpoint.query or endpoint.fragment):
