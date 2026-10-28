@@ -7,10 +7,12 @@ reference under protocol.md. Confirm that `session_url` identifies this current,
 authorized HAPI conversation. OPEN means the bridge has preflighted its own local
 workspace; blue neither requests nor names a repository, path, or tool policy.
 
-If accepted, prepare a reproducible validation plan and send one formal TASK.
-Include an immutable pushed revision only for candidate-code validation. General
-green-environment checks do not need a candidate or revision. Do not echo OPEN,
-send an OPEN acknowledgement, or claim collaboration started before TASK is sent.
+If accepted, treat OPEN as a fresh connection and wait for a new user instruction.
+A short ordinary-language readiness reply is sufficient. Do not dispatch a test,
+capability probe, recovery check, or continuation of earlier work solely because
+OPEN arrived. Do not create or echo an OPEN protocol event. Fresh connection does
+not mean deleting execution history or clearing recovery safeguards; address those
+only as needed for the user's next requested operation.
 
 ## Dispatch and consume
 
@@ -29,7 +31,9 @@ TASK or EXEC so the bridge can consume it.
 Use at least 600 seconds for TASK timeout; 900 seconds is the normal default for
 code validation and 600 seconds for a small read-only environment check.
 
-For exact commands/scripts, use EXEC. Bridge executes directly; green AI only
+Use EXEC by default for user-requested work. Supply an exact bounded command or
+script; use TASK only when green-local judgment, revision-bound validation or
+required recovery cannot be expressed through EXEC. Bridge executes directly; green AI only
 filters saved output. Prefer one EXEC per phase, combining related commands in a
 script instead of dispatching each command separately. Stop dependent steps on failure and preserve stage evidence.
 Set a bounded execution timeout and leave at least 60 seconds for review. Do not resend a failed

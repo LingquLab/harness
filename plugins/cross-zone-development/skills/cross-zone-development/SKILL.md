@@ -32,8 +32,10 @@ user message, and listens for subsequent
 Before sending OPEN, the bridge validates its launch workspace, CLI, and required
 directories. OPEN therefore advertises a
 ready worker without exposing where code lives. Blue validates that OPEN names
-the current authorized session. If accepted, blue sends a formal TASK; otherwise
-it explains the refusal in ordinary conversation. Blue never injects, echoes, or
+the current authorized session. If accepted, blue treats it as a fresh connection
+and waits for a new user instruction; OPEN alone never triggers a test or resumes
+previous work. A short ordinary-language readiness reply is sufficient. If rejected,
+blue explains the refusal in ordinary conversation. Blue never injects, echoes, or
 returns an OPEN protocol message.
 
 ## Shared Contract
@@ -45,11 +47,13 @@ returns an OPEN protocol message.
 - Use only the task working directory, target class, checks, and mutation scope authorized for that handoff. A handoff does not authorize production changes, shared-service disruption, credential changes, destructive cleanup, or unrelated investigation.
 - Keep HAPI output reviewed and within the result limits defined in [references/protocol.md](references/protocol.md).
 
-Use `EXEC` when blue already has an exact command or operational script: Bridge
-runs it unchanged, by default green AI then reviews saved output only. Prefer batching related
+Default to `EXEC` for user-requested work: blue supplies a bounded exact command
+or operational script, Bridge runs it unchanged, and by default green AI reviews
+saved output only. Prefer batching related
 commands in one EXEC script to reduce cross-zone round trips; bound runtime and
 stop dependent steps on failure. Use `TASK` for work
-requiring green AI decisions or recovery checks. See the execution forms and
+requiring green AI decisions, revision-bound candidate validation, or recovery
+checks that EXEC cannot perform. See the execution forms and
 limits in [references/protocol.md](references/protocol.md).
 
 For diagnostics and recovery checks, read
