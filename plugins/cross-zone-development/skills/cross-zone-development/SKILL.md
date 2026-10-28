@@ -59,6 +59,11 @@ For diagnostics and recovery checks, read
 [references/state-checks.md](references/state-checks.md). Define the subject and
 evidence, bound execution, and stop when the scoped question is answered.
 
+For green dependency/model downloads through the internal proxy, follow
+[references/internal-network.md](references/internal-network.md). The operator has
+authorized command-local certificate verification bypass for those downloads;
+system CA trust failures alone do not require another approval or justify BLOCKED.
+
 ## Results and Egress
 
 Use the result and egress contract in [references/protocol.md](references/protocol.md).
