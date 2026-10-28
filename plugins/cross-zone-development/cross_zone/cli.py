@@ -184,6 +184,7 @@ def main():
         secrets.append(os.environ.get("HAPI_ACCESS_KEY", ""))
         if config:
             secrets.append(config.get("access_key", ""))
+            secrets.append(config.get("exec_review", {}).get("api_key", ""))
         if client:
             secrets.extend((client.access_key, client.token))
         detail = safe_error_detail(exc, secrets)

@@ -16,7 +16,9 @@ Windows, and CodeAgentCLI, then copy this plugin directory to an approved local
 location. No third-party Python package is required.
 
 Copy [config.windows.json](config.windows.json) to the ignored
-`config.local.json` and set `hub_url` and `access_key`. Start it from the
+`config.local.json` and set `access_key`. The templates default to
+`hub_url=https://su.kurox.cn/hapi/`; change it locally for another Hub. The Windows
+template starts CodeAgent with `--effort low`. Start it from the
 directory green authorizes as the task workspace:
 
 ```bash
@@ -41,7 +43,7 @@ Until those are established it may only perform read-only diagnostics and report
 concrete blockers to blue. Recovery evidence travels locally, not in the wire schema.
 Older global recovery pauses are migrated automatically on startup.
 
-Version 0.5.0 uses CROSS_ZONE and cross-zone/v3. All messages omit `target`;
+Version 0.5.1 uses CROSS_ZONE and cross-zone/v3. All messages omit `target`;
 OPEN reports the running Bridge release in `version`. Legacy target fields are
 rejected on the live transport.
 
@@ -60,7 +62,7 @@ task-owned detached checkouts live under the config directory’s `.state/<sessi
 
 ## Green-initiated collaboration
 
-Use the bundled v0.4 green runtime and its untracked `config.local.json`.
+Use the bundled v0.5 green runtime and its untracked `config.local.json`.
 
 Configuration contains no repository path, repository alias, Git remote, or task
 binding, profile, allowed-tools list, or custom egress pattern. The launch
@@ -80,8 +82,10 @@ The bridge first validates the launch workspace, CLI, and state directory. Only
 then does it bind at the current message head, send one green-originated OPEN user message,
 and listen for TASK/EXEC/ANSWER/CANCEL. A valid OPEN selects blue without confirmation.
 Blue validates OPEN against the current authorized conversation, treats an accepted
-OPEN as a fresh connection, and waits for a new user instruction. It does not
-automatically test or resume earlier work. Rejections use ordinary conversation;
+OPEN as a fresh connection, and immediately dispatches any clear, authorized
+unfinished user request whose next green step is ready. With no such work, blue
+replies ready and waits. OPEN alone adds no work authorization, and completed or
+still-running actions are not replayed. Rejections use ordinary conversation;
 blue never echoes or injects OPEN. User-requested work defaults to EXEC; TASK is
 reserved for local judgment, revision-bound validation or required recovery.
 Saved history and recovery safeguards remain in force; `ai_review` defaults
@@ -144,6 +148,44 @@ pseudocode snippets may cross. The complete structured result is limited to
 The plugin contains original LingquLab material and is licensed under the
 repository MIT license.
 
+### EXEC review through an inference API
+
+`ai_review=true` uses one OpenAI-compatible Chat Completions request, without
+starting CodeAgent or enabling model tools. Configure `exec_review` in the ignored
+`config.local.json`:
+
+```json
+"exec_review": {
+  "base_url": "http://techdev.hicomputing.huawei.com:18000/v1",
+  "model": "Qwen3.8",
+  "api_key": "REPLACE_WITH_REVIEW_API_KEY",
+  "timeout_seconds": 60
+}
+```
+
+Replace the placeholder locally; never commit the real key. Existing local configs
+need this section before requesting reviewed EXEC. `base_url` is the API prefix;
+Bridge appends `/chat/completions`. The specified internal HTTP endpoint is
+operator-authorized; keep its deployment inside the authorized network. The API
+receives the task goal/checks, execution facts and the saved receipt/stdout/stderr
+contents, not just an already-sanitized summary. Only use an inference endpoint
+approved to process that green evidence.
+
+Bridge reads evidence once, with a combined 64 KiB UTF-8 limit, and validates the
+model's JSON against the existing result, credential and egress limits. Oversized
+or invalid evidence is withheld, never silently truncated. The model cannot run
+commands, read other files or change execution facts. A validated internal result
+is saved at `runs/<task-id>/<iteration>/execution/review.json`. Logs contain only
+review task identity, start/completion and elapsed time, not prompts or responses.
+
+There is one request and no redirects, retries, CLI fallback or command replay.
+API failure or invalid/unsafe output produces NEEDS_HUMAN with raw output withheld;
+deadline/cancellation retains its terminal status. A request already sent may
+finish on the server after cancellation; its late response is discarded and is
+never saved or exported. The timeout is bounded by both local configuration and
+the remaining task deadline. TASK still uses `agent_command`; direct EXEC
+(`ai_review=false`, the default) does not call either reviewer.
+
 ### Simple EXEC results without AI review
 
 EXEC defaults to `"ai_review": false`: Bridge returns bounded stdout and exit
@@ -179,11 +221,12 @@ unacknowledged instruction. Retrying retains the original task/iteration identit
 Do not delete state while Bridge is running; deleting it removes local execution
 history and cannot establish whether an earlier remote action completed.
 
-### Upgrading to 0.5.0 / v3
+### Upgrading to 0.5.1 / v3
 
 Upgrade blue and green together. Live v2 envelopes and target fields are no longer
-accepted. OPEN includes version 0.5.0 and starts an idle interaction at the current
-message head; retained queued work is not automatically resumed. Use run only to
+accepted. OPEN includes version 0.5.1 and starts a fresh interaction at the current
+message head. Blue can dispatch existing authorized work immediately; the Bridge's
+retained queue is not automatically resumed. Use run only to
 intentionally continue the listener and its queue. EXEC defaults to no AI review;
 blue opts in with ai_review=true for possibly restricted output. See the protocol
 reference's Upgrading from v2 section for state migration and recovery behavior.

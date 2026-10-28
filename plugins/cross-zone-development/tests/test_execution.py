@@ -9,7 +9,6 @@ import unittest
 from unittest.mock import Mock, patch
 
 import test_bridge as fixtures
-from cross_zone.agent import CodeAgentCLI
 from cross_zone.controller import Bridge
 from cross_zone.egress import review
 from cross_zone.execution import DirectExecutor
@@ -257,7 +256,7 @@ class ExecutionBridgeTests(unittest.TestCase):
         self.cfg = fixtures.config(self.tmp.name)
         self.client = fixtures.FakeClient()
         self.reviewer = fixtures.FakeAgent()
-        self.bridge = Bridge(self.cfg, self.client, self.reviewer)
+        self.bridge = Bridge(self.cfg, self.client, reviewer=self.reviewer)
         self.bridge.bind()
 
     def tearDown(self):
@@ -381,20 +380,3 @@ class ExecutionBridgeTests(unittest.TestCase):
                 break
         with self.assertRaisesRegex(ValueError, "egress_size_limit"):
             review(value, event, execution={"status": "EXITED", "exit_code": 0})
-
-
-class ExecutionReviewerTests(unittest.TestCase):
-    def test_real_cli_prompt_only_reviews_saved_files(self):
-        with tempfile.TemporaryDirectory() as directory:
-            cfg = fixtures.config(directory)
-            script = Path(directory) / "reviewer.py"
-            script.write_text("import sys,json\np=sys.stdin.read()\n"
-                              "assert 'EXEC OUTPUT REVIEW ONLY' in p\n"
-                              "assert 'Do not execute or repeat' in p\n"
-                              "assert 'never QUESTION' in p\n"
-                              + "print(" + repr(json.dumps({"structured_output": fixtures.output()})) + ")\n")
-            cfg["agent_command"] = [sys.executable, str(script)]
-            result = DirectExecutor(cfg, CodeAgentCLI(cfg)).run(exec_task(), None, None,
-                                                               time.time() + 90, threading.Event(), [])
-            self.assertEqual(result["execution"]["exit_code"], 0)
-            self.assertEqual(result["output"]["status"], "PASS")

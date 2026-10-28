@@ -21,7 +21,7 @@ CROSS_ZONE
   "protocol": "cross-zone/v3",
   "type": "OPEN",
   "event_id": "green-open-0123456789abcdef",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef"
 }
 ```
@@ -40,11 +40,14 @@ workspace, CLI, and required directories. These local choices
 never cross into the protocol. Blue must not create, inject, echo,
 or acknowledge OPEN as a protocol event. Accept it only when it arrived as a user
 message in the current HAPI conversation, `version` is a valid Bridge release
-version, and `session_url` identifies this current authorized session. On acceptance, blue
-waits for a new user instruction as a fresh connection; an ordinary-language
-readiness reply is sufficient. OPEN does not request a test, capability probe,
-recovery check or continuation of earlier work. It does not erase saved execution
-history or clear pending recovery. The open command binds at the current head and
+version, and `session_url` identifies this current authorized session. On acceptance,
+blue treats it as a fresh connection. If a clear, authorized unfinished user request
+already needs green and its next step is ready, dispatch that step immediately;
+do not ask the user to repeat the instruction. Otherwise, reply ready and wait.
+OPEN alone does not authorize new work. Prior execution and recovery evidence still
+apply: do not replay completed or still-running actions, and establish uncertain
+prior effects before repeating them. It does not erase saved execution history or
+clear pending recovery. The open command binds at the current head and
 marks retained queued work BLOCKED or, for continuations with prior effects,
 NEEDS_HUMAN with recovery required; it never resumes it automatically. Use run
 only when intentionally continuing an existing listener and its queued work. On rejection, blue explains the reason in
@@ -85,7 +88,8 @@ EXEC is the default dispatch mode once the user requests work; blue provides the
 exact bounded command or script. Use TASK for green-local decisions, revision-bound
 candidate validation, or recovery that EXEC cannot perform. EXEC also defaults
 to `ai_review=false`; blue explicitly sets true when returned information may be
-restricted or requires green AI filtering. OPEN itself dispatches neither mode.
+restricted or requires green AI filtering. Dispatch either mode only for authorized
+user work, including an existing ready request when OPEN arrives.
 
 Blue sends TASK as a top-level assistant message:
 
@@ -139,7 +143,7 @@ CROSS_ZONE
 All v3 envelopes are bound by the current authorized HAPI session and contain no
 `target` field. Unknown fields, including legacy `target`, are rejected; Bridge
 does not fill or infer routing fields. OPEN additionally carries `version`, the
-running Bridge release (for example `0.5.0`), distinct from protocol `cross-zone/v3`.
+running Bridge release (for example `0.5.1`), distinct from protocol `cross-zone/v3`.
 All fields shown except `revision` are mandatory. EXEC also permits optional `ai_review`. Include `revision` only when
 the task validates candidate code; it is then a full lowercase SHA-1 or SHA-256
 Git commit ID that blue has already pushed to the approved GitHub repository.
@@ -209,7 +213,8 @@ execution receipt stay under the green-local run directory. Combined output abov
 32 MiB terminates execution. The effective command deadline also respects the
 configured total-task cap and reserves 60 seconds for AI review.
 
-With `ai_review=true`, green AI runs only after execution to inspect those saved files and return a
+With `ai_review=true`, Bridge reads the saved evidence and sends it to the configured
+OpenAI-compatible review API to return a
 sanitized RESULT against the requested checks. It must not rerun or modify the
 command, perform extra investigation, contact remote services or change files.
 Timeout/cancellation or failed review never exports raw output. RESULT includes
@@ -228,6 +233,18 @@ completed effects, which clears recovery after validated evidence. Neither this
 case nor restart recovery requires manual acknowledgement.
 
 ### Optional AI review
+
+Reviewed EXEC uses `exec_review` in green-local configuration: API base URL, model,
+API key and timeout. Bridge sends goal/checks, authoritative execution facts and
+saved receipt/stdout/stderr (combined limit 64 KiB, strict UTF-8) in one Chat
+Completions request to the authorized inference endpoint. The model has no tools;
+it returns one sanitized JSON RESULT. Evidence is data, not instructions. The API
+must be approved for the raw green evidence it receives. Missing credentials,
+oversized/invalid evidence, API failure or invalid/unsafe result withholds output;
+there are no automatic retries, redirects, CLI fallback or command reruns. Local
+review timeout and task deadline both apply; cancellation/deadline discards late
+responses. Validated review is retained locally in `execution/review.json`.
+Repository templates contain only a key placeholder. TASK continues on the CLI.
 
 EXEC accepts optional boolean `ai_review` (default `false`; no other message type
 accepts it). Omitted or false skips green AI and returns bounded command results.
@@ -324,7 +341,7 @@ Local live-log truncation does not change these export limits.
 
 ## Upgrading from v2
 
-Version 0.5.0 accepts only the CROSS_ZONE marker and cross-zone/v3 live envelopes.
+Version 0.5.1 accepts only the CROSS_ZONE marker and cross-zone/v3 live envelopes.
 Do not send v2 commands or add target to any v3 message. Upgrade both sides before
 dispatching work. OPEN reports the running Bridge version; receipt alone does not
 request a capability test or any task.

@@ -1,5 +1,5 @@
 {
-  "hub_url": "https://hapi.example.invalid/",
+  "hub_url": "https://su.kurox.cn/hapi/",
   "access_key": "REPLACE_WITH_HAPI_ACCESS_KEY",
   "poll_seconds": 5,
   "sse": true,
@@ -7,5 +7,11 @@
   "max_questions": 3,
   "agent_command": ["codeagent"],
   "agent_live_log": true,
-  "agent_log_max_chars": 2000
+  "agent_log_max_chars": 2000,
+  "exec_review": {
+    "base_url": "http://techdev.hicomputing.huawei.com:18000/v1",
+    "model": "Qwen3.8",
+    "api_key": "REPLACE_WITH_REVIEW_API_KEY",
+    "timeout_seconds": 60
+  }
 }
