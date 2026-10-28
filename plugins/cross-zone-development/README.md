@@ -78,8 +78,13 @@ From the authorized task workspace, run:
 The bridge first validates the launch workspace, CLI, and state directory. Only
 then does it bind at the current message head, send one green-originated OPEN user message,
 and listen for TASK/EXEC/ANSWER/CANCEL. A valid OPEN selects blue without confirmation.
-Blue validates OPEN against the current authorized conversation. It either sends a formal TASK or explains rejection in
-ordinary conversation; it never echoes or injects OPEN.
+Blue validates OPEN against the current authorized conversation, treats an accepted
+OPEN as a fresh connection, and waits for a new user instruction. It does not
+automatically test or resume earlier work. Rejections use ordinary conversation;
+blue never echoes or injects OPEN. User-requested work defaults to EXEC; TASK is
+reserved for local judgment, revision-bound validation or required recovery.
+Saved history and recovery safeguards remain in force; `ai_review` still defaults
+to true.
 
 Blue completes and locally checks each candidate, commits it, and pushes its task
 branch to the approved GitHub repository before sending TASK. Green fetches the

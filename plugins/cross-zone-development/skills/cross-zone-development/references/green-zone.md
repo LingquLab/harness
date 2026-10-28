@@ -7,9 +7,8 @@ The operator changes to the authorized task workspace and runs
 Bash. The session ID and workspace are runtime inputs, not configuration. Before
 sending anything, the bridge validates the launch workspace, CLI, and
 required configuration.
-After preflight passes, it binds before sending OPEN to retain an immediate TASK,
-then listens for TASK,
-ANSWER, and CANCEL messages.
+After preflight passes, it binds before sending OPEN, then waits for subsequent
+EXEC, TASK, ANSWER and CANCEL messages. OPEN alone does not initiate a check.
 
 OPEN contains only protocol, type, event ID, target, and session reference. Never
 place credentials, a host, query parameters, repository/profile aliases, or task
