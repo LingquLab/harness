@@ -833,12 +833,124 @@ class BridgeTests(unittest.TestCase):
         self.bridge.catch_up()
         self.assertEqual(self.bridge.store.db.execute("SELECT count(*) FROM tasks").fetchone()[0], 411)
 
-    def test_epoch_reset_does_not_advance_or_execute(self):
+    def test_epoch_reset_rebinds_without_replaying_and_accepts_next_command(self):
         self.bridge.bind()
         self.client.epoch += 1
-        with self.assertRaises(CursorReset):
+        with self.assertLogs("cross_zone.controller", level="WARNING") as logs:
             self.ingest(task())
         self.assertIsNone(self.row())
+        self.assertIn("resend", " ".join(logs.output))
+        self.assertEqual(self.bridge.store.get_meta("cursor")["epoch"], self.client.epoch)
+        self.ingest(task(task_id="after-reset", event_id="after-reset"))
+        self.settle()
+        self.assertEqual(self.bridge.store.get_task("after-reset", 1)["state"], "PASS")
+        self.assertEqual(len(self.agent.calls), 1)
+
+    def test_epoch_reset_preserves_completed_task_outbox_and_recovery(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        pending = [tuple(row) for row in self.bridge.store.db.execute("SELECT * FROM outbox")]
+        with self.bridge.store.db:
+            self.bridge.store.set_meta("recovery_required", True)
+            self.bridge.store.set_meta("recovery_tasks", [{"task_id": "interrupted", "iteration": 1}])
+        self.client.epoch += 1
+        self.bridge.catch_up()
+        self.assertEqual(self.row()["state"], "PASS")
+        self.assertTrue(self.bridge.store.get_meta("recovery_required"))
+        self.assertEqual(self.bridge.store.get_meta("recovery_tasks"), [{"task_id": "interrupted", "iteration": 1}])
+        self.assertEqual(pending, [tuple(row) for row in self.bridge.store.db.execute("SELECT * FROM outbox")])
+        self.ingest(task(event_id="retry-after-reset"))
+        self.settle()
+        self.assertEqual(len(self.agent.calls), 1)
+        self.bridge.flush()
+        self.assertTrue(any(event["type"] == "RESULT" for _, event in self.client.sent))
+
+    def test_deleted_state_fresh_open_survives_later_epoch_reset(self):
+        import shutil
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        self.bridge.close()
+        shutil.rmtree(self.cfg["state_dir"])
+        self.agent = FakeAgent()
+        self.bridge = Bridge(self.cfg, self.client, self.agent)
+        self.bridge.bind()
+        self.assertIsNone(self.row())  # Existing history is not replayed after deletion.
+        self.client.epoch += 1
+        self.bridge.catch_up()
+        self.ingest(task(task_id="fresh", event_id="fresh"))
+        self.settle()
+        self.assertEqual(self.bridge.store.get_task("fresh", 1)["state"], "PASS")
+        self.assertEqual(len(self.agent.calls), 1)
+
+    def test_server_reset_flag_rebinds_even_without_epoch_change(self):
+        self.bridge.bind()
+        self.client.rows.append(message(task(), 1))
+        response = self.client.messages(self.cfg["session_id"], limit=100)
+        response["page"]["reset"] = True
+        with patch.object(self.client, "messages", return_value=response):
+            self.bridge.catch_up()
+        self.assertIsNone(self.row())
+        self.assertEqual(self.bridge.store.get_meta("cursor")["seq"], 1)
+
+    def test_bootstrap_epoch_reset_rebinds_without_partial_history_execution(self):
+        self.bridge.bind()
+        for seq in range(1, 106):
+            self.client.rows.append(message(task(task_id=f"history-{seq}", event_id=f"history-{seq}"), seq))
+        original = self.client.messages
+        def reset_during_bootstrap(session, **query):
+            if "beforeSeq" in query:
+                self.client.epoch = 1
+            return original(session, **query)
+        with patch.object(self.client, "messages", side_effect=reset_during_bootstrap):
+            self.bridge.catch_up()
+        self.assertEqual(self.bridge.store.db.execute("SELECT count(*) FROM tasks").fetchone()[0], 0)
+        self.assertEqual(self.bridge.store.get_meta("cursor"), {"at": 105000, "seq": 105, "epoch": 1})
+        self.ingest(task())
+        self.settle()
+        self.assertEqual(self.row()["state"], "PASS")
+
+    def test_epoch_reset_does_not_cancel_active_worker(self):
+        started, release = threading.Event(), threading.Event()
+        def running(*args):
+            started.set()
+            release.wait(2)
+            return {"output": output()}
+        self.agent.run = running
+        self.bridge.bind()
+        self.ingest(task())
+        self.bridge.work()
+        self.assertTrue(started.wait(1))
+        current = self.bridge.current
+        try:
+            self.client.epoch += 1
+            self.bridge.catch_up()
+            self.assertIs(self.bridge.current, current)
+            self.assertFalse(current[3].is_set())
+        finally:
+            release.set()
+        self.settle()
+        self.assertEqual(self.row()["state"], "PASS")
+
+    def test_listener_continues_after_epoch_reset_and_returns_next_result(self):
+        self.bridge.bind()
+        self.client.epoch += 1
+        deadline = time.monotonic() + 3
+        sent = False
+        def next_tick(_timeout):
+            nonlocal sent
+            if not sent:
+                self.client.rows.append(message(task(), 1))
+                sent = True
+            if any(event["type"] == "RESULT" for _, event in self.client.sent) or time.monotonic() > deadline:
+                self.bridge.stop.set()
+            time.sleep(0.01)
+        with patch.object(self.bridge.wake, "wait", side_effect=next_tick):
+            self.bridge.run()
+        self.assertEqual(len(self.agent.calls), 1)
+        self.assertTrue(any(event["type"] == "RESULT" and event["status"] == "PASS"
+                            for _, event in self.client.sent))
 
     def test_outbox_offline_retry_same_id(self):
         self.bridge.bind()
