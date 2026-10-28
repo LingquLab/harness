@@ -44,4 +44,24 @@ def load_config(path):
             or type(config["max_task_seconds"]) is not int
             or not 600 <= config["max_task_seconds"] <= 86400):
         raise ValueError("task budget out of range")
+    settings = config.setdefault("exec_review", {})
+    if not isinstance(settings, dict) or set(settings) - {"base_url", "model", "api_key", "timeout_seconds"}:
+        raise ValueError("exec_review must be an object with base_url, model, api_key and timeout_seconds")
+    settings.setdefault("base_url", "http://techdev.hicomputing.huawei.com:18000/v1")
+    settings.setdefault("model", "Qwen3.8")
+    settings.setdefault("api_key", None)
+    settings.setdefault("timeout_seconds", 60)
+    endpoint = urlsplit(settings["base_url"]) if isinstance(settings["base_url"], str) else None
+    if (endpoint is None or endpoint.scheme not in ("http", "https") or not endpoint.netloc
+            or endpoint.username or endpoint.password or endpoint.query or endpoint.fragment):
+        raise ValueError("exec_review.base_url must be an HTTP(S) API base URL without credentials/query")
+    settings["base_url"] = settings["base_url"].rstrip("/")
+    if not isinstance(settings["model"], str) or not settings["model"].strip():
+        raise ValueError("exec_review.model must be a non-empty string")
+    key = settings["api_key"]
+    if key is not None and (not isinstance(key, str) or not key.strip()
+                            or any(ord(c) < 32 or ord(c) == 127 for c in key)):
+        raise ValueError("exec_review.api_key must be a non-empty header-safe string or null")
+    if type(settings["timeout_seconds"]) is not int or not 1 <= settings["timeout_seconds"] <= 600:
+        raise ValueError("exec_review.timeout_seconds must be an integer between 1 and 600")
     return config

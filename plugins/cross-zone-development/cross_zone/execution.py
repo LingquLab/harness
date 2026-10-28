@@ -1,4 +1,4 @@
-"""Exact, noninteractive execution with optional local AI egress review."""
+"""Exact, noninteractive execution with optional API AI egress review."""
 
 import os
 from pathlib import Path
@@ -71,7 +71,9 @@ class DirectExecutor:
                 script = directory / ("script" + suffix)
                 script.write_bytes(spec["script"].encode("utf-8-sig" if interpreter == "powershell" else "utf-8"))
                 command = [*prefix, str(script)]
-            env = {k: v for k, v in os.environ.items() if not k.upper().startswith("HAPI_")}
+            review_key = self.config.get("exec_review", {}).get("api_key")
+            env = {k: v for k, v in os.environ.items() if not k.upper().startswith("HAPI_")
+                   and (not review_key or v != review_key)}
             env.update(PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
             options = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
             command_deadline = min(time.time() + request["execution_timeout_seconds"], deadline - REVIEW_SECONDS)

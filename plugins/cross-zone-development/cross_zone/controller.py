@@ -10,6 +10,7 @@ import uuid
 from .agent import CodeAgentCLI, agent_failure
 from .egress import failure_detail, review
 from .execution import DirectExecutor
+from .reviewer import OpenAIReviewer
 from .hapi import HapiError
 from .protocol import ProtocolError, assistant_text, canonical, fingerprint, parse
 from .store import Store
@@ -23,16 +24,20 @@ class CursorReset(RuntimeError):
 
 
 class Bridge:
-    def __init__(self, config, client, agent=None):
+    def __init__(self, config, client, agent=None, reviewer=None):
         self.config, self.client = config, client
         binding = {k: config[k] for k in ("hub_url", "session_id", "workspace_dir")}
         self.store = Store(Path(config["state_dir"]) / "bridge.sqlite3", binding, legacy_target=config.get("_legacy_target"))
         self.agent = agent or CodeAgentCLI(config)
-        self.direct_executor = DirectExecutor(config, self.agent)
+        self.direct_executor = DirectExecutor(config, reviewer if reviewer is not None else OpenAIReviewer(config))
         self.executor = ThreadPoolExecutor(max_workers=1)
         self.current = None
         self.stop = threading.Event()
         self.wake = threading.Event()
+
+    def _secrets(self):
+        return (self.client.access_key, self.client.token,
+                self.config.get("exec_review", {}).get("api_key"))
 
     def bind(self, *, fresh=False):
         if not fresh and self.store.get_meta("cursor") is not None:
@@ -176,7 +181,7 @@ class Bridge:
         execution = result.get("execution") if request["type"] == "EXEC" else None
         if result.get("pause"):
             self.store.require_recovery(task)
-        detail = failure_detail(result.get("detail"), secrets=(self.client.access_key, self.client.token))
+        detail = failure_detail(result.get("detail"), secrets=self._secrets())
         if task["state"] == "CANCELLING":
             # A concurrent successful exit does not erase a requested cancellation.
             self.store.terminal(task, "NEEDS_HUMAN" if result.get("pause") else "CANCELLED",
@@ -194,7 +199,7 @@ class Bridge:
             output = result["output"]
             if request["type"] == "EXEC" and (not isinstance(output, dict) or output.get("kind") != "RESULT"):
                 raise ValueError("exec_review: output reviewer must return RESULT; command will not be repeated")
-            fields = review(output, request, secrets=(self.client.access_key, self.client.token), execution=execution)
+            fields = review(output, request, secrets=self._secrets(), execution=execution)
             if execution:
                 fields["execution"] = execution
                 forced = {"TIMED_OUT": "TIMED_OUT", "CANCELLED": "CANCELLED", "OUTPUT_LIMIT": "NEEDS_HUMAN",
@@ -228,7 +233,7 @@ class Bridge:
                 f"Result validation failed: {type(exc).__name__}: {exc}\n"
                 "Inspect the saved result locally and correct the reported field or condition; "
                 "do not repeat remote actions until their effects are checked.",
-                secrets=(self.client.access_key, self.client.token),
+                secrets=self._secrets(),
             )
             LOG.error("%s", detail)
             self.store.terminal(task, "NEEDS_HUMAN", "structured_result_or_egress_review_failed", detail, execution)

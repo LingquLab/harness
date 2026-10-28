@@ -39,7 +39,8 @@ code validation and 600 seconds for a small read-only environment check.
 
 Use EXEC by default for user-requested work. Supply an exact bounded command or
 script; use TASK only when green-local judgment, revision-bound validation or
-required recovery cannot be expressed through EXEC. Bridge executes directly; green AI filters saved output only when ai_review=true. Prefer one EXEC per phase, combining related commands in a
+required recovery cannot be expressed through EXEC. Bridge executes directly; green AI filters saved output through its configured
+OpenAI-compatible inference API only when ai_review=true. Prefer one EXEC per phase, combining related commands in a
 script instead of dispatching each command separately. Stop dependent steps on failure and preserve stage evidence.
 Set a bounded execution timeout and leave at least 60 seconds for review. Do not resend a failed
 or interrupted EXEC to recover output: request a read-only TASK against its saved

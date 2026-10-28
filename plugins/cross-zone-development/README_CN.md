@@ -48,7 +48,7 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 
 ## 绿区主动开启协同
 
-使用插件内置的 v0.4 绿区运行时及不受 Git 跟踪的 `config.local.json`。
+使用插件内置的 v0.5 绿区运行时及不受 Git 跟踪的 `config.local.json`。
 
 配置中不再包含仓库路径、仓库别名、Git remote 或 task binding。启动命令所在目录就是
 workspace。配置中也不包含 profile、allowed tools 或自定义出区正则，不保存 session ID、session URL 或 state directory。`config.local.json`
@@ -115,6 +115,38 @@ Markdown 围栏、URL、内网地址、绝对路径、完整堆栈，以及少�
 实现的伪代码。整个结构化结果最多 4096 字节，`summary` 最多 3000 个字符。
 
 本插件为 LingquLab 原创内容，采用仓库中的 MIT 许可证。
+
+### 通过推理接口审查 EXEC
+
+`ai_review=true` 使用一次 OpenAI 兼容 Chat Completions 请求，不再启动 CodeAgent，
+模型也没有工具调用能力。在已忽略的 `config.local.json` 中填写：
+
+```json
+"exec_review": {
+  "base_url": "http://techdev.hicomputing.huawei.com:18000/v1",
+  "model": "Qwen3.8",
+  "api_key": "REPLACE_WITH_REVIEW_API_KEY",
+  "timeout_seconds": 60
+}
+```
+
+真实密钥只在本地替换占位符，不提交到仓库；已有本地配置需要补充该节。
+`base_url` 是 API 前缀，Bridge 在后面追加 `/chat/completions`。指定的内部 HTTP
+接口已获操作者授权，需部署在授权网络内。接口会收到任务目标、检查项、执行事实和
+已保存的 receipt/stdout/stderr 内容，而非仅收到脱敏后的摘要；只能配置获准处理
+这些绿区证据的推理服务。
+
+Bridge 一次读取证据，三份文件合计最多 64 KiB，必须为 UTF-8；超限或无法解码时扣留，
+不会截断后继续判断通过。模型返回的 JSON 继续执行原有结果、凭据和出区大小校验。
+模型不能执行命令、读取其他文件或改变执行事实。验证后的内部结果保存为
+`runs/<task-id>/<iteration>/execution/review.json`。程序日志只显示审查任务标识、
+开始/完成及耗时，不打印提示词或接口响应。
+
+只请求一次，不跟随重定向、不重试、不回退到 CLI、不重跑命令。接口失败或结果无效/
+不安全时返回 NEEDS_HUMAN，原始输出不出区；超时和取消保留相应终态。已发出的请求
+可能在服务端继续完成，但取消或到期后的响应不会保存或导出。等待时间同时受本地配置
+及任务剩余期限约束。普通 TASK 继续使用 `agent_command`；默认 `ai_review=false`
+的 EXEC 不调用审查接口。
 
 ### 简单 EXEC 结果跳过 AI
 

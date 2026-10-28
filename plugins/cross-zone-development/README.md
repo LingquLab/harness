@@ -60,7 +60,7 @@ task-owned detached checkouts live under the config directory’s `.state/<sessi
 
 ## Green-initiated collaboration
 
-Use the bundled v0.4 green runtime and its untracked `config.local.json`.
+Use the bundled v0.5 green runtime and its untracked `config.local.json`.
 
 Configuration contains no repository path, repository alias, Git remote, or task
 binding, profile, allowed-tools list, or custom egress pattern. The launch
@@ -143,6 +143,44 @@ pseudocode snippets may cross. The complete structured result is limited to
 
 The plugin contains original LingquLab material and is licensed under the
 repository MIT license.
+
+### EXEC review through an inference API
+
+`ai_review=true` uses one OpenAI-compatible Chat Completions request, without
+starting CodeAgent or enabling model tools. Configure `exec_review` in the ignored
+`config.local.json`:
+
+```json
+"exec_review": {
+  "base_url": "http://techdev.hicomputing.huawei.com:18000/v1",
+  "model": "Qwen3.8",
+  "api_key": "REPLACE_WITH_REVIEW_API_KEY",
+  "timeout_seconds": 60
+}
+```
+
+Replace the placeholder locally; never commit the real key. Existing local configs
+need this section before requesting reviewed EXEC. `base_url` is the API prefix;
+Bridge appends `/chat/completions`. The specified internal HTTP endpoint is
+operator-authorized; keep its deployment inside the authorized network. The API
+receives the task goal/checks, execution facts and the saved receipt/stdout/stderr
+contents, not just an already-sanitized summary. Only use an inference endpoint
+approved to process that green evidence.
+
+Bridge reads evidence once, with a combined 64 KiB UTF-8 limit, and validates the
+model's JSON against the existing result, credential and egress limits. Oversized
+or invalid evidence is withheld, never silently truncated. The model cannot run
+commands, read other files or change execution facts. A validated internal result
+is saved at `runs/<task-id>/<iteration>/execution/review.json`. Logs contain only
+review task identity, start/completion and elapsed time, not prompts or responses.
+
+There is one request and no redirects, retries, CLI fallback or command replay.
+API failure or invalid/unsafe output produces NEEDS_HUMAN with raw output withheld;
+deadline/cancellation retains its terminal status. A request already sent may
+finish on the server after cancellation; its late response is discarded and is
+never saved or exported. The timeout is bounded by both local configuration and
+the remaining task deadline. TASK still uses `agent_command`; direct EXEC
+(`ai_review=false`, the default) does not call either reviewer.
 
 ### Simple EXEC results without AI review
 

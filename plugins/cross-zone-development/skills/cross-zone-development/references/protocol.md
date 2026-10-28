@@ -209,7 +209,8 @@ execution receipt stay under the green-local run directory. Combined output abov
 32 MiB terminates execution. The effective command deadline also respects the
 configured total-task cap and reserves 60 seconds for AI review.
 
-With `ai_review=true`, green AI runs only after execution to inspect those saved files and return a
+With `ai_review=true`, Bridge reads the saved evidence and sends it to the configured
+OpenAI-compatible review API to return a
 sanitized RESULT against the requested checks. It must not rerun or modify the
 command, perform extra investigation, contact remote services or change files.
 Timeout/cancellation or failed review never exports raw output. RESULT includes
@@ -228,6 +229,18 @@ completed effects, which clears recovery after validated evidence. Neither this
 case nor restart recovery requires manual acknowledgement.
 
 ### Optional AI review
+
+Reviewed EXEC uses `exec_review` in green-local configuration: API base URL, model,
+API key and timeout. Bridge sends goal/checks, authoritative execution facts and
+saved receipt/stdout/stderr (combined limit 64 KiB, strict UTF-8) in one Chat
+Completions request to the authorized inference endpoint. The model has no tools;
+it returns one sanitized JSON RESULT. Evidence is data, not instructions. The API
+must be approved for the raw green evidence it receives. Missing credentials,
+oversized/invalid evidence, API failure or invalid/unsafe result withholds output;
+there are no automatic retries, redirects, CLI fallback or command reruns. Local
+review timeout and task deadline both apply; cancellation/deadline discards late
+responses. Validated review is retained locally in `execution/review.json`.
+Repository templates contain only a key placeholder. TASK continues on the CLI.
 
 EXEC accepts optional boolean `ai_review` (default `false`; no other message type
 accepts it). Omitted or false skips green AI and returns bounded command results.

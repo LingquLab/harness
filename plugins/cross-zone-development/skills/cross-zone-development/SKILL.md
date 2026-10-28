@@ -6,8 +6,9 @@ description: Coordinate blue and green AI agents through HAPI for protected-envi
 # Cross-Zone Development
 
 Use HAPI messages between a blue development zone and a green protected-service
-zone. The green Windows bridge invokes its locally configured agent CLI; neither
-role operates the other zone directly.
+zone. The green Windows bridge uses its agent CLI for TASK and a configured
+OpenAI-compatible inference API for optional EXEC review; neither role operates
+the other zone directly.
 
 ## Select the Role First
 
@@ -48,7 +49,8 @@ returns an OPEN protocol message.
 - Keep HAPI output reviewed and within the result limits defined in [references/protocol.md](references/protocol.md).
 
 Default to `EXEC` for user-requested work: blue supplies a bounded exact command
-or operational script, Bridge runs it unchanged, and green AI reviews saved output only when `ai_review=true`. Prefer batching related
+or operational script, Bridge runs it unchanged, and green AI reviews saved output through the configured inference API only when
+`ai_review=true`. That endpoint must be approved to receive the saved green evidence. Prefer batching related
 commands in one EXEC script to reduce cross-zone round trips; bound runtime and
 stop dependent steps on failure. Use `TASK` for work
 requiring green AI decisions, revision-bound candidate validation, or recovery
