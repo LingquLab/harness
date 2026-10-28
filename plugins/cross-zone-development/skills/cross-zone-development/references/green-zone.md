@@ -54,7 +54,9 @@ artifacts, or code or pseudocode snippets of 10 lines or more. Relevant URLs, in
 absolute paths, full stack traces, reconstructive pseudocode, and code snippets
 shorter than 10 lines are allowed. Return bounded outcomes, safe error codes,
 and concise observed-versus-expected behavior. Set `egress_reviewed=true` only
-after this review. If useful evidence cannot cross safely, return NEEDS_HUMAN.
+after this review. This field is for the internal agent-to-Bridge result only;
+Bridge validates and removes it before sending HAPI RESULT. Do not add it back
+to the external envelope. If useful evidence cannot cross safely, return NEEDS_HUMAN.
 
 ## Direct execution
 
