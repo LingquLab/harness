@@ -1,7 +1,6 @@
 {
   "hub_url": "https://hapi.example.invalid/",
   "access_key": "REPLACE_WITH_HAPI_ACCESS_KEY",
-  "target": "green-dev",
   "poll_seconds": 5,
   "sse": true,
   "max_task_seconds": 1800,

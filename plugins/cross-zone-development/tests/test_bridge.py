@@ -23,8 +23,8 @@ from cross_zone.protocol import MARKER, ProtocolError, assistant_text, open_even
 
 
 def task(**changes):
-    event = {"protocol": "cross-zone/v2", "type": "TASK", "event_id": "blue-1", "task_id": "task-1",
-             "iteration": 1, "target": "green-dev", "revision": "a" * 40, "goal": "Run the regression",
+    event = {"protocol": "cross-zone/v3", "type": "TASK", "event_id": "blue-1", "task_id": "task-1",
+             "iteration": 1, "revision": "a" * 40, "goal": "Run the regression",
              "checks": [{"id": "regression", "action": "Run approved tests", "expected": "All pass"}],
              "timeout_seconds": 600}
     event.update(changes)
@@ -103,7 +103,7 @@ class FakeAgent:
 
 def config(directory):
     return {"hub_url": "http://localhost/hapi/", "session_id": "blue-session",
-            "target": "green-dev", "state_dir": str(Path(directory) / "state"), "sse": False,
+            "state_dir": str(Path(directory) / "state"), "sse": False,
             "workspace_dir": str(Path(directory) / "repo"),
             "max_task_seconds": 1800, "max_questions": 3, "poll_seconds": 0.1, "agent_command": ["codeagent"],
             "agent_live_log": True, "agent_log_max_chars": 2000}
@@ -111,15 +111,16 @@ def config(directory):
 
 class OpenTests(unittest.TestCase):
     def test_open_event_is_green_only(self):
-        event = open_event("green-dev", "sessions/19146292-52a4-4094-9cd5-6086b0c3ec05")
-        self.assertEqual(event["protocol"], "cross-zone/v2")
+        event = open_event("sessions/19146292-52a4-4094-9cd5-6086b0c3ec05")
+        self.assertEqual(event["protocol"], "cross-zone/v3")
         self.assertEqual(event["type"], "OPEN")
-        self.assertEqual(event["target"], "green-dev")
+        self.assertEqual(event["version"], "0.5.0")
+        self.assertNotIn("target", event)
         self.assertIn(event["session_url"], event["session_url"])
         self.assertIn("green-open-", event["event_id"])
         # Blue cannot inject an OPEN envelope; it must be green-originated.
         with self.assertRaises(ProtocolError):
-            parse(wire(event), "green-dev")
+            parse(wire(event))
 
 
 class ConsoleEncodingTests(unittest.TestCase):
@@ -288,7 +289,7 @@ class CliErrorTests(unittest.TestCase):
                  patch("cross_zone.cli.preflight", side_effect=lambda cfg: calls.append("preflight")), \
                  patch("cross_zone.cli.InstanceLock"), patch("cross_zone.cli.HapiClient") as client, \
                  patch("cross_zone.cli.Bridge") as bridge:
-                bridge.return_value.bind.side_effect = lambda: calls.append("bind")
+                bridge.return_value.prepare_open.side_effect = lambda: calls.append("bind")
                 client.return_value.send.side_effect = lambda *args: calls.append("send")
                 bridge.return_value.run.side_effect = lambda: calls.append("run")
                 main()
@@ -321,50 +322,45 @@ class ProtocolTests(unittest.TestCase):
         readable = wire(event, readable=True)
         self.assertTrue(readable.startswith(MARKER + "```json\n{\n"))
         self.assertIn('\n  "type": "TASK"', readable)
-        self.assertEqual(parse(readable, "green-dev"), event)
-        self.assertEqual(parse(wire(event), "green-dev"), event)
+        self.assertEqual(parse(readable), event)
+        self.assertEqual(parse(wire(event)), event)
 
     def test_readable_format_rejects_trailing_prose_and_duplicate_fields(self):
         for text in (wire(task(), readable=True) + "\nextra prose",
-                     MARKER + '```json\n{"protocol":"cross-zone/v2","protocol":"bad"}\n```'):
+                     MARKER + '```json\n{"protocol":"cross-zone/v3","protocol":"bad"}\n```'):
             with self.subTest(text=text), self.assertRaises(ProtocolError):
-                parse(text, "green-dev")
+                parse(text)
 
     def test_roundtrip_codex_and_claude(self):
         for flavor in ("codex", "output"):
-            self.assertEqual(parse(assistant_text(message(task(), 1, flavor)), "green-dev"), task())
+            self.assertEqual(parse(assistant_text(message(task(), 1, flavor))), task())
 
     def test_null_payload_remains_an_invalid_protocol(self):
         with self.assertRaisesRegex(ProtocolError, "invalid_protocol"):
-            parse(MARKER + "null", "green-dev")
+            parse(MARKER + "null")
 
     def test_new_task_omits_green_local_aliases(self):
         event = task()
-        self.assertEqual(parse(wire(event), "green-dev"), event)
+        self.assertEqual(parse(wire(event)), event)
         with self.assertRaises(ProtocolError):
-            parse(wire({**event, "repository": "candidate", "scope_profile": "tests"}), "green-dev")
+            parse(wire({**event, "repository": "candidate", "scope_profile": "tests"}))
 
     def test_general_task_and_controls_omit_revision(self):
         event = general_task()
-        self.assertEqual(parse(wire(event), "green-dev"), event)
-        cancel = {"protocol": "cross-zone/v2", "type": "CANCEL", "event_id": "cancel-1",
-                  "task_id": event["task_id"], "iteration": 1, "target": "green-dev"}
-        self.assertEqual(parse(wire(cancel), "green-dev"), cancel)
+        self.assertEqual(parse(wire(event)), event)
+        cancel = {"protocol": "cross-zone/v3", "type": "CANCEL", "event_id": "cancel-1",
+                  "task_id": event["task_id"], "iteration": 1}
+        self.assertEqual(parse(wire(cancel)), cancel)
 
-    def test_commands_inherit_session_target_but_explicit_mismatch_is_ignored(self):
+    def test_commands_are_session_bound_and_reject_target(self):
         controls = [task(), general_task(),
-                    {"protocol": "cross-zone/v2", "type": "CANCEL", "event_id": "cancel", "task_id": "task-1",
-                     "iteration": 1, "target": "green-dev"},
-                    {"protocol": "cross-zone/v2", "type": "ANSWER", "event_id": "answer", "task_id": "task-1",
-                     "iteration": 1, "target": "green-dev", "question_id": "q-1", "answer": "yes"}]
+                    {"protocol": "cross-zone/v3", "type": "CANCEL", "event_id": "cancel", "task_id": "task-1", "iteration": 1},
+                    {"protocol": "cross-zone/v3", "type": "ANSWER", "event_id": "answer", "task_id": "task-1", "iteration": 1, "question_id": "q-1", "answer": "yes"}]
         for event in controls:
-            compact = {k: v for k, v in event.items() if k != "target"}
             with self.subTest(kind=event["type"]):
-                self.assertEqual(parse(wire(compact, readable=True), "green-dev"), event)
-                self.assertEqual(parse(wire(compact), "green-dev")["target"], "green-dev")
-                self.assertIsNone(parse(wire(dict(event, target="another")), "green-dev"))
-        with self.assertRaisesRegex(ProtocolError, "invalid_fields"):
-            parse(wire({k: v for k, v in task().items() if k not in {"target", "checks"}}), "green-dev")
+                self.assertEqual(parse(wire(event)), event)
+                with self.assertRaisesRegex(ProtocolError, "invalid_fields"):
+                    parse(wire(dict(event, target="green-dev")))
 
     def test_ignore_user_tool_child_partial_and_examples(self):
         row = message(task(), 1)
@@ -376,18 +372,24 @@ class ProtocolTests(unittest.TestCase):
         row = message(task(), 1)
         row["content"]["content"]["data"]["scope_role"] = "child"
         self.assertIsNone(assistant_text(row))
-        self.assertIsNone(parse("Example:\n" + wire(task()), "green-dev"))
-        self.assertIsNone(parse("```json\n" + wire(task()) + "\n```", "green-dev"))
-        self.assertIsNone(parse(wire(task(target="another")), "green-dev"))
+        self.assertIsNone(parse("Example:\n" + wire(task())))
+        self.assertIsNone(parse("```json\n" + wire(task()) + "\n```"))
+        with self.assertRaisesRegex(ProtocolError, "invalid_fields"):
+            parse(wire(task(target="another")))
+
+    def test_v2_live_protocol_is_not_accepted(self):
+        self.assertIsNone(parse("CROSS_ZONE_V2\n" + json.dumps(task())))
+        with self.assertRaisesRegex(ProtocolError, "invalid_protocol"):
+            parse(wire(task(protocol="cross-zone/v2")))
 
     def test_malformed_envelopes_reject(self):
         variants = [task(iteration=True), task(revision="main"), task(timeout_seconds=599),
                     task(checks=[]), task(task_id="../../escape"), task(extra="field"), task(type=[]), task(type="UNKNOWN")]
         for event in variants:
             with self.subTest(event=event), self.assertRaises(ProtocolError):
-                parse(wire(event), "green-dev")
+                parse(wire(event))
         with self.assertRaises(ProtocolError):
-            parse(MARKER + '{"protocol":"cross-zone/v2","protocol":"bad"}', "green-dev")
+            parse(MARKER + '{"protocol":"cross-zone/v3","protocol":"bad"}')
 
 
 class EgressTests(unittest.TestCase):
@@ -449,7 +451,7 @@ class EgressTests(unittest.TestCase):
         from cross_zone.protocol import canonical
         value = output(summary="x" * 3000, error_code="e" * 100)
         value["checks"] = [{"id": "c" * 78 + str(i), "status": "PASS"} for i in range(6)]
-        request = task(task_id="t" * 80, target="g" * 80,
+        request = task(task_id="t" * 80,
                        checks=[{"id": c["id"]} for c in value["checks"]])
         self.assertLess(len(canonical(value).encode("utf-8")), 4096)
         with self.assertRaisesRegex(ValueError, "egress_size_limit"):
@@ -545,8 +547,48 @@ class BridgeTests(unittest.TestCase):
         return self.bridge.store.get_task("task-1", 1)
 
     def control(self, kind, **fields):
-        base = {k: v for k, v in task().items() if k in {"protocol", "task_id", "iteration", "target", "revision"}}
+        base = {k: v for k, v in task().items() if k in {"protocol", "task_id", "iteration", "revision"}}
         return {**base, "type": kind, "event_id": "control-" + str(len(self.client.rows)), **fields}
+
+    def test_fresh_open_does_not_resume_old_queue_or_continuation(self):
+        self.bridge.bind()
+        self.ingest(task())
+        self.ingest(task(task_id="continuation", event_id="continuation"))
+        with self.bridge.store.db:
+            self.bridge.store.db.execute("UPDATE tasks SET state='WAITING_ANSWER',session_id='prior',questions=1 WHERE task_id='continuation'")
+        # This historical command was never accepted; fresh OPEN must skip it.
+        self.client.rows.append(message(task(task_id="unread", event_id="unread"), 3))
+        self.bridge.prepare_open()
+        self.assertEqual(self.row()["state"], "BLOCKED")
+        self.assertEqual(self.bridge.store.get_task("continuation", 1)["state"], "NEEDS_HUMAN")
+        self.assertTrue(self.bridge.store.get_meta("recovery_required"))
+        self.bridge.catch_up()
+        self.bridge.work()
+        self.assertIsNone(self.bridge.store.get_task("unread", 1))
+        self.assertEqual(self.agent.calls, [])
+        self.ingest(task(task_id="new-instruction", event_id="new-instruction"))
+        self.agent.outputs = [{"output": output(status="BLOCKED", checks=[{"id": "regression", "status": "BLOCKED"}]), "recovery_checked": False}]
+        self.settle()
+        self.assertEqual(len(self.agent.calls), 1)
+        self.assertEqual(self.bridge.store.get_task("new-instruction", 1)["state"], "BLOCKED")
+
+    def test_fresh_open_discards_question_of_an_already_timed_out_task(self):
+        self.agent.outputs = [{"output": output(kind="QUESTION", status="BLOCKED", question="Which fixture?"),
+                               "session_id": "prior-session"}]
+        self.bridge.bind()
+        self.ingest(task())
+        self.settle()
+        with self.bridge.store.db:
+            self.bridge.store.update(self.row(), deadline=time.time() - 1)
+        self.bridge.work()
+        self.assertEqual(self.row()["state"], "TIMED_OUT")
+        self.assertTrue(any(read_wire(row["text"])["type"] == "QUESTION"
+                            for row in self.bridge.store.db.execute("SELECT text FROM outbox WHERE sent=0")))
+        self.bridge.prepare_open()
+        self.bridge.flush()
+        self.assertFalse(any(event["type"] in {"ACK", "QUESTION"} for _, event in self.client.sent))
+        self.assertTrue(any(event["type"] == "RESULT" and event["status"] == "TIMED_OUT"
+                            for _, event in self.client.sent))
 
     def test_first_bind_skips_history(self):
         self.client.rows.append(message(task(), 1))
@@ -664,7 +706,7 @@ class BridgeTests(unittest.TestCase):
         events = [event for _, event in self.client.sent]
         self.assertEqual([event["type"] for event in events], ["PROGRESS", "RESULT"])
         self.assertEqual(events[0], {"type": "PROGRESS", "task_id": "task-1", "iteration": 1})
-        self.assertEqual(events[1]["target"], "green-dev")
+        self.assertNotIn("target", events[1])
         self.assertEqual(events[1]["revision"], task()["revision"])
         self.assertEqual(events[1]["event_id"], self.client.sent[1][0])
 
@@ -689,15 +731,15 @@ class BridgeTests(unittest.TestCase):
             {"type": "PROGRESS", "task_id": "task-1", "iteration": 1},
         ])
 
-    def test_coalescing_keeps_other_iterations_targets_and_revisions(self):
+    def test_coalescing_keeps_other_iterations_and_revisions(self):
         request = task()
-        variants = (task(iteration=2), task(target="other-green"), task(revision="b" * 40), general_task())
+        variants = (task(iteration=2), task(revision="b" * 40), general_task())
         with self.bridge.store.db:
             retained = set()
             for index, variant in enumerate(variants):
                 event_id = f"legacy-{index}"
                 event = {**{k: v for k, v in variant.items() if k in
-                            {"protocol", "task_id", "iteration", "target", "revision"}},
+                            {"protocol", "task_id", "iteration", "revision"}},
                          "type": "ACK", "event_id": event_id, "state": "QUEUED"}
                 self.bridge.store.db.execute("INSERT INTO outbox(id,text,created) VALUES (?,?,?)",
                                              (event_id, wire(event), time.time()))
@@ -743,8 +785,8 @@ class BridgeTests(unittest.TestCase):
         self.bridge.bind()
         self.ingest(task())
         row = self.bridge.store.db.execute("SELECT * FROM outbox").fetchone()
-        legacy = {"protocol": "cross-zone/v2", "type": "ACK", "event_id": row["id"],
-                  "task_id": "task-1", "iteration": 1, "target": "green-dev",
+        legacy = {"protocol": "cross-zone/v3", "type": "ACK", "event_id": row["id"],
+                  "task_id": "task-1", "iteration": 1,
                   "revision": task()["revision"], "state": "QUEUED"}
         with self.bridge.store.db:
             self.bridge.store.db.execute("UPDATE outbox SET text=? WHERE id=?", (wire(legacy), row["id"]))
@@ -766,25 +808,25 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(result["status"], "PASS")
         self.assertEqual(result["question"], "")
 
-    def test_compact_and_legacy_commands_share_dedup_identity(self):
+    def test_duplicate_session_commands_keep_dedup_identity(self):
         self.bridge.bind()
         event = task()
         compact = {k: v for k, v in event.items() if k != "target"}
         self.ingest(compact)
         self.settle()
-        self.ingest(event)  # Same event ID, explicit target: no conflicting-event warning.
+        self.ingest(event)  # Same event ID: no duplicate execution.
         self.ingest(dict(event, event_id="legacy-retry"))
         self.bridge.flush()
         self.assertEqual(len(self.agent.calls), 1)
         self.assertFalse(any(event["type"] == "REJECTED" for _, event in self.client.sent))
         request = json.loads(self.row()["request"])
-        self.assertEqual(request["target"], "green-dev")
-        self.assertEqual(self.client.sent[-1][1]["target"], "green-dev")
+        self.assertNotIn("target", request)
+        self.assertNotIn("target", self.client.sent[-1][1])
 
     def test_targetless_cancel_matches_session_task(self):
         self.bridge.bind()
         self.ingest(task())
-        self.ingest({"protocol": "cross-zone/v2", "type": "CANCEL", "event_id": "cancel",
+        self.ingest({"protocol": "cross-zone/v3", "type": "CANCEL", "event_id": "cancel",
                      "task_id": "task-1", "iteration": 1, "revision": task()["revision"]})
         self.bridge.work()
         self.assertEqual(self.row()["state"], "CANCELLED")
@@ -1269,7 +1311,7 @@ class AgentTests(unittest.TestCase):
                                     "assert sys.argv[sys.argv.index('--output-format') + 1] == 'stream-json'\n"
                                     "assert '--verbose' in sys.argv\n"
                                     "assert '--max-turns' not in sys.argv\n"
-                                    "assert 'cross-zone/v2' in sys.stdin.read()\n"
+                                    "assert 'cross-zone/v3' in sys.stdin.read()\n"
                                     + "print(" + repr(json.dumps({"structured_output": output(), "session_id": "green"})) + ")\n")
             self.assertEqual(result["output"]["status"], "PASS")
             self.assertFalse(result["dirty"])

@@ -48,7 +48,7 @@ def review(value, request, secrets=(), execution=None):
                 raise ValueError(f"result_schema: {key} must be one of {spec['enum']}")
         elif spec["type"] == "boolean" and type(item) is not bool:
             raise ValueError(f"result_schema: {key} expected boolean, got {type(item).__name__}")
-    direct = request.get("type") == "EXEC" and request.get("ai_review", True) is False
+    direct = request.get("type") == "EXEC" and request.get("ai_review", False) is False
     if direct and (not execution or value["egress_reviewed"] is not False):
         raise ValueError("direct_result: requires execution facts and no AI review claim")
     if not direct and value["egress_reviewed"] is not True:
@@ -90,7 +90,7 @@ def review(value, request, secrets=(), execution=None):
     # Reserve the final RESULT envelope, not just the agent's structured fields.
     exported = {k: v for k, v in value.items() if k not in ("kind", "egress_reviewed")}
     envelope = {"protocol": PROTOCOL, "type": "RESULT", "event_id": "green-" + "0" * 32,
-                **{k: request[k] for k in ("task_id", "iteration", "target")},
+                **{k: request[k] for k in ("task_id", "iteration")},
                 **exported, "worktree_modified": False}
     if "revision" in request:
         envelope["revision"] = request["revision"]

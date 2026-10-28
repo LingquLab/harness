@@ -25,8 +25,8 @@ class CursorReset(RuntimeError):
 class Bridge:
     def __init__(self, config, client, agent=None):
         self.config, self.client = config, client
-        binding = {k: config[k] for k in ("hub_url", "session_id", "target", "workspace_dir")}
-        self.store = Store(Path(config["state_dir"]) / "bridge.sqlite3", binding)
+        binding = {k: config[k] for k in ("hub_url", "session_id", "workspace_dir")}
+        self.store = Store(Path(config["state_dir"]) / "bridge.sqlite3", binding, legacy_target=config.get("_legacy_target"))
         self.agent = agent or CodeAgentCLI(config)
         self.direct_executor = DirectExecutor(config, self.agent)
         self.executor = ThreadPoolExecutor(max_workers=1)
@@ -34,8 +34,8 @@ class Bridge:
         self.stop = threading.Event()
         self.wake = threading.Event()
 
-    def bind(self):
-        if self.store.get_meta("cursor") is not None:
+    def bind(self, *, fresh=False):
+        if not fresh and self.store.get_meta("cursor") is not None:
             return
         response = self.client.messages(self.config["session_id"], limit=1)
         page = response["page"]
@@ -45,6 +45,26 @@ class Bridge:
             self.store.set_meta("cursor", cursor)
             self.store.set_meta("bound_at", int(time.time() * 1000))
         LOG.info("Bound to current message head; historical commands skipped")
+
+    def prepare_open(self):
+        """Start a fresh listening interaction without replaying retained work."""
+        self.store.recover()
+        with self.store.db:
+            for task in self.store.db.execute("SELECT * FROM tasks").fetchall():
+                request = json.loads(task["request"])
+                self.store._drop_pending_notifications(request, kinds={"ACK", "QUESTION"})
+                if task["state"] not in {"QUEUED", "WAITING_ANSWER"}:
+                    continue
+                continuation = task["session_id"] or task["answer"] is not None or task["questions"] > 0
+                if continuation or task["state"] == "WAITING_ANSWER":
+                    self.store.require_recovery(task)
+                    status = "NEEDS_HUMAN"
+                else:
+                    status = "BLOCKED"
+                self.store.terminal(task, status, "fresh_open_work_not_resumed",
+                                    "Fresh OPEN waits for new instructions. Saved work was not resumed; "
+                                    "establish earlier effects before requesting a new iteration.")
+        self.bind(fresh=True)
 
     def _rebind_after_reset(self, page):
         # Use the server's new snapshot, never an old sequence in a new epoch.
@@ -139,7 +159,7 @@ class Bridge:
             with self.store.db:
                 for message in messages:
                     try:
-                        event = parse(assistant_text(message), self.config["target"])
+                        event = parse(assistant_text(message))
                         if event:
                             self._accept(event)
                     except ProtocolError:

@@ -17,15 +17,15 @@ SESSION_URL = re.compile(r"sessions/[A-Za-z0-9][A-Za-z0-9-]{0,127}\Z")
 def validate_open(event: object) -> dict[str, object]:
     if not isinstance(event, dict):
         raise ValueError("OPEN must be an object")
-    required = {"protocol", "type", "event_id", "target", "session_url"}
+    required = {"protocol", "type", "event_id", "version", "session_url"}
     if set(event) != required:
         raise ValueError("OPEN fields do not match")
-    if event["protocol"] != "cross-zone/v2" or event["type"] != "OPEN":
+    if event["protocol"] != "cross-zone/v3" or event["type"] != "OPEN":
         raise ValueError("not an OPEN event")
     if not isinstance(event["event_id"], str) or not OPEN_ID.fullmatch(event["event_id"]):
         raise ValueError("invalid event ID")
-    if not isinstance(event["target"], str) or not ID.fullmatch(event["target"]):
-        raise ValueError("invalid target")
+    if not isinstance(event["version"], str) or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", event["version"]):
+        raise ValueError("invalid Bridge version")
     if not isinstance(event["session_url"], str) or not SESSION_URL.fullmatch(event["session_url"]):
         raise ValueError("invalid session URL")
     return event
@@ -34,10 +34,10 @@ def validate_open(event: object) -> dict[str, object]:
 class HapiContractTest(unittest.TestCase):
     def test_open_is_green_originated_and_not_task_bound(self) -> None:
         event = validate_open({
-            "protocol": "cross-zone/v2",
+            "protocol": "cross-zone/v3",
             "type": "OPEN",
             "event_id": "green-open-0123456789abcdef",
-            "target": "green-dev",
+            "version": "0.5.0",
             "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef",
         })
         self.assertNotIn("task_id", event)
@@ -46,14 +46,17 @@ class HapiContractTest(unittest.TestCase):
 
     def test_open_rejects_task_fields_hosts_queries_and_traversal(self) -> None:
         base = {
-            "protocol": "cross-zone/v2",
+            "protocol": "cross-zone/v3",
             "type": "OPEN",
             "event_id": "green-open-0123456789abcdef",
-            "target": "green-dev",
+            "version": "0.5.0",
             "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef",
         }
         invalid = [
             {**base, "task_id": "task-1"},
+            {**base, "target": "green-dev"},
+            {**base, "version": "v3"},
+            {k: v for k, v in base.items() if k != "version"},
             {**base, "event_id": "blue-open-0123"},
             {**base, "session_url": "https://hapi.example/sessions/id"},
             {**base, "session_url": "sessions/id?token=secret"},
@@ -79,6 +82,7 @@ class HapiContractTest(unittest.TestCase):
             self.assertNotIn("profile", config)
             self.assertNotIn("egress_deny_patterns", config)
             self.assertNotIn("token", config)
+            self.assertNotIn("target", config)
             self.assertEqual(config["max_questions"], 3)
 
     def test_skill_routes_open_and_preserves_result_invariants(self) -> None:
@@ -108,6 +112,14 @@ class HapiContractTest(unittest.TestCase):
         general_task = tasks[1]
         self.assertNotIn("revision", general_task)
         self.assertEqual(general_task["task_id"], "machine-time")
+
+    def test_release_metadata_is_consistent(self) -> None:
+        import tomllib
+        version = tomllib.loads((PLUGIN / "pyproject.toml").read_text())["project"]["version"]
+        self.assertEqual(version, "0.5.0")
+        for name in (".codex-plugin/plugin.json", ".zcode-plugin/plugin.json"):
+            self.assertEqual(json.loads((PLUGIN / name).read_text())["version"], version)
+        self.assertIn(f'__version__ = "{version}"', (PLUGIN / "cross_zone/__init__.py").read_text())
 
     def test_removed_github_transport_is_not_shipped(self) -> None:
         self.assertFalse((SKILL / "references" / "github-access.md").exists())

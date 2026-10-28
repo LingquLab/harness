@@ -5,8 +5,10 @@ import json
 import re
 import uuid
 
-PROTOCOL = "cross-zone/v2"
-MARKER = "CROSS_ZONE_V2\n"
+from . import __version__
+
+PROTOCOL = "cross-zone/v3"
+MARKER = "CROSS_ZONE\n"
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}\Z")
 REVISION = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
 
@@ -81,24 +83,19 @@ def read_wire(text):
         raise ProtocolError("invalid_json") from exc
 
 
-def parse(text, target):
+def parse(text):
     if not text or not text.startswith(MARKER):
         return None
     event = read_wire(text)
     if not isinstance(event, dict) or event.get("protocol") != PROTOCOL:
         raise ProtocolError("invalid_protocol")
-    if event.get("target", target) != target:
-        return None
-    base = {"protocol", "type", "event_id", "task_id", "iteration", "target"}
+    base = {"protocol", "type", "event_id", "task_id", "iteration"}
     kind = event.get("type")
     if not isinstance(kind, str):
         raise ProtocolError("invalid_type")
     if kind == "OPEN":
         # Green-originated request; blue must not inject it. Green uses open_event().
         raise ProtocolError("invalid_direction")
-    # One green worker is bound to each session. Normalize before dedup/storage
-    # so compact commands and legacy explicit-target retries have identical identity.
-    event.setdefault("target", target)
     extra = {
         "TASK": {"goal", "checks", "timeout_seconds"},
         "EXEC": {"goal", "checks", "timeout_seconds", "execution", "execution_timeout_seconds"},
@@ -113,7 +110,7 @@ def parse(text, target):
             raise ProtocolError("invalid_ai_review")
     if extra is None or fields != base | extra | optional_revision:
         raise ProtocolError("invalid_fields")
-    for field in ("event_id", "task_id", "target"):
+    for field in ("event_id", "task_id"):
         if not isinstance(event[field], str) or not ID.fullmatch(event[field]):
             raise ProtocolError("invalid_id")
     if type(event["iteration"]) is not int or not 1 <= event["iteration"] <= 10000:
@@ -175,12 +172,12 @@ def wire(event, *, readable=False):
     return MARKER + canonical(event)
 
 
-def open_event(target, session_url):
-    """Green-originated OPEN envelope requesting blue to start cross-zone work.
+def open_event(session_url):
+    """Green-originated OPEN envelope announcing a ready connection.
 
     Not a control command: it carries no task binding and blue never echoes it.
     session_url is the relative `sessions/<UUID>` reference constructed from the
     command-line session ID. It is never read from configuration.
     """
     return {"protocol": PROTOCOL, "type": "OPEN", "event_id": "green-open-" + uuid.uuid4().hex,
-            "target": target, "session_url": session_url}
+            "version": __version__, "session_url": session_url}
