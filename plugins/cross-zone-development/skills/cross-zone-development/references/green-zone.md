@@ -23,6 +23,11 @@ TASK does not carry repository or profile aliases. The bridge is a transport and
 process supervisor, not an OS or network sandbox. Return BLOCKED when required
 isolation, fixtures, identity, dependencies, or permissions are missing.
 
+For requested dependency/model downloads through the internal network/proxy,
+use the authorized per-command certificate-verification bypass described in
+[internal-network.md](internal-network.md). A system CA trust error alone is not
+a blocker requiring human action. EXEC review remains evidence-only.
+
 When TASK includes revision, require the launch workspace to be a Git repository,
 fetch it from the workspace's existing `origin`, and test it
 in an isolated clean checkout. Verify HEAD equals the full TASK revision before
