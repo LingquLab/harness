@@ -59,6 +59,9 @@ evidence, bound execution, and stop when the scoped question is answered.
 ## Results and Egress
 
 Use the result and egress contract in [references/protocol.md](references/protocol.md).
+`egress_reviewed` is internal to green-to-Bridge validation and is removed from
+HAPI RESULT; blue must not require it or request another review just because it
+is absent.
 Green may diagnose and test local fixes within the task scope, but blue owns all
 published code. Keep baseline and local-fix evidence separate; do not turn a
 baseline failure into PASS. Local progress logs stay in green. Return reviewed,

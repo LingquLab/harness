@@ -260,6 +260,15 @@ They affect only an exact matching task.
 
 ## Task results
 
+`egress_reviewed` belongs to the green-local agent-to-Bridge result schema,
+not the HAPI RESULT envelope. In AI-reviewed mode, green sets it to `true`
+after reviewing the export; direct EXEC (`ai_review=false`) uses `false`.
+Bridge validates the internal result and removes `egress_reviewed` (and `kind`)
+before sending RESULT. Its absence in a received RESULT is expected. Blue must
+not reject a result, request a replacement or dispatch an extra review solely
+because this internal field is absent. Continue validating task binding, execution
+facts and check evidence; absence of the field does not establish those checks.
+
 - ACK means durably queued, not executed.
 - PROGRESS reports execution state, never proof of success.
 - QUESTION carries one bounded sanitized question; blue may send a matching
