@@ -165,3 +165,15 @@ cyan. Agent text is green, tool calls/results gray, and Agent stderr yellow;
 continuation lines retain their category color. Log files and redirected output
 remain plain text. Task-state PASS is bold green and FAIL bold red.
 Set `NO_COLOR=1` to disable color.
+
+### Message history resets
+
+If HAPI resets the message-history epoch/cursor, Bridge automatically rebinds to
+the current message head and keeps listening. This also supports deleting local
+state while Bridge is stopped and opening again. Rebinding retains existing task
+records, receipts, deduplication, recovery state and pending results; active work
+is not cancelled and historical commands are not replayed. Instructions not yet
+accepted in the reset window may be skipped: the warning asks blue to resend any
+unacknowledged instruction. Retrying retains the original task/iteration identity.
+Do not delete state while Bridge is running; deleting it removes local execution
+history and cannot establish whether an earlier remote action completed.
