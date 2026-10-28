@@ -130,9 +130,13 @@ Markdown 围栏、URL、内网地址、绝对路径、完整堆栈，以及少�
   "base_url": "http://techdev.hicomputing.huawei.com:18000/v1",
   "model": "Qwen3.8",
   "api_key": "REPLACE_WITH_REVIEW_API_KEY",
-  "timeout_seconds": 60
+  "timeout_seconds": 300
 }
 ```
+
+审查默认超时为 300 秒，同时受总任务剩余时间限制。已有本地配置显式填写 60 秒时，
+仍使用该值；请将 `exec_review.timeout_seconds` 改为 300，或删除该字段使用新默认值，
+然后重启 Bridge。带审查 EXEC 的总任务时限需覆盖命令时限和配置的审查预算。
 
 真实密钥只在本地替换占位符，不提交到仓库；已有本地配置需要补充该节。
 `base_url` 是 API 前缀，Bridge 在后面追加 `/chat/completions`。指定的内部 HTTP

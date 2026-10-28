@@ -211,7 +211,9 @@ Use foreground commands; do not detach children or treat a successful SSH exit a
 proof that remote background work completed. Original stdout/stderr, script and
 execution receipt stay under the green-local run directory. Combined output above
 32 MiB terminates execution. The effective command deadline also respects the
-configured total-task cap and reserves 60 seconds for AI review.
+configured total-task cap and retains a minimum 60-second margin. For reviewed
+EXEC, blue should budget the command timeout plus the configured review timeout
+(300 seconds by default) within the total task timeout.
 
 With `ai_review=true`, Bridge reads the saved evidence and sends it to the configured
 OpenAI-compatible review API to return a
@@ -235,7 +237,10 @@ case nor restart recovery requires manual acknowledgement.
 ### Optional AI review
 
 Reviewed EXEC uses `exec_review` in green-local configuration: API base URL, model,
-API key and timeout. Bridge sends goal/checks, authoritative execution facts and
+API key and timeout (300 seconds by default, bounded by remaining task time).
+An explicit timeout in green-local configuration overrides the default; update old
+60-second values locally and restart Bridge to use a larger budget.
+Bridge sends goal/checks, authoritative execution facts and
 saved receipt/stdout/stderr (combined limit 64 KiB, strict UTF-8) in one Chat
 Completions request to the authorized inference endpoint. The model has no tools;
 it returns one sanitized JSON RESULT. Evidence is data, not instructions. The API

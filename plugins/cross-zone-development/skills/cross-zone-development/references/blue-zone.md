@@ -45,7 +45,9 @@ script; use TASK only when green-local judgment, revision-bound validation or
 required recovery cannot be expressed through EXEC. Bridge executes directly; green AI filters saved output through its configured
 OpenAI-compatible inference API only when ai_review=true. Prefer one EXEC per phase, combining related commands in a
 script instead of dispatching each command separately. Stop dependent steps on failure and preserve stage evidence.
-Set a bounded execution timeout and leave at least 60 seconds for review. Do not resend a failed
+Set a bounded execution timeout. For reviewed EXEC, set the total task timeout to
+cover that command timeout plus the configured review budget (300 seconds by
+default); remaining task time still caps review. Do not resend a failed
 or interrupted EXEC to recover output: request a read-only TASK against its saved
 receipt. Resolve pending recovery through TASK before dispatching another EXEC.
 

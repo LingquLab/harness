@@ -9,6 +9,7 @@ import time
 import urllib.error
 import urllib.request
 
+from .config import DEFAULT_REVIEW_TIMEOUT_SECONDS
 from .egress import SCHEMA, review
 from .hapi import NoRedirect
 
@@ -77,7 +78,7 @@ class OpenAIReviewer:
         key = settings.get("api_key")
         if not key or key == KEY_PLACEHOLDER:
             return self._failure("Review API key is not configured in green-local exec_review.api_key.")
-        stop_at = min(deadline, time.time() + settings.get("timeout_seconds", 60))
+        stop_at = min(deadline, time.time() + settings.get("timeout_seconds", DEFAULT_REVIEW_TIMEOUT_SECONDS))
         if cancel.is_set():
             return self._stopped("CANCELLED")
         if time.time() >= stop_at:
