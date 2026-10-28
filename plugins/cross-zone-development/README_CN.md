@@ -32,7 +32,8 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 再结束 Bridge 进程，下一次启动即加载新版。实例锁继续生效；中断任务不会重跑。
 后续 AI 先核查遗留进程和已完成操作，状态未知时只做只读检查，无需人工解锁。
 
-蓝区指令省略 `target`，Bridge 根据当前会话补齐；兼容旧格式中匹配的显式 target。
+0.5.0 使用 `CROSS_ZONE` 标记及 `cross-zone/v3` 协议，所有消息删除 `target`，
+仅按当前 HAPI 会话绑定。OPEN 的 `version` 报告实际运行的 Bridge 版本。
 
 新增 `EXEC`：蓝区提供命令参数数组，或 Bash/PowerShell/Python 脚本，Bridge
 在 session 目录原样执行，默认再由绿区 AI 仅过滤已保存的输出并回传。退出码、超时和
@@ -67,7 +68,7 @@ TASK/EXEC/ANSWER/CANCEL。收到有效 OPEN 即按蓝区处理，无需确认角
 蓝区确认 OPEN 指向当前授权会话后，按全新连接等待用户下一条指令，不自动发送
 测试任务、能力探测、恢复检查，也不自动续跑旧任务。用户请求执行工作时默认使用
 EXEC；需要绿区判断、指定 revision 的验证或必要恢复时才使用 TASK。
-历史记录和恢复保护仍然保留；`ai_review` 继续默认 true。
+历史记录和恢复保护仍然保留；`ai_review` 默认 false，可能返回受限信息时由蓝区显式设置 true。
 若不接受，则仅用普通对话说明原因。蓝区不得注入、回显或返回 OPEN 协议消息。
 
 蓝区完成并检查候选修改后，先提交并把任务分支推送到批准的 GitHub 仓库，再发送
@@ -100,11 +101,11 @@ TASK 超时不得低于 600 秒。普通代码验证建议使用 900 秒；即�
 
 ## 协议边界
 
-TASK/EXEC/ANSWER/CANCEL 与 ACK/PROGRESS/QUESTION/RESULT/REJECTED 保持 v2 既有语义。
+TASK/EXEC/ANSWER/CANCEL 与 ACK/PROGRESS/QUESTION/RESULT/REJECTED 使用 v3 会话绑定语义。
 ACK/PROGRESS 仅保留类型、任务 ID 和轮次；即时启动时合并为 PROGRESS。
 消息在协议标记后使用缩进 JSON 代码块，兼容旧版单行 JSON 和完整通知。
 TASK 不携带仓库/profile 别名。
-结果必须绑定准确的任务、iteration 和 target；TASK 提供 revision 时还必须绑定该
+结果必须绑定准确的任务、iteration 和当前 HAPI 会话；TASK 提供 revision 时还必须绑定该
 不可变 revision。RESULT 必须包含全部 requested checks；代码验证的 PASS 还要求所有
 检查在干净且未修改的基线上通过。依赖或权限不足返回
 BLOCKED；Agent 故障会附带脱敏、限长的诊断详情。信息不足发送 QUESTION，最多 3 次。绿区完成出区审查后才能设置
@@ -117,12 +118,11 @@ Markdown 围栏、URL、内网地址、绝对路径、完整堆栈，以及少�
 
 ### 简单 EXEC 结果跳过 AI
 
-EXEC 新增可选布尔字段 `ai_review`，默认 `true`。对于时间、计数、布尔值等
-已确定不含保密信息的简单输出，可设置 `false`，由 Bridge 直接返回结果，不启动
-绿区 AI。所有检查必须在命令中用断言完成，退出码为零才表示通过。输出须为
+EXEC 的 `ai_review` 默认 `false`，省略时由 Bridge 直接返回结果，不启动绿区 AI。
+可能返回受限信息或需要过滤时，由蓝区显式设置 `true`。所有检查必须在命令中用断言完成，退出码为零才表示通过。输出须为
 不超过 2000 字节的 UTF-8 stdout，stderr 必须为空；异常输出不截断外发。
 凭据检测、结果大小限制、执行回执和恢复规则仍生效。不确定输出内容或涉及日志时
-保留默认 AI 审查。完整契约见协议中的 Optional AI review。
+显式启用 AI 审查。完整契约见协议中的 Optional AI review。
 
 ### 中文输出编码
 
@@ -145,3 +145,14 @@ HAPI 消息历史代次或游标失效时，Bridge 自动绑定到当前消息�
 明确提示蓝区重发尚未确认接收的指令；重发应保留原 task_id 和 iteration。
 不要在 Bridge 运行中删除 state；删除 state 会丢失本地执行历史，不能据此确认
 先前远端操作是否完成。
+
+### v3 升级
+
+两侧需同步升级到 0.5.0；旧标记和 v2 协议不再接收。旧配置的路由身份仅用于
+验证原数据库归属，不作为新协议字段。已有完成记录、回执和去重记录保留，待发
+通知保持 event_id 并转换成 v3。旧的未启动排队指令标记 BLOCKED，不会自动执行；旧执行中
+或等待继续的任务（包括回答后重新排队的续跑任务）标记 NEEDS_HUMAN 并要求恢复检查。不能验证归属的旧状态原样
+保留并拒绝加载，不通过删除历史来绕过恢复。详见协议 Upgrading from v2。
+
+open 会从当前消息末尾开始新的空闲交互，不自动续跑已有排队任务；需要保留并继续
+原有监听及队列时使用 run。已完成记录、回执和恢复保护不因 open 被清除。

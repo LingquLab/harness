@@ -10,7 +10,7 @@ from .protocol import PROTOCOL, canonical, fingerprint, read_wire, wire
 class Store:
     """Owned by the controller thread; callers choose transaction boundaries."""
 
-    def __init__(self, path, binding):
+    def __init__(self, path, binding, legacy_target=None):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
@@ -33,17 +33,63 @@ class Store:
                 sent INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL
             );
         """)
-        with self.db:
-            old = self.get_meta("binding")
-            if old is not None and old != fingerprint(binding):
-                # Close below rather than leaving an open Windows file handle.
-                mismatch = True
-            else:
-                mismatch = False
+        try:
+            with self.db:
+                old = self.get_meta("binding")
+                # Legacy identity is used only to verify and migrate an existing
+                # local database, never as a v3 routing or configuration option.
+                candidates = {fingerprint(binding)}
+                legacy_targets = {legacy_target} if isinstance(legacy_target, str) else set()
+                for row in self.db.execute("SELECT request FROM tasks"):
+                    request = json.loads(row["request"])
+                    if request.get("protocol") == "cross-zone/v2" and isinstance(request.get("target"), str):
+                        legacy_targets.add(request["target"])
+                candidates.update(fingerprint({**binding, "target": value}) for value in legacy_targets)
+                if old is not None and old not in candidates:
+                    raise ValueError("State belongs to a different session/configuration; use another state_dir")
+                state_protocol = self.get_meta("protocol")
+                if state_protocol not in (None, "cross-zone/v2", PROTOCOL):
+                    raise ValueError("Unsupported state protocol; retain this database and use a compatible Bridge")
                 self.set_meta("binding", fingerprint(binding))
-        if mismatch:
+                self._upgrade_v2()
+                self.set_meta("protocol", PROTOCOL)
+        except Exception:
             self.db.close()
-            raise ValueError("State belongs to a different session/configuration; use another state_dir")
+            raise
+
+    def _upgrade_v2(self):
+        """Retain old execution facts; never launch an old queued command."""
+        # Preserve outbox IDs for Hub retry deduplication while switching only
+        # their envelope. Completed task requests and inbox digests stay intact.
+        for row in self.db.execute("SELECT id,text FROM outbox WHERE sent=0").fetchall():
+            if not row["text"].startswith("CROSS_ZONE_V2\n"):
+                continue
+            event = read_wire("CROSS_ZONE\n" + row["text"].split("\n", 1)[1])
+            if not isinstance(event, dict):
+                raise ValueError("Invalid saved v2 notification; retain state for inspection")
+            if event.get("type") in {"ACK", "QUESTION"}:
+                self.db.execute("DELETE FROM outbox WHERE id=?", (row["id"],))
+                continue
+            event.pop("target", None)
+            if "protocol" in event:
+                event["protocol"] = PROTOCOL
+            self.db.execute("UPDATE outbox SET text=? WHERE id=?", (wire(event, readable=True), row["id"]))
+        for task in self.db.execute("SELECT * FROM tasks WHERE state IN ('QUEUED','RUNNING','CANCELLING','WAITING_ANSWER')").fetchall():
+            request = json.loads(task["request"])
+            if request.get("protocol") != "cross-zone/v2":
+                continue
+            continuation = task["session_id"] or task["answer"] is not None or task["questions"] > 0
+            if task["state"] == "QUEUED" and not continuation:
+                status, reason = "BLOCKED", "protocol_upgraded_command_not_started"
+                detail = "Saved v2 command was not started. Send a new v3 instruction if still needed."
+                self._drop_pending_notifications(request)
+            else:
+                # Never invite an ANSWER to a now-terminal old continuation.
+                self._drop_pending_notifications(request, kinds={"ACK", "QUESTION"})
+                self.require_recovery(task)
+                status, reason = "NEEDS_HUMAN", "protocol_upgraded_prior_effects_unknown"
+                detail = "Saved v2 execution or continuation will not be replayed; inspect its receipts and effects."
+            self.terminal(task, status, reason, detail)
 
     def close(self):
         self.db.close()
@@ -66,21 +112,21 @@ class Store:
         self.db.execute(f"UPDATE tasks SET {sql} WHERE task_id=? AND iteration=?",
                         (*fields.values(), task["task_id"], task["iteration"]))
 
-    def _drop_pending_ack(self, request):
+    def _drop_pending_notifications(self, request, *, kinds=frozenset({"ACK"})):
         for row in self.db.execute("SELECT id,text FROM outbox WHERE sent=0").fetchall():
             event = read_wire(row["text"])
             binding = ("task_id", "iteration")
             if "protocol" in event:  # Legacy full envelope.
-                binding += ("target", "revision")
-            if event["type"] == "ACK" and all(event.get(k) == request.get(k) for k in binding):
+                binding += ("revision",)
+            if event["type"] in kinds and all(event.get(k) == request.get(k) for k in binding):
                 self.db.execute("DELETE FROM outbox WHERE id=?", (row["id"],))
 
     def emit(self, request, kind, **fields):
         if kind == "PROGRESS":
-            self._drop_pending_ack(request)
+            self._drop_pending_notifications(request)
         event_id = "green-" + uuid.uuid4().hex
         event = {"protocol": PROTOCOL, "type": kind, "event_id": event_id,
-                 **{k: request[k] for k in ("task_id", "iteration", "target")}, **fields}
+                 **{k: request[k] for k in ("task_id", "iteration")}, **fields}
         if "revision" in request:
             event["revision"] = request["revision"]
         if kind in {"ACK", "PROGRESS"}:

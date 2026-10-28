@@ -18,7 +18,7 @@ from cross_zone.protocol import ProtocolError, parse, read_wire, wire
 
 def exec_task(**changes):
     event = fixtures.general_task(type="EXEC", execution={"argv": [sys.executable, "-c", "print('done')"]},
-                                  execution_timeout_seconds=10)
+                                  execution_timeout_seconds=10, ai_review=True)
     event.update(changes)
     return event
 
@@ -27,22 +27,22 @@ class ExecutionProtocolTests(unittest.TestCase):
     def test_accepts_both_forms_and_legacy_task(self):
         for event in (exec_task(), exec_task(execution={"interpreter": "bash", "script": "printf done\\n"}),
                       fixtures.task()):
-            self.assertEqual(parse(wire(event, readable=True), "green-dev"), event)
+            self.assertEqual(parse(wire(event, readable=True)), event)
 
     def test_ai_review_is_optional_exec_only_boolean(self):
         for flag in (True, False):
             event = exec_task(ai_review=flag)
-            self.assertEqual(parse(wire(event), "green-dev"), event)
+            self.assertEqual(parse(wire(event)), event)
         for flag in (None, 0, 1, "false"):
             with self.assertRaises(ProtocolError):
-                parse(wire(exec_task(ai_review=flag)), "green-dev")
+                parse(wire(exec_task(ai_review=flag)))
         with self.assertRaises(ProtocolError):
-            parse(wire(fixtures.general_task(ai_review=False)), "green-dev")
+            parse(wire(fixtures.general_task(ai_review=False)))
 
     def test_exec_inherits_session_target(self):
         event = exec_task()
         compact = {k: v for k, v in event.items() if k != "target"}
-        self.assertEqual(parse(wire(compact, readable=True), "green-dev"), event)
+        self.assertEqual(parse(wire(compact, readable=True)), event)
 
     def test_rejects_ambiguous_or_unbounded_execution(self):
         invalid = [{}, {"argv": []}, {"argv": [""]}, {"argv": ["echo", "a\0b"]},
@@ -54,11 +54,11 @@ class ExecutionProtocolTests(unittest.TestCase):
                    {"argv": ["echo"], "cwd": "/tmp"}]
         for execution in invalid:
             with self.subTest(execution=str(execution)[:60]), self.assertRaises(ProtocolError):
-                parse(wire(exec_task(execution=execution)), "green-dev")
+                parse(wire(exec_task(execution=execution)))
         for changes in ({"revision": "a" * 40}, {"execution_timeout_seconds": 0},
                         {"execution_timeout_seconds": True}, {"execution_timeout_seconds": 541}):
             with self.subTest(changes=changes), self.assertRaises(ProtocolError):
-                parse(wire(exec_task(**changes)), "green-dev")
+                parse(wire(exec_task(**changes)))
 
 
 class DirectExecutionTests(unittest.TestCase):
@@ -85,6 +85,15 @@ class DirectExecutionTests(unittest.TestCase):
             result = self.run_command(event)
         self.assertIn(text, result["output"]["summary"])
         self.assertEqual((self.receipt().parent / "stdout.log").read_bytes(), (text + os.linesep).encode("utf-8"))
+
+    def test_omitted_ai_review_skips_ai_and_uses_machine_egress(self):
+        event = exec_task()
+        event.pop("ai_review")
+        self.assertEqual(parse(wire(event)), event)
+        result = self.run_command(event)
+        self.assertEqual(self.reviewer.calls, [])
+        self.assertFalse(result["output"]["egress_reviewed"])
+        self.assertEqual(review(result["output"], event, execution=result["execution"])["status"], "PASS")
 
     def test_direct_output_skips_ai_and_passes_machine_egress(self):
         event = exec_task(ai_review=False)
@@ -269,6 +278,22 @@ class ExecutionBridgeTests(unittest.TestCase):
             time.sleep(0.01)
         self.fail("executor did not settle")
 
+    def test_omitted_ai_review_returns_direct_result_and_keeps_secret_checks(self):
+        for iteration, text in enumerate(("42", self.client.access_key), 1):
+            event = exec_task(iteration=iteration, event_id=f"default-{iteration}",
+                              execution={"argv": [sys.executable, "-c", f"print({text!r})"]})
+            event.pop("ai_review")
+            self.ingest(event)
+            result = self.finish()
+            self.assertEqual(result["status"], "PASS" if iteration == 1 else "NEEDS_HUMAN")
+            self.assertNotIn("target", result)
+            self.assertNotIn("egress_reviewed", result)
+            if iteration == 1:
+                self.assertIn("no AI review", result["summary"])
+            else:
+                self.assertNotIn(text, json.dumps(result))
+        self.assertEqual(self.reviewer.calls, [])
+
     def test_direct_results_reach_hapi_and_secrets_are_withheld(self):
         for iteration, text in enumerate(("42", self.client.access_key, "password=private"), 1):
             self.ingest(exec_task(ai_review=False, iteration=iteration, event_id=f"direct-{iteration}",
@@ -303,8 +328,8 @@ class ExecutionBridgeTests(unittest.TestCase):
             self.assertEqual(result["execution"], {"status": "EXITED", "exit_code": 0})
             self.assertEqual(result["status"], "PASS" if iteration == 1 else "NEEDS_HUMAN")
             self.assertNotIn("not-for-export", json.dumps(result))
-        self.ingest({"protocol": "cross-zone/v2", "type": "ANSWER", "event_id": "answer", "iteration": 3,
-                     "task_id": "task-1", "target": "green-dev", "question_id": "q", "answer": "yes"})
+        self.ingest({"protocol": "cross-zone/v3", "type": "ANSWER", "event_id": "answer", "iteration": 3,
+                     "task_id": "task-1", "question_id": "q", "answer": "yes"})
         self.bridge.flush()
         self.assertEqual(self.client.sent[-1][1]["reason"], "question_not_pending")
         self.assertEqual(len(self.reviewer.calls), 3)
@@ -332,8 +357,8 @@ class ExecutionBridgeTests(unittest.TestCase):
         self.bridge.work()
         self.assertFalse(self.reviewer.calls)
         self.ingest(exec_task(iteration=2, event_id="next"))
-        self.ingest({"protocol": "cross-zone/v2", "type": "CANCEL", "event_id": "cancel",
-                     "task_id": "task-1", "iteration": 2, "target": "green-dev"})
+        self.ingest({"protocol": "cross-zone/v3", "type": "CANCEL", "event_id": "cancel",
+                     "task_id": "task-1", "iteration": 2})
         self.bridge.flush()
         self.assertEqual(self.client.sent[-1][1]["execution"]["status"], "NOT_STARTED")
 

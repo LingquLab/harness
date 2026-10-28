@@ -148,11 +148,11 @@ def main():
             bridge = Bridge(config, client)
             if args.command == "open":
                 # Green initiates cross-zone work with the session the operator
-                # selected on the command line. Bind before OPEN to retain an immediate TASK.
-                bridge.bind()
-                event = open_event(config["target"], "sessions/" + config["session_id"])
+                # selected on the command line. Start idle at the current message head.
+                bridge.prepare_open()
+                event = open_event("sessions/" + config["session_id"])
                 client.send(config["session_id"], _wire(event, readable=True), event["event_id"])
-                print("OPEN notice sent; waiting for blue to confirm the session.", flush=True)
+                print("OPEN notice sent; waiting for instructions.", flush=True)
                 try:
                     bridge.run()
                 finally:

@@ -10,6 +10,11 @@ def load_config(path):
     if url.scheme not in ("http", "https") or not url.netloc or url.username or url.password or url.query or url.fragment:
         raise ValueError("hub_url must be an HTTP(S) base URL without credentials/query")
     config["hub_url"] = config["hub_url"].rstrip("/") + "/"
+    # Retain an old identity only to verify the existing database binding during upgrade.
+    config.pop("_legacy_target", None)
+    legacy_target = config.pop("target", None)
+    if isinstance(legacy_target, str):
+        config["_legacy_target"] = legacy_target
     config.setdefault("access_key", None)
     if config["access_key"] is not None and (not isinstance(config["access_key"], str) or not config["access_key"].strip()):
         raise ValueError("access_key must be a non-empty string or null")

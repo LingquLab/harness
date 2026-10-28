@@ -126,7 +126,7 @@ class DirectExecutor:
             return {"failure": "cancelled", "status": "CANCELLED",
                     "detail": "Execution cancelled; raw output remains green-local and was not exported.",
                     "execution": execution}
-        if request.get("ai_review", True) is False:
+        if request.get("ai_review", False) is False:
             # Only successful, small stdout is eligible for direct export. Never
             # return stderr or exception text from the command through this path.
             if execution["status"] != "EXITED" or execution["exit_code"] != 0:
