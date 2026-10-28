@@ -46,6 +46,17 @@ class Bridge:
             self.store.set_meta("bound_at", int(time.time() * 1000))
         LOG.info("Bound to current message head; historical commands skipped")
 
+    def _rebind_after_reset(self, page):
+        # Use the server's new snapshot, never an old sequence in a new epoch.
+        # Rebinding affects delivery position only; durable execution facts stay.
+        cursor = {"at": page["snapshotHeadAt"], "seq": page["snapshotHeadSeq"], "epoch": page["epoch"]}
+        with self.store.db:
+            self.store.set_meta("cursor", cursor)
+            self.store.set_meta("bound_at", int(time.time() * 1000))
+        LOG.warning("Message history cursor reset; rebound to the current message head without replaying history. "
+                    "Existing tasks, receipts, deduplication and pending results are retained. "
+                    "Commands not accepted before the reset may have been skipped; resend any unacknowledged instruction.")
+
     def _accept(self, event):
         store = self.store
         digest = fingerprint(event)
@@ -99,7 +110,8 @@ class Bridge:
             response = self.client.messages(self.config["session_id"], **query)
             page = response["page"]
             if page.get("reset") or page["epoch"] != cursor["epoch"]:
-                raise CursorReset("Message history epoch changed; operator must rebind using a new state directory")
+                self._rebind_after_reset(page)
+                return
             messages = response["messages"]
             if cursor["seq"] is None and page["hasMore"]:
                 # Empty-at-bind sessions may produce more than a page before first poll.
@@ -109,7 +121,8 @@ class Bridge:
                     older = self.client.messages(self.config["session_id"], limit=100,
                                                  beforeAt=before["nextBeforeAt"], beforeSeq=before["nextBeforeSeq"])
                     if older["page"]["epoch"] != cursor["epoch"]:
-                        raise CursorReset("Message history changed during bootstrap")
+                        self._rebind_after_reset(older["page"])
+                        return
                     pages.append(older["messages"])
                     before = older["page"]
                     if not before["hasMore"]:
