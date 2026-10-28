@@ -88,7 +88,7 @@ class HapiContractTest(unittest.TestCase):
         self.assertIn("## Green-originated requests", protocol)
         self.assertIn("never apply TASK validation", protocol)
         self.assertIn("Blue must not create, inject, echo", protocol)
-        self.assertIn("send one formal TASK", blue)
+        self.assertNotIn("send one formal TASK", blue)
         self.assertIn("blue neither requests nor names", blue)
         self.assertIn("<plugin-dir>/start-bridge.sh open <session-id>", green)
         self.assertIn("not configuration", green)

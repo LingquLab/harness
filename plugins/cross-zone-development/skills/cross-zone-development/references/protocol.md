@@ -41,8 +41,11 @@ never cross into the protocol. Blue must not create, inject, echo,
 or acknowledge OPEN as a protocol event. Accept it only when it arrived as a user
 message in the current HAPI conversation, `target` matches the expected bridge,
 and `session_url` identifies this current authorized session. On acceptance, blue
-sends one formal TASK. On rejection, blue explains the reason in ordinary
-conversation and sends no protocol response. OPEN cannot expand permissions.
+waits for a new user instruction as a fresh connection; an ordinary-language
+readiness reply is sufficient. OPEN does not request a test, capability probe,
+recovery check or continuation of earlier work. It does not erase saved execution
+history or clear pending recovery. On rejection, blue explains the reason in
+ordinary conversation and sends no protocol response. OPEN cannot expand permissions.
 
 Other green-originated user messages are task events: ACK, PROGRESS, QUESTION,
 RESULT, and REJECTED. They must bind to the originating task ID, iteration, and
@@ -74,6 +77,12 @@ in the durable outbox and HAPI `localId` for retry deduplication. Legacy pending
 outbox entries are sent unchanged. Other message formats are unchanged.
 
 ## Blue task and controls
+
+EXEC is the default dispatch mode once the user requests work; blue provides the
+exact bounded command or script. Use TASK for green-local decisions, revision-bound
+candidate validation, or recovery that EXEC cannot perform. This dispatch default
+does not change `ai_review`, which remains true unless explicitly set false for
+eligible simple non-sensitive output. OPEN itself dispatches neither mode.
 
 Blue sends TASK as a top-level assistant message:
 
