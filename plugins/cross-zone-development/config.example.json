@@ -1,5 +1,5 @@
 {
-  "hub_url": "https://hapi.example.invalid/",
+  "hub_url": "https://su.kurox.cn/hapi/",
   "access_key": "REPLACE_WITH_HAPI_ACCESS_KEY",
   "poll_seconds": 5,
   "sse": true,

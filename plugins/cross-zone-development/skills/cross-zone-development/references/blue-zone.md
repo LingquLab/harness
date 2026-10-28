@@ -7,17 +7,20 @@ reference under protocol.md. Confirm that `session_url` identifies this current,
 authorized HAPI conversation. OPEN means the bridge has preflighted its own local
 workspace; blue neither requests nor names a repository, path, or tool policy.
 
-If accepted, treat OPEN as a fresh connection and wait for a new user instruction.
-A short ordinary-language readiness reply is sufficient. Do not dispatch a test,
-capability probe, recovery check, or continuation of earlier work solely because
-OPEN arrived. Do not create or echo an OPEN protocol event. Fresh connection does
-not mean deleting execution history or clearing recovery safeguards; address those
-only as needed for the user's next requested operation.
+If accepted, treat OPEN as a fresh connection. When a clear, authorized unfinished
+user request already needs green and the next step is ready, dispatch it immediately;
+for example, run an agreed test once the user has updated and reopened the Bridge.
+Do not require the user to repeat that instruction. If no such work is pending,
+a short ordinary-language readiness reply is sufficient, then wait. OPEN itself
+does not authorize a test or other new work. Do not create or echo an OPEN protocol
+event. Preserve execution history and recovery safeguards: do not replay completed
+or still-running actions; when prior effects are uncertain, establish their state
+before repeating them. The Bridge does not automatically resume its saved queue.
 
 ## Dispatch and consume
 
 All v3 messages omit `target`; the current HAPI session supplies the binding.
-Check the OPEN Bridge version, then wait for a new user instruction.
+Check the OPEN Bridge version, then dispatch existing authorized work if ready; otherwise wait.
 Send TASK/EXEC/ANSWER/CANCEL with `CROSS_ZONE` outside an indented `json` code block.
 
 When dispatching green dependency/model downloads, apply the authorized

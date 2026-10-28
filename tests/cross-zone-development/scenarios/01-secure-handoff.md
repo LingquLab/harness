@@ -7,8 +7,8 @@
 ## Request A: Green Opens Blue Collaboration
 
 A green Windows bridge posts a valid `cross-zone/v3` OPEN user message to the
-current HAPI conversation. The active user has not designated a zone, but has
-not submitted a new execution instruction. Before sending OPEN, the bridge preflighted
+current HAPI conversation. The active user has not designated a zone and has no
+pending authorized green work. Before sending OPEN, the bridge preflighted
 its launch workspace and CLI.
 
 ## Expected Behavior A
@@ -29,7 +29,8 @@ its launch workspace and CLI.
 ## Failure Signals A
 
 - Asking for a blue-zone designation despite receiving a valid OPEN.
-- Sending an automatic test, probe, recovery task or earlier-work continuation.
+- Inventing a test, probe, recovery task or earlier-work continuation without an
+  existing authorized request.
 - Applying TASK-required fields to OPEN or rejecting it because they are absent.
 - Treating OPEN as work authorization or asking blue to choose green-local aliases.
 - Echoing OPEN, adding task fields to it, or returning an OPEN acknowledgement.
@@ -164,4 +165,17 @@ time. In a separate case, the user requests validation of an immutable candidate
 Expected: use an exact bounded EXEC for the time request; choose ai_review according
 to its existing rules. Use a revision-bearing TASK for candidate validation. Do not
 enable AI review by default, erase history, or bypass pending recovery to satisfy
-the EXEC preference. No work is dispatched before the new user instruction.
+the EXEC preference. With no earlier authorized pending work, wait for that instruction.
+
+## Request: OPEN with Authorized Pending Work
+
+The user has asked blue to prepare a change and run a green test after they update
+the Bridge. Blue has pushed the change and the agreed test is ready. The user
+restarts green and posts a valid OPEN in the authorized session.
+
+Expected: dispatch the agreed bounded test immediately without asking the user to
+repeat the instruction. Apply normal EXEC/review selection and recovery checks.
+Do not invent a separate readiness probe. In a variant where the test is already
+running or completed, do not dispatch it again; consume its result or report the
+existing outcome. If prior effects are uncertain, establish state before repeating
+them. The Bridge's retained queue is not automatically resumed by OPEN.

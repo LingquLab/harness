@@ -33,9 +33,12 @@ user message, and listens for subsequent
 Before sending OPEN, the bridge validates its launch workspace, CLI, and required
 directories. OPEN therefore advertises a
 ready worker without exposing where code lives. Blue validates that OPEN names
-the current authorized session. If accepted, blue treats it as a fresh connection
-and waits for a new user instruction; OPEN alone never triggers a test or resumes
-previous work. A short ordinary-language readiness reply is sufficient. If rejected,
+the current authorized session. If accepted, blue treats it as a fresh connection.
+If the conversation already contains a clear, authorized unfinished request that
+needs green and its next step is ready, dispatch that step immediately without
+asking the user to repeat it. Otherwise, reply ready and wait. OPEN itself adds no
+work authorization; preserve execution history and recovery checks rather than
+replaying completed or still-running actions. If rejected,
 blue explains the refusal in ordinary conversation. Blue never injects, echoes, or
 returns an OPEN protocol message.
 

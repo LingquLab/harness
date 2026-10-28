@@ -16,7 +16,9 @@ Windows, and CodeAgentCLI, then copy this plugin directory to an approved local
 location. No third-party Python package is required.
 
 Copy [config.windows.json](config.windows.json) to the ignored
-`config.local.json` and set `hub_url` and `access_key`. Start it from the
+`config.local.json` and set `access_key`. The templates default to
+`hub_url=https://su.kurox.cn/hapi/`; change it locally for another Hub. The Windows
+template starts CodeAgent with `--effort low`. Start it from the
 directory green authorizes as the task workspace:
 
 ```bash
@@ -41,7 +43,7 @@ Until those are established it may only perform read-only diagnostics and report
 concrete blockers to blue. Recovery evidence travels locally, not in the wire schema.
 Older global recovery pauses are migrated automatically on startup.
 
-Version 0.5.0 uses CROSS_ZONE and cross-zone/v3. All messages omit `target`;
+Version 0.5.1 uses CROSS_ZONE and cross-zone/v3. All messages omit `target`;
 OPEN reports the running Bridge release in `version`. Legacy target fields are
 rejected on the live transport.
 
@@ -80,8 +82,10 @@ The bridge first validates the launch workspace, CLI, and state directory. Only
 then does it bind at the current message head, send one green-originated OPEN user message,
 and listen for TASK/EXEC/ANSWER/CANCEL. A valid OPEN selects blue without confirmation.
 Blue validates OPEN against the current authorized conversation, treats an accepted
-OPEN as a fresh connection, and waits for a new user instruction. It does not
-automatically test or resume earlier work. Rejections use ordinary conversation;
+OPEN as a fresh connection, and immediately dispatches any clear, authorized
+unfinished user request whose next green step is ready. With no such work, blue
+replies ready and waits. OPEN alone adds no work authorization, and completed or
+still-running actions are not replayed. Rejections use ordinary conversation;
 blue never echoes or injects OPEN. User-requested work defaults to EXEC; TASK is
 reserved for local judgment, revision-bound validation or required recovery.
 Saved history and recovery safeguards remain in force; `ai_review` defaults
@@ -217,11 +221,12 @@ unacknowledged instruction. Retrying retains the original task/iteration identit
 Do not delete state while Bridge is running; deleting it removes local execution
 history and cannot establish whether an earlier remote action completed.
 
-### Upgrading to 0.5.0 / v3
+### Upgrading to 0.5.1 / v3
 
 Upgrade blue and green together. Live v2 envelopes and target fields are no longer
-accepted. OPEN includes version 0.5.0 and starts an idle interaction at the current
-message head; retained queued work is not automatically resumed. Use run only to
+accepted. OPEN includes version 0.5.1 and starts a fresh interaction at the current
+message head. Blue can dispatch existing authorized work immediately; the Bridge's
+retained queue is not automatically resumed. Use run only to
 intentionally continue the listener and its queue. EXEC defaults to no AI review;
 blue opts in with ai_review=true for possibly restricted output. See the protocol
 reference's Upgrading from v2 section for state migration and recovery behavior.

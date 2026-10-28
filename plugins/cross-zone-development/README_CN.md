@@ -14,7 +14,9 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 位置；Bridge 不依赖第三方 Python 包。
 
 把 [config.windows.json](config.windows.json) 复制为已忽略的 `config.local.json`，填写
-`hub_url` 和 `access_key`。从绿区授权作为任务 workspace 的目录启动：
+`access_key`。模板默认 `hub_url` 为 `https://su.kurox.cn/hapi/`，使用其他 Hub 时
+在本地修改；Windows 模板默认以 `--effort low` 启动 CodeAgent。
+从绿区授权作为任务 workspace 的目录启动：
 
 ```bash
 <plugin-dir>/start-bridge.sh doctor <session-id>
@@ -32,7 +34,7 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 再结束 Bridge 进程，下一次启动即加载新版。实例锁继续生效；中断任务不会重跑。
 后续 AI 先核查遗留进程和已完成操作，状态未知时只做只读检查，无需人工解锁。
 
-0.5.0 使用 `CROSS_ZONE` 标记及 `cross-zone/v3` 协议，所有消息删除 `target`，
+0.5.1 使用 `CROSS_ZONE` 标记及 `cross-zone/v3` 协议，所有消息删除 `target`，
 仅按当前 HAPI 会话绑定。OPEN 的 `version` 报告实际运行的 Bridge 版本。
 
 新增 `EXEC`：蓝区提供命令参数数组，或 Bash/PowerShell/Python 脚本，Bridge
@@ -65,8 +67,10 @@ workspace。
 Bridge 先检查启动 workspace、CLI 和状态目录；检查通过后先绑定消息游标，再以 user
 消息发送一次绿区来源的 OPEN，并监听该会话，等待
 TASK/EXEC/ANSWER/CANCEL。收到有效 OPEN 即按蓝区处理，无需确认角色。
-蓝区确认 OPEN 指向当前授权会话后，按全新连接等待用户下一条指令，不自动发送
-测试任务、能力探测、恢复检查，也不自动续跑旧任务。用户请求执行工作时默认使用
+蓝区确认 OPEN 指向当前授权会话后，按全新连接处理：若上下文已有明确授权、
+尚未完成且下一步已就绪的绿区工作，就直接下发，不要求用户重复指令；否则回复就绪并等待。
+OPEN 本身不增加任务授权，不重放已完成或仍在运行的动作；先前执行效果不明时，仍须
+先核查状态。Bridge 不自动恢复本地旧队列。用户请求执行工作时默认使用
 EXEC；需要绿区判断、指定 revision 的验证或必要恢复时才使用 TASK。
 历史记录和恢复保护仍然保留；`ai_review` 默认 false，可能返回受限信息时由蓝区显式设置 true。
 若不接受，则仅用普通对话说明原因。蓝区不得注入、回显或返回 OPEN 协议消息。
@@ -180,11 +184,12 @@ HAPI 消息历史代次或游标失效时，Bridge 自动绑定到当前消息�
 
 ### v3 升级
 
-两侧需同步升级到 0.5.0；旧标记和 v2 协议不再接收。旧配置的路由身份仅用于
+两侧需同步升级到 0.5.1；旧标记和 v2 协议不再接收。旧配置的路由身份仅用于
 验证原数据库归属，不作为新协议字段。已有完成记录、回执和去重记录保留，待发
 通知保持 event_id 并转换成 v3。旧的未启动排队指令标记 BLOCKED，不会自动执行；旧执行中
 或等待继续的任务（包括回答后重新排队的续跑任务）标记 NEEDS_HUMAN 并要求恢复检查。不能验证归属的旧状态原样
 保留并拒绝加载，不通过删除历史来绕过恢复。详见协议 Upgrading from v2。
 
-open 会从当前消息末尾开始新的空闲交互，不自动续跑已有排队任务；需要保留并继续
+open 会从当前消息末尾开始新的交互；蓝区可直接下发已授权且就绪的待办工作，
+Bridge 不自动续跑已有排队任务。需要保留并继续
 原有监听及队列时使用 run。已完成记录、回执和恢复保护不因 open 被清除。
