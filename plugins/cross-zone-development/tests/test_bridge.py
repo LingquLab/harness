@@ -105,7 +105,7 @@ def config(directory):
     return {"hub_url": "http://localhost/hapi/", "session_id": "blue-session",
             "state_dir": str(Path(directory) / "state"), "sse": False,
             "workspace_dir": str(Path(directory) / "repo"),
-            "max_task_seconds": 1800, "max_questions": 3, "poll_seconds": 0.1, "agent_command": ["codeagent"],
+            "max_task_seconds": 1800, "max_concurrent_tasks": 1, "max_questions": 3, "poll_seconds": 0.1, "agent_command": ["codeagent"],
             "agent_live_log": True, "agent_log_max_chars": 2000}
 
 
@@ -538,7 +538,7 @@ class BridgeTests(unittest.TestCase):
     def settle(self):
         for _ in range(100):
             self.bridge.work()
-            if not self.bridge.current:
+            if not self.bridge.active:
                 return
             time.sleep(0.01)
         self.fail("worker did not settle")
@@ -964,12 +964,12 @@ class BridgeTests(unittest.TestCase):
         self.ingest(task())
         self.bridge.work()
         self.assertTrue(started.wait(1))
-        current = self.bridge.current
+        current = self.bridge.active
         try:
             self.client.epoch += 1
             self.bridge.catch_up()
-            self.assertIs(self.bridge.current, current)
-            self.assertFalse(current[3].is_set())
+            self.assertIs(self.bridge.active, current)
+            self.assertFalse(next(iter(current.values()))[1].is_set())
         finally:
             release.set()
         self.settle()
@@ -1410,7 +1410,7 @@ class AgentTests(unittest.TestCase):
             bridge.catch_up()
             for _ in range(200):
                 bridge.work()
-                if not bridge.current:
+                if not bridge.active:
                     break
                 time.sleep(0.01)
             bridge.flush()

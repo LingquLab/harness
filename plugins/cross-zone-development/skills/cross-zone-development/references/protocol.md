@@ -160,6 +160,30 @@ green Agent startup and protected-environment checks commonly exceed five minute
 TASK rejects `repository` and `scope_profile`. Neither side can select a green
 path or profile through the protocol.
 
+## Concurrent scheduling
+
+Bridge 0.5.2 accepts new messages while jobs run and executes independent EXEC/TASK
+jobs concurrently. Green-local `max_concurrent_tasks` defaults to 4 (integer 1–16);
+set 1 for serial operation. Excess jobs remain QUEUED with ACK until a slot opens.
+An active slot includes command execution and review; a returned QUESTION releases
+its slot while awaiting ANSWER. Results may arrive out of dispatch order: bind each
+to task_id/iteration/session rather than to the last submitted request.
+
+Use distinct task IDs for independent work, such as download-106, download-107 and
+status-query. A later iteration of the same task ID is still rejected until its
+previous iteration is terminal. CANCEL only affects its specified task/iteration;
+Bridge shutdown signals all active jobs and persists their individual outcomes.
+Worker completion wakes result collection, and state/outbox writes stay on the
+Bridge main thread. Recovery evidence clears only the interruptions it inspected,
+not interruptions added by another worker; pending recovery still blocks EXEC
+before command launch. Restart never replays interrupted actions.
+
+Per-task receipts/captures remain separate, but the session working directory and
+remote resources are shared. Blue must dispatch only independent operations or
+use explicit resource coordination; a different task ID is not filesystem or
+service isolation. Candidate Git preparation is serialized within the Bridge to
+protect shared repository metadata; candidate execution can still overlap.
+
 ## Direct commands and scripts (EXEC)
 
 The complete incoming message remains limited to 24000 UTF-8 bytes.
@@ -241,7 +265,9 @@ case nor restart recovery requires manual acknowledgement.
 For omitted/false `ai_review`, send only the command and its binding/budgets: omit
 `goal`, `checks` and the default `ai_review=false`. Keep both timeout fields:
 `execution_timeout_seconds` bounds the command, while `timeout_seconds` bounds the
-whole task including queueing and result handling. They are not interchangeable.
+started task including continuation waits and result handling. The initial queue
+wait does not start its execution deadline; continuations retain their original
+deadline. The two budgets are not interchangeable.
 
 ````text
 CROSS_ZONE

@@ -30,8 +30,9 @@ class Bridge:
         self.store = Store(Path(config["state_dir"]) / "bridge.sqlite3", binding, legacy_target=config.get("_legacy_target"))
         self.agent = agent or CodeAgentCLI(config)
         self.direct_executor = DirectExecutor(config, reviewer if reviewer is not None else OpenAIReviewer(config))
-        self.executor = ThreadPoolExecutor(max_workers=1)
-        self.current = None
+        self.max_concurrent_tasks = config.get("max_concurrent_tasks", 4)
+        self.executor = ThreadPoolExecutor(max_workers=self.max_concurrent_tasks)
+        self.active = {}
         self.stop = threading.Event()
         self.wake = threading.Event()
 
@@ -176,7 +177,7 @@ class Bridge:
                 raise CursorReset("Hub pagination made no progress")
             cursor = next_cursor
 
-    def _complete(self, task, result):
+    def _complete(self, task, result, recovery):
         request = json.loads(task["request"])
         execution = result.get("execution") if request["type"] == "EXEC" else None
         if result.get("pause"):
@@ -212,8 +213,11 @@ class Bridge:
                 raise ValueError("baseline_worktree_modified: PASS result has a modified baseline worktree")
             fields["worktree_modified"] = bool(result.get("dirty"))
             if output["kind"] == "RESULT" and result.get("recovery_checked") is True:
-                self.store.set_meta("recovery_tasks", [])
-                self.store.set_meta("recovery_required", False)
+                checked = {(item["task_id"], item["iteration"]) for item in recovery}
+                pending = self.store.get_meta("recovery_tasks") or []
+                remaining = [item for item in pending if (item["task_id"], item["iteration"]) not in checked]
+                self.store.set_meta("recovery_tasks", remaining)
+                self.store.set_meta("recovery_required", bool(remaining))
             if output["kind"] == "QUESTION":
                 sid = result.get("session_id")
                 if not isinstance(sid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", sid):
@@ -239,8 +243,9 @@ class Bridge:
             self.store.terminal(task, "NEEDS_HUMAN", "structured_result_or_egress_review_failed", detail, execution)
 
     def work(self):
-        if self.current:
-            task_id, iteration, future, cancel = self.current
+        # Worker threads never access the store. Collect and commit each result
+        # here, retaining the recovery snapshot that worker actually inspected.
+        for (task_id, iteration), (future, cancel, recovery) in list(self.active.items()):
             task = self.store.get_task(task_id, iteration)
             if task["state"] == "CANCELLING":
                 cancel.set()
@@ -252,19 +257,20 @@ class Bridge:
                                            "Agent adapter raised an unexpected exception.", exc)
                     result["pause"] = True
                 with self.store.db:
-                    self._complete(task, result)
+                    self._complete(task, result, recovery)
                 LOG.info("Task state: %s / %s = %s", task_id, iteration,
                          self.store.get_task(task_id, iteration)["state"])
-                self.current = None
+                del self.active[(task_id, iteration)]
         with self.store.db:
             for task in self.store.db.execute("SELECT * FROM tasks WHERE state IN ('WAITING_ANSWER','QUEUED') AND deadline IS NOT NULL AND deadline<=?", (time.time(),)).fetchall():
                 self.store.terminal(task, "TIMED_OUT", "task_deadline_exceeded",
                                     f"Task deadline expired while state was {task['state']}; "
                                     "no new agent process was launched for this step.")
-        if self.current or self.stop.is_set():
+        if self.stop.is_set():
             return
-        task = self.store.db.execute("SELECT * FROM tasks WHERE state='QUEUED' ORDER BY rowid LIMIT 1").fetchone()
-        if task:
+        slots = self.max_concurrent_tasks - len(self.active)
+        tasks = self.store.db.execute("SELECT * FROM tasks WHERE state='QUEUED' ORDER BY rowid LIMIT ?", (slots,)).fetchall()
+        for task in tasks:
             request = json.loads(task["request"])
             deadline = task["deadline"] or time.time() + min(request["timeout_seconds"], self.config["max_task_seconds"])
             with self.store.db:
@@ -275,7 +281,8 @@ class Bridge:
             recovery = self.store.get_meta("recovery_tasks") or []
             runner = self.direct_executor if request["type"] == "EXEC" else self.agent
             future = self.executor.submit(runner.run, request, task["session_id"], task["answer"], deadline, cancel, recovery)
-            self.current = (task["task_id"], task["iteration"], future, cancel)
+            self.active[(task["task_id"], task["iteration"])] = (future, cancel, recovery)
+            future.add_done_callback(lambda completed: self.wake.set())
 
     def flush(self):
         for row in self.store.db.execute("SELECT * FROM outbox WHERE sent=0 ORDER BY rowid LIMIT 20").fetchall():
@@ -305,13 +312,11 @@ class Bridge:
 
     def close(self):
         self.stop.set()
-        if self.current:
-            self.current[3].set()
-            # work() translates adapter exceptions and persists the terminal state.
-            try:
-                self.current[2].result()
-            except Exception:
-                pass
-            self.work()
+        # Signal every job before waiting for any one of them. Completion and
+        # exception handling still pass through the main-thread work() path.
+        for future, cancel, recovery in self.active.values():
+            cancel.set()
         self.executor.shutdown(wait=True)
+        if self.active:
+            self.work()
         self.store.close()

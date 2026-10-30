@@ -4,6 +4,7 @@
   "poll_seconds": 5,
   "sse": true,
   "max_task_seconds": 1800,
+  "max_concurrent_tasks": 4,
   "max_questions": 3,
   "agent_command": [
     "C:/Program Files/CodeAgentCLI/bin/codeagentcli.exe",

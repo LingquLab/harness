@@ -148,6 +148,21 @@ pseudocode snippets may cross. The complete structured result is limited to
 The plugin contains original LingquLab material and is licensed under the
 repository MIT license.
 
+### Concurrent execution
+
+`max_concurrent_tasks` defaults to 4 (1–16, green-local); set 1 to restore serial
+execution. New EXEC/TASK messages are accepted during running work, and available
+slots start independent jobs immediately. Extra jobs queue. Use different task
+IDs for independent jobs: another iteration of the same ID waits for its previous
+iteration to become terminal before it can be accepted. Cancellation and results
+are per task/iteration; result order can differ from submission order. Shutdown
+cancels all active jobs, and restart preserves interrupted-job recovery records.
+
+Receipts/captures stay under each task's run directory, and live logs identify the
+task. The session cwd and remote resources remain shared; scripts must coordinate
+conflicting writes. Candidate Git preparation is serialized, then candidate tests
+can overlap. Update local configuration and restart after running work completes.
+
 ### EXEC review through an inference API
 
 `ai_review=true` uses one OpenAI-compatible Chat Completions request, without

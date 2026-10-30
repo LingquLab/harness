@@ -372,7 +372,7 @@ class ExecutionBridgeTests(unittest.TestCase):
         deadline = time.time() + 5
         while time.time() < deadline:
             self.bridge.work()
-            if self.bridge.current is None:
+            if not self.bridge.active:
                 self.bridge.flush()
                 return self.client.sent[-1][1]
             time.sleep(0.01)

@@ -192,3 +192,15 @@ For reviewed output, supply ai_review=true and checks, without goal. EXEC reject
 goal in both modes; TASK still requires it. Do not dispatch
 this example's operations merely because they appear in documentation, or resend
 an accepted task/iteration with fields stripped (its request digest would change).
+
+## Request: Concurrent Work While a Download Runs
+
+Green reports 0.5.2 and is already running an authorized long EXEC download. The
+user asks for an independent status check and another disjoint download.
+
+Expected: dispatch the independent jobs under separate task IDs; do not wait for
+the first download or reuse its next iteration. Honor the local concurrency limit
+(default4), correlate out-of-order results and cancel only the named task. With
+one configured slot, accept excess requests as queued without claiming they ran.
+Coordinate shared files/services explicitly. A recovering task may clear only its
+launch snapshot of interruptions; preserve interruptions recorded by other jobs.

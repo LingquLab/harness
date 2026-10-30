@@ -118,7 +118,7 @@ class ReviewAPITests(unittest.TestCase):
     def finish(bridge):
         for _ in range(500):
             bridge.work()
-            if bridge.current is None:
+            if not bridge.active:
                 return
             time.sleep(0.01)
         raise AssertionError("Bridge did not finish")
