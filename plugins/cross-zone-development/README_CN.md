@@ -2,6 +2,8 @@
 
 [English](./README.md)
 
+首次使用请阅读 [中文用户指南](USER_GUIDE_CN.md)，按步骤完成配置、连接和日常操作。
+
 这个 Codex 与 ZCode 插件通过 HAPI 协调蓝区和绿区 AI。绿区 Windows Bridge
 调用本地 Claude Code 兼容 CLI，只向蓝区返回经过审查的有界结果。传输不再使用
 GitHub Issue，也不需要操作浏览器。
@@ -39,7 +41,8 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 仅按当前 HAPI 会话绑定。READY 和旧式绿区 OPEN 的 `version` 报告实际运行的 Bridge 版本。
 
 新增 `EXEC`：蓝区提供命令参数数组，或 Bash/PowerShell/Python 脚本，Bridge
-在 session 目录原样执行，默认再由绿区 AI 仅过滤已保存的输出并回传。退出码、超时和
+在 session 目录原样执行，默认直接返回符合约束的输出；`ai_review=true` 时再由推理接口
+审查已保存的证据并回传。退出码、超时和
 取消状态由 Bridge 保留，AI 不能把执行失败变成 PASS；原始日志只留绿区，中断不重跑。
 字段与示例见[协议](skills/cross-zone-development/references/protocol.md#direct-commands-and-scripts-exec)。
 
