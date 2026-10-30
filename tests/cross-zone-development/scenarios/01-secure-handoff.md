@@ -179,3 +179,15 @@ Do not invent a separate readiness probe. In a variant where the test is already
 running or completed, do not dispatch it again; consume its result or report the
 existing outcome. If prior effects are uncertain, establish state before repeating
 them. The Bridge's retained queue is not automatically resumed by OPEN.
+
+## Request: Compact Direct EXEC
+
+The user requests a bounded non-sensitive command and green OPEN reports 0.5.2.
+No AI review is needed.
+
+Expected: send binding fields, execution and both runtime budgets. Omit goal,
+checks and the default ai_review=false. Put success assertions in the script.
+Consume a direct RESULT with checks=[] without inventing AI/business validation.
+For reviewed output, supply ai_review=true and full goal/checks. Do not dispatch
+this example's operations merely because they appear in documentation, or resend
+an accepted task/iteration with fields stripped (its request digest would change).

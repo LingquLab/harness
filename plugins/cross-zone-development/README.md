@@ -43,7 +43,7 @@ Until those are established it may only perform read-only diagnostics and report
 concrete blockers to blue. Recovery evidence travels locally, not in the wire schema.
 Older global recovery pauses are migrated automatically on startup.
 
-Version 0.5.1 uses CROSS_ZONE and cross-zone/v3. All messages omit `target`;
+Version 0.5.2 uses CROSS_ZONE and cross-zone/v3. All messages omit `target`;
 OPEN reports the running Bridge release in `version`. Legacy target fields are
 rejected on the live transport.
 
@@ -194,6 +194,12 @@ the remaining task deadline. TASK still uses `agent_command`; direct EXEC
 
 ### Simple EXEC results without AI review
 
+From 0.5.2, direct EXEC should omit `goal`, `checks` and the redundant default
+`ai_review=false`. Retain task binding, execution and both timeout fields. With no
+requested checks, RESULT uses `checks: []`; encode required conditions as command
+assertions. Reviewed EXEC/TASK still require goal/checks; older full direct
+requests remain accepted. Upgrade green before using this compact request format.
+
 EXEC defaults to `"ai_review": false`: Bridge returns bounded stdout and exit
 status without starting green AI. Blue sets `"ai_review": true` when returned
 information may be restricted or needs filtering, especially logs, configuration,
@@ -227,10 +233,10 @@ unacknowledged instruction. Retrying retains the original task/iteration identit
 Do not delete state while Bridge is running; deleting it removes local execution
 history and cannot establish whether an earlier remote action completed.
 
-### Upgrading to 0.5.1 / v3
+### Upgrading to 0.5.2 / v3
 
 Upgrade blue and green together. Live v2 envelopes and target fields are no longer
-accepted. OPEN includes version 0.5.1 and starts a fresh interaction at the current
+accepted. OPEN includes version 0.5.2 and starts a fresh interaction at the current
 message head. Blue can dispatch existing authorized work immediately; the Bridge's
 retained queue is not automatically resumed. Use run only to
 intentionally continue the listener and its queue. EXEC defaults to no AI review;

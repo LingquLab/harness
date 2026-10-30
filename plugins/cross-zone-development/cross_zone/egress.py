@@ -58,7 +58,8 @@ def review(value, request, secrets=(), execution=None):
         raise ValueError(f"result_checks: checks expected array, got {type(checks).__name__}")
     if len(checks) > 20:
         raise ValueError(f"result_checks: checks count={len(checks)} exceeds limit=20")
-    wanted = {c["id"] for c in request["checks"]}
+    requested_checks = request.get("checks", []) if direct else request["checks"]
+    wanted = {c["id"] for c in requested_checks}
     seen = set()
     for index, check in enumerate(checks):
         if not isinstance(check, dict) or set(check) != {"id", "status"}:

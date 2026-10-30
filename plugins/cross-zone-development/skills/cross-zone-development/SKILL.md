@@ -88,6 +88,11 @@ Removed legacy configuration fields are ignored and grant no authority.
 
 ### Simple EXEC results without AI review
 
+With Bridge 0.5.2+, omit `goal`, `checks` and the default `ai_review=false` in
+direct EXEC. Keep execution, binding and both timeout fields. Use the compact
+form and compatibility rules in the protocol reference; reviewed EXEC/TASK still
+require goal/checks.
+
 EXEC defaults to `"ai_review": false`: Bridge returns bounded stdout and exit
 status without starting green AI. Blue sets `"ai_review": true` when returned
 information may be restricted or needs filtering, especially logs, configuration,

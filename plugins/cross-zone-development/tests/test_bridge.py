@@ -114,7 +114,7 @@ class OpenTests(unittest.TestCase):
         event = open_event("sessions/19146292-52a4-4094-9cd5-6086b0c3ec05")
         self.assertEqual(event["protocol"], "cross-zone/v3")
         self.assertEqual(event["type"], "OPEN")
-        self.assertEqual(event["version"], "0.5.1")
+        self.assertEqual(event["version"], "0.5.2")
         self.assertNotIn("target", event)
         self.assertIn(event["session_url"], event["session_url"])
         self.assertIn("green-open-", event["event_id"])

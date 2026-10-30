@@ -21,7 +21,7 @@ CROSS_ZONE
   "protocol": "cross-zone/v3",
   "type": "OPEN",
   "event_id": "green-open-0123456789abcdef",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef"
 }
 ```
@@ -143,8 +143,9 @@ CROSS_ZONE
 All v3 envelopes are bound by the current authorized HAPI session and contain no
 `target` field. Unknown fields, including legacy `target`, are rejected; Bridge
 does not fill or infer routing fields. OPEN additionally carries `version`, the
-running Bridge release (for example `0.5.1`), distinct from protocol `cross-zone/v3`.
-All fields shown except `revision` are mandatory. EXEC also permits optional `ai_review`. Include `revision` only when
+running Bridge release (for example `0.5.2`), distinct from protocol `cross-zone/v3`.
+TASK requires all fields shown except `revision`. EXEC field requirements depend
+on `ai_review`, as described below. Include `revision` only when
 the task validates candidate code; it is then a full lowercase SHA-1 or SHA-256
 Git commit ID that blue has already pushed to the approved GitHub repository.
 General environment, hardware, time, service-status, and diagnostic tasks omit
@@ -162,8 +163,9 @@ path or profile through the protocol.
 ## Direct commands and scripts (EXEC)
 
 The complete incoming message remains limited to 24000 UTF-8 bytes.
-EXEC shares TASK's binding, goal, checks and total `timeout_seconds`, but forbids
-`revision`. It adds `execution_timeout_seconds` (integer, 1 through total timeout
+EXEC shares TASK's binding and total `timeout_seconds`, but forbids `revision`.
+Goal/checks are required only with `ai_review=true`; direct EXEC may omit them.
+It adds `execution_timeout_seconds` (integer, 1 through total timeout
 minus 60) and exactly one execution form:
 
 - `"execution": {"argv": ["executable", "argument", "..."]}`: 1–128 strings,
@@ -233,6 +235,42 @@ receipt or interrupted iteration is never replayed. Pending recovery blocks EXEC
 before launch; blue can dispatch a read-only TASK to establish process state and
 completed effects, which clears recovery after validated evidence. Neither this
 case nor restart recovery requires manual acknowledgement.
+
+### Compact direct EXEC (0.5.2+)
+
+For omitted/false `ai_review`, send only the command and its binding/budgets: omit
+`goal`, `checks` and the default `ai_review=false`. Keep both timeout fields:
+`execution_timeout_seconds` bounds the command, while `timeout_seconds` bounds the
+whole task including queueing and result handling. They are not interchangeable.
+
+````text
+CROSS_ZONE
+```json
+{
+  "protocol": "cross-zone/v3",
+  "type": "EXEC",
+  "event_id": "blue-time-1",
+  "task_id": "time",
+  "iteration": 1,
+  "execution": {
+    "interpreter": "python",
+    "script": "import datetime\nprint(datetime.datetime.now(datetime.timezone.utc).isoformat())\n"
+  },
+  "execution_timeout_seconds": 15,
+  "timeout_seconds": 600
+}
+```
+````
+
+TASK and reviewed EXEC still require goal/checks. Old full direct requests remain
+accepted: supplied goal/checks are validated and check IDs remain bound to the
+result. Without supplied checks, the direct RESULT contains `checks: []`; PASS
+means exit zero and successful output/egress validation, not AI assessment of a
+business outcome. Encode all required conditions as command assertions. A script
+that prints a failing child status but itself exits zero has not asserted success.
+Upgrade green to 0.5.2+ before using the compact form; older Bridges reject it.
+Deduplication compares the original request, so do not strip fields and resend the
+same task/iteration after it has already been accepted.
 
 ### Optional AI review
 
@@ -346,7 +384,7 @@ Local live-log truncation does not change these export limits.
 
 ## Upgrading from v2
 
-Version 0.5.1 accepts only the CROSS_ZONE marker and cross-zone/v3 live envelopes.
+Version 0.5.2 accepts only the CROSS_ZONE marker and cross-zone/v3 live envelopes.
 Do not send v2 commands or add target to any v3 message. Upgrade both sides before
 dispatching work. OPEN reports the running Bridge version; receipt alone does not
 request a capability test or any task.

@@ -22,6 +22,13 @@ def exec_task(**changes):
     return event
 
 
+def compact_exec(**changes):
+    event = exec_task(**changes)
+    for field in ("goal", "checks", "ai_review"):
+        event.pop(field, None)
+    return event
+
+
 class ExecutionProtocolTests(unittest.TestCase):
     def test_accepts_both_forms_and_legacy_task(self):
         for event in (exec_task(), exec_task(execution={"interpreter": "bash", "script": "printf done\\n"}),
@@ -37,6 +44,22 @@ class ExecutionProtocolTests(unittest.TestCase):
                 parse(wire(exec_task(ai_review=flag)))
         with self.assertRaises(ProtocolError):
             parse(wire(fixtures.general_task(ai_review=False)))
+
+    def test_compact_direct_exec_with_omitted_or_false_review(self):
+        for event in (compact_exec(), compact_exec() | {"ai_review": False}):
+            self.assertEqual(parse(wire(event)), event)
+            self.assertNotIn("goal", event)
+            self.assertNotIn("checks", event)
+        for changes in ({"goal": ""}, {"checks": []}, {"checks": [{"id": "bad"}]}, {"extra": True}):
+            with self.subTest(changes=changes), self.assertRaises(ProtocolError):
+                parse(wire(compact_exec() | changes))
+
+    def test_reviewed_exec_and_task_still_require_goal_and_checks(self):
+        for event in (exec_task(), fixtures.task()):
+            for fields in (("goal",), ("checks",), ("goal", "checks")):
+                missing = {k: v for k, v in event.items() if k not in fields}
+                with self.subTest(kind=event["type"], fields=fields), self.assertRaises(ProtocolError):
+                    parse(wire(missing))
 
     def test_exec_inherits_session_target(self):
         event = exec_task()
@@ -276,6 +299,24 @@ class ExecutionBridgeTests(unittest.TestCase):
                 return self.client.sent[-1][1]
             time.sleep(0.01)
         self.fail("executor did not settle")
+
+    def test_compact_exec_passes_without_ai_and_keeps_output_protections(self):
+        scripts = [("print('done')", "PASS"),
+                   (f"print({self.client.access_key!r})", "NEEDS_HUMAN"),
+                   ("print('unfinished');raise SystemExit(1)", "FAIL")]
+        for iteration, (script, status) in enumerate(scripts, 1):
+            event = compact_exec(iteration=iteration, event_id=f"compact-{iteration}",
+                                 execution={"interpreter": "python", "script": script})
+            self.ingest(event)
+            result = self.finish()
+            self.assertEqual(result["status"], status)
+            self.assertNotIn(self.client.access_key, json.dumps(result))
+            if status == "PASS":
+                self.assertEqual(result["checks"], [])
+                self.assertIn("done", result["summary"])
+            else:
+                self.assertNotIn("summary", result)
+        self.assertFalse(self.reviewer.calls)
 
     def test_omitted_ai_review_returns_direct_result_and_keeps_secret_checks(self):
         for iteration, text in enumerate(("42", self.client.access_key), 1):

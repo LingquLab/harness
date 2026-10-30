@@ -37,7 +37,7 @@ class HapiContractTest(unittest.TestCase):
             "protocol": "cross-zone/v3",
             "type": "OPEN",
             "event_id": "green-open-0123456789abcdef",
-            "version": "0.5.1",
+            "version": "0.5.2",
             "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef",
         })
         self.assertNotIn("task_id", event)
@@ -49,7 +49,7 @@ class HapiContractTest(unittest.TestCase):
             "protocol": "cross-zone/v3",
             "type": "OPEN",
             "event_id": "green-open-0123456789abcdef",
-            "version": "0.5.1",
+            "version": "0.5.2",
             "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef",
         }
         invalid = [
@@ -116,7 +116,7 @@ class HapiContractTest(unittest.TestCase):
     def test_release_metadata_is_consistent(self) -> None:
         import tomllib
         version = tomllib.loads((PLUGIN / "pyproject.toml").read_text())["project"]["version"]
-        self.assertEqual(version, "0.5.1")
+        self.assertEqual(version, "0.5.2")
         for name in (".codex-plugin/plugin.json", ".zcode-plugin/plugin.json"):
             self.assertEqual(json.loads((PLUGIN / name).read_text())["version"], version)
         self.assertIn(f'__version__ = "{version}"', (PLUGIN / "cross_zone/__init__.py").read_text())

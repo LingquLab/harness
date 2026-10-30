@@ -150,7 +150,7 @@ class DirectExecutor:
                         "execution": execution}
             return {"output": {"kind": "RESULT", "status": "PASS",
                                "summary": "Direct EXEC (no AI review):\n" + summary.strip(),
-                               "checks": [{"id": c["id"], "status": "PASS"} for c in request["checks"]],
+                               "checks": [{"id": c["id"], "status": "PASS"} for c in request.get("checks", [])],
                                "error_code": "", "question": "", "local_modification_tested": False,
                                "local_modification_outcome": "NOT_RUN", "egress_reviewed": False},
                     "execution": execution}
