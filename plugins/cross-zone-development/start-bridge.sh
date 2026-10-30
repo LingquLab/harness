@@ -51,7 +51,8 @@ color_bridge_output() {
             fi
             case "$message" in
                 Agent\ assistant:*|Agent\ user:*|Agent\ stdout:*) color=32 ;;
-                Agent\ tool\ *) color=90 ;;
+                Agent\ tool\ *|EXEC\ command:*|EXEC\ stdout:*) color=90 ;;
+                EXEC\ stderr:*) color=31 ;;
                 Agent\ stderr:*) color=33 ;;
                 *)
                     color=""

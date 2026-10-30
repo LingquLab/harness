@@ -11,6 +11,7 @@
     "low"
   ],
   "agent_live_log": true,
+  "exec_live_log": true,
   "agent_log_max_chars": 2000,
   "exec_review": {
     "base_url": "http://techdev.hicomputing.huawei.com:18000/v1",

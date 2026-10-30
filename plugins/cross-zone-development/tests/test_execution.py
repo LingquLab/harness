@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from pathlib import Path
 import sys
@@ -106,6 +107,76 @@ class DirectExecutionTests(unittest.TestCase):
 
     def receipt(self):
         return Path(self.cfg["state_dir"]) / "runs/task-1/1/execution/execution.json"
+
+    def test_live_output_is_visible_before_exit_and_capture_is_unchanged(self):
+        # The child cannot finish until the test observes both live streams.
+        script = ("import sys,time\nfrom pathlib import Path\n"
+                  "b='中文进度'.encode('utf-8')\n"
+                  "sys.stdout.buffer.write(b[:2]);sys.stdout.buffer.flush()\n"
+                  "time.sleep(0.1)\n"
+                  "sys.stdout.buffer.write(b[2:]+b'\\rnext');sys.stdout.buffer.flush()\n"
+                  "sys.stderr.buffer.write('错误\\n'.encode('utf-8'));sys.stderr.buffer.flush()\n"
+                  "while not Path('release-live').exists():time.sleep(0.01)\n")
+        event = exec_task(ai_review=False, execution={"interpreter": "python", "script": script})
+        observed, records, seen, results, errors = threading.Event(), [], set(), [], []
+
+        class Handler(logging.Handler):
+            def emit(self, record):
+                text = record.getMessage()
+                records.append(text)
+                if text.startswith("EXEC stdout:") and "中文进度" in text:
+                    seen.add("stdout")
+                if text.startswith("EXEC stderr:") and "错误" in text:
+                    seen.add("stderr")
+                if seen == {"stdout", "stderr"}:
+                    observed.set()
+
+        def run():
+            try:
+                results.append(self.run_command(event))
+            except BaseException as exc:
+                errors.append(exc)
+
+        logger, handler = logging.getLogger("cross_zone.execution"), Handler()
+        old_level = logger.level
+        logger.setLevel(logging.INFO)
+        logger.addHandler(handler)
+        worker = threading.Thread(target=run)
+        try:
+            worker.start()
+            self.assertTrue(observed.wait(5), "both streams must appear while command is running")
+            self.assertTrue(worker.is_alive())
+        finally:
+            release = Path(self.cfg["state_dir"]) / "release-live"
+            release.parent.mkdir(parents=True, exist_ok=True)
+            release.touch()
+            worker.join(5)
+            logger.removeHandler(handler)
+            logger.setLevel(old_level)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(errors, [])
+        self.assertTrue(any(line.startswith("EXEC command:") for line in records))
+        self.assertEqual((self.receipt().parent / "stdout.log").read_bytes(), '中文进度\rnext'.encode())
+        self.assertEqual((self.receipt().parent / "stderr.log").read_bytes(), '错误\n'.encode())
+        self.assertEqual(results[0]["failure"], "direct_output_rejected")
+        self.assertFalse(self.reviewer.calls)
+
+    def test_output_flood_does_not_flood_display_or_truncate_capture(self):
+        script = "import sys;sys.stdout.buffer.write(b'row\\n'*30000)"
+        event = exec_task(execution={"interpreter": "python", "script": script})
+        with self.assertLogs("cross_zone.execution", level="INFO") as captured:
+            result = self.run_command(event)
+        self.assertEqual(result["execution"], {"status": "EXITED", "exit_code": 0})
+        self.assertEqual((self.receipt().parent / "stdout.log").read_bytes(), b'row\n'*30000)
+        self.assertLess(len(captured.records), 1000)
+        self.assertTrue(any("omitted" in record.getMessage() for record in captured.records))
+
+    def test_exec_display_can_be_disabled_without_losing_capture(self):
+        self.cfg["exec_live_log"] = False
+        with self.assertNoLogs("cross_zone.execution", level="INFO"):
+            result = self.run_command(compact_exec())
+        self.assertEqual(result["output"]["status"], "PASS")
+        self.assertEqual((self.receipt().parent / "stdout.log").read_text(), "done\n")
 
     def test_direct_python_stdout_is_utf8_under_legacy_parent_encoding(self):
         text = "检查成功，服务器可访问"

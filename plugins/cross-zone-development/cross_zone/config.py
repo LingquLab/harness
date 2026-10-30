@@ -31,6 +31,7 @@ def load_config(path):
     config.setdefault("max_task_seconds", 1800)
     config.setdefault("agent_command", ["codeagent"])
     config.setdefault("agent_live_log", True)
+    config.setdefault("exec_live_log", True)
     config.setdefault("agent_log_max_chars", 2000)
     if not isinstance(config["agent_command"], list) or not config["agent_command"] or any(
         not isinstance(v, str) or not v for v in config["agent_command"]
@@ -38,6 +39,8 @@ def load_config(path):
         raise ValueError("agent_command must be an argv array")
     if not isinstance(config["agent_live_log"], bool):
         raise ValueError("agent_live_log must be a boolean")
+    if not isinstance(config["exec_live_log"], bool):
+        raise ValueError("exec_live_log must be a boolean")
     if not isinstance(config["agent_log_max_chars"], int) or not 100 <= config["agent_log_max_chars"] <= 20000:
         raise ValueError("agent_log_max_chars out of range")
     if not 0.1 <= config["poll_seconds"] <= 300:

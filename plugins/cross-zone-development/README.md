@@ -218,7 +218,16 @@ are not repaired by the change.
 
 In an interactive terminal, the launcher colors Bridge log timestamps and levels
 cyan. Agent text is green, tool calls/results gray, and Agent stderr yellow;
-continuation lines retain their category color. Log files and redirected output
+continuation lines retain their category color. EXEC commands/stdout are gray and
+EXEC stderr is red. With `exec_live_log=true` (default), commands are shown at
+launch and stdout/stderr are tailed during execution, including partial lines.
+Screen refresh and exit-tail display are bounded; dense output shows an omission
+marker instead of flooding the terminal or delaying completion. Set it false to
+disable EXEC display. Original stdout/stderr remain unchanged in
+the execution capture, and only the existing bounded/reviewed result crosses HAPI.
+Python child output is unbuffered. Other programs must flush their output; data
+captured or redirected inside a script is visible only when that script forwards it.
+Log files and redirected output
 remain plain text. Task-state PASS is bold green and FAIL bold red.
 Set `NO_COLOR=1` to disable color.
 
