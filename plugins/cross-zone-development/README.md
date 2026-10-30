@@ -46,7 +46,9 @@ Until those are established it may only perform read-only diagnostics and report
 concrete blockers to blue. Recovery evidence travels locally, not in the wire schema.
 Older global recovery pauses are migrated automatically on startup.
 
-Version 0.5.2 uses CROSS_ZONE and cross-zone/v3. All messages omit `target`;
+Version 0.6.0 adds default single-session discovery initiated by blue OPEN and a
+complete Chinese user guide. Explicit-session workers remain available.
+It uses CROSS_ZONE and cross-zone/v3. All messages omit `target`;
 READY and legacy green OPEN report the running Bridge release in `version`. Legacy target fields are
 rejected on the live transport.
 
@@ -284,10 +286,10 @@ unacknowledged instruction. Retrying retains the original task/iteration identit
 Do not delete state while Bridge is running; deleting it removes local execution
 history and cannot establish whether an earlier remote action completed.
 
-### Upgrading to 0.5.2 / v3
+### Upgrading to 0.6.0 / v3
 
 Upgrade blue and green together. Live v2 envelopes and target fields are no longer
-accepted. Legacy green OPEN includes version 0.5.2 and starts a fresh interaction at the current
+accepted. Legacy green OPEN includes version 0.6.0 and starts a fresh interaction at the current
 message head. Blue can dispatch existing authorized work immediately; the Bridge's
 retained queue is not automatically resumed. Use run only to
 intentionally continue the listener and its queue. EXEC defaults to no AI review;

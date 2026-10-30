@@ -34,7 +34,7 @@ CLOSED each contain exactly these six fields:
   "type": "READY",
   "event_id": "green-ready-1",
   "request_event_id": "blue-open-1",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef"
 }
 ```
@@ -68,7 +68,7 @@ CROSS_ZONE
   "protocol": "cross-zone/v3",
   "type": "OPEN",
   "event_id": "green-open-0123456789abcdef",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef"
 }
 ```
@@ -190,7 +190,7 @@ CROSS_ZONE
 All v3 envelopes are bound by the current authorized HAPI session and contain no
 `target` field. Unknown fields, including legacy `target`, are rejected; Bridge
 does not fill or infer routing fields. Legacy green OPEN additionally carries `version`, the
-running Bridge release (for example `0.5.2`), distinct from protocol `cross-zone/v3`.
+running Bridge release (for example `0.6.0`), distinct from protocol `cross-zone/v3`.
 TASK requires all fields shown except `revision`. EXEC field requirements depend
 on `ai_review`, as described below. Include `revision` only when
 the task validates candidate code; it is then a full lowercase SHA-1 or SHA-256
@@ -457,7 +457,7 @@ Local live-log truncation does not change these export limits.
 
 ## Upgrading from v2
 
-Version 0.5.2 accepts only the CROSS_ZONE marker and cross-zone/v3 live envelopes.
+Version 0.6.0 accepts only the CROSS_ZONE marker and cross-zone/v3 live envelopes.
 Do not send v2 commands or add target to any v3 message. Upgrade both sides before
 dispatching work. READY and legacy green OPEN report the running Bridge version; receipt alone does not
 request a capability test or any task.

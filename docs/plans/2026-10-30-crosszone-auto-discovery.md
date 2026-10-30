@@ -39,8 +39,8 @@ worktrees remain untouched. This is a durable implementation/maintenance plan.
 - Independent review identified a TASK/CLOSE arrival race and reply starvation
   behind a failed session. CLOSE now catches up through its message position;
   reply queues drain independently per session. Both have regression coverage.
-- Marketplace validation has an unchanged main-branch failure: marketplace.json
-  advertises cross-zone 0.4.0 while its ZCode manifest is 0.5.2. Neither release
-  metadata nor the validator was changed by this task.
+- Initial implementation encountered a main-branch marketplace mismatch (catalog
+  0.4.0 versus manifest 0.5.2). The subsequent 0.6.0 release synchronizes catalog,
+  manifests, runtime and validator version expectations.
 - No live green Windows/HAPI deployment was used; tests exercise isolated HAPI
   fakes, real Bridge state/dispatch and existing HTTP/SSE transport regressions.

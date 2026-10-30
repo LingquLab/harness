@@ -40,7 +40,7 @@ class HapiContractTest(unittest.TestCase):
             "protocol": "cross-zone/v3",
             "type": "OPEN",
             "event_id": "green-open-0123456789abcdef",
-            "version": "0.5.2",
+            "version": "0.6.0",
             "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef",
         })
         self.assertNotIn("task_id", event)
@@ -52,7 +52,7 @@ class HapiContractTest(unittest.TestCase):
             "protocol": "cross-zone/v3",
             "type": "OPEN",
             "event_id": "green-open-0123456789abcdef",
-            "version": "0.5.2",
+            "version": "0.6.0",
             "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef",
         }
         invalid = [
@@ -135,7 +135,7 @@ class HapiContractTest(unittest.TestCase):
                 with self.assertRaises(ProtocolError):
                     parse(wire(event))
             invalid = [
-                {**event, "version": "0.5.2"},
+                {**event, "version": "0.6.0"},
                 {**event, "session_url": "sessions/other"},
                 {**event, "target": "green"},
                 {**event, "protocol": "cross-zone/v2"},
@@ -150,10 +150,13 @@ class HapiContractTest(unittest.TestCase):
     def test_release_metadata_is_consistent(self) -> None:
         import tomllib
         version = tomllib.loads((PLUGIN / "pyproject.toml").read_text())["project"]["version"]
-        self.assertEqual(version, "0.5.2")
+        self.assertEqual(version, "0.6.0")
         for name in (".codex-plugin/plugin.json", ".zcode-plugin/plugin.json"):
             self.assertEqual(json.loads((PLUGIN / name).read_text())["version"], version)
         self.assertIn(f'__version__ = "{version}"', (PLUGIN / "cross_zone/__init__.py").read_text())
+        marketplace = json.loads((ROOT / "marketplace.json").read_text())
+        entry = next(item for item in marketplace["plugins"] if item["name"] == "cross-zone-development")
+        self.assertEqual(entry["version"], version)
 
     def test_removed_github_transport_is_not_shipped(self) -> None:
         self.assertFalse((SKILL / "references" / "github-access.md").exists())
