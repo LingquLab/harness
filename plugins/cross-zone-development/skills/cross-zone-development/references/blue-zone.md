@@ -1,6 +1,18 @@
 # Blue role
 
-## Receive OPEN
+## Connect to default discovery
+
+Send the exact blue OPEN envelope from protocol.md as a top-level assistant
+message in the current authorized HAPI session. Wait for READY matching its
+request_event_id, Bridge version and current session_url before sending work.
+Do not scan other sessions or forge user messages. A valid green READY also
+selects the blue role. BUSY reveals no other session; wait or use an independent
+explicit worker arranged by the operator. Send CLOSE when finished; CLOSED
+confirms an idle release. Connection does not authorize new work or permit replay.
+On READY, dispatch an existing authorized ready step, preserving execution history
+and recovery safeguards. Restart of discovery resumes saved execution state.
+
+## Receive legacy green OPEN
 
 When a user message contains OPEN, validate its exact schema, Bridge version, and session
 reference under protocol.md. Confirm that `session_url` identifies this current,
@@ -12,7 +24,7 @@ user request already needs green and the next step is ready, dispatch it immedia
 for example, run an agreed test once the user has updated and reopened the Bridge.
 Do not require the user to repeat that instruction. If no such work is pending,
 a short ordinary-language readiness reply is sufficient, then wait. OPEN itself
-does not authorize a test or other new work. Do not create or echo an OPEN protocol
+does not authorize a test or other new work. Do not create or echo a legacy green OPEN protocol
 event. Preserve execution history and recovery safeguards: do not replay completed
 or still-running actions; when prior effects are uncertain, establish their state
 before repeating them. The Bridge does not automatically resume its saved queue.
@@ -26,7 +38,7 @@ out-of-order results individually, and coordinate shared files or services rathe
 than assuming task IDs isolate resources. Follow the protocol's scheduling rules.
 
 All v3 messages omit `target`; the current HAPI session supplies the binding.
-Check the OPEN Bridge version, then dispatch existing authorized work if ready; otherwise wait.
+Check the READY or legacy OPEN Bridge version, then dispatch existing authorized work if ready; otherwise wait.
 Send TASK/EXEC/ANSWER/CANCEL with `CROSS_ZONE` outside an indented `json` code block.
 
 When dispatching green dependency/model downloads, apply the authorized

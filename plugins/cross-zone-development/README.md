@@ -22,18 +22,19 @@ template starts CodeAgent with `--effort low`. Start it from the
 directory green authorizes as the task workspace:
 
 ```bash
-<plugin-dir>/start-bridge.sh doctor <session-id>
-<plugin-dir>/start-bridge.sh open <session-id>
+<plugin-dir>/start-bridge.sh
+# Or specify local configuration:
+<plugin-dir>/start-bridge.sh discover [config-file]
 ```
 
 For automatic restart after a Bridge exit, keep the watchdog running in a separate
 Git Bash terminal:
 
 ```bash
-<plugin-dir>/watch-bridge.sh <session-id> [config-file]
+<plugin-dir>/watch-bridge.sh
 ```
 
-It reruns `start-bridge.sh open` after each exit, waiting 3 seconds between starts
+It restarts default discovery after each exit, waiting 3 seconds between starts
 (`BRIDGE_RESTART_DELAY` overrides the delay). Stop the watchdog with `Ctrl+C`.
 Update disk code before ending the Bridge process to load the new version on
 restart. Existing instance locking still applies. Interrupted tasks are reported as
@@ -44,7 +45,7 @@ concrete blockers to blue. Recovery evidence travels locally, not in the wire sc
 Older global recovery pauses are migrated automatically on startup.
 
 Version 0.5.2 uses CROSS_ZONE and cross-zone/v3. All messages omit `target`;
-OPEN reports the running Bridge release in `version`. Legacy target fields are
+READY and legacy green OPEN report the running Bridge release in `version`. Legacy target fields are
 rejected on the live transport.
 
 `EXEC` runs a blue-provided argv command or Bash/PowerShell/Python script directly
@@ -56,11 +57,34 @@ for fields, examples and recovery behavior. Existing `TASK` behavior is unchange
 Use `run` instead of `open` to resume an existing listener without a new OPEN.
 On first use, `run` binds at the current message head and skips historical TASKs;
 start it before blue dispatches work.
-The launcher writes `<plugin-dir>/.cac/bridge-<command>-<session-id>.log`; the agent's bounded
+The explicit-session launcher writes `<plugin-dir>/.cac/bridge-<command>-<session-id>.log`; the agent's bounded
 stream output is visible there but remains local to green. Runtime state and
 task-owned detached checkouts live under the config directory’s `.state/<session-id>/`.
 
-## Green-initiated collaboration
+## Default automatic discovery
+
+One default Bridge waits for blue OPEN in blue's current authorized HAPI session.
+Blue sends exactly `{protocol, type, event_id}`, with `protocol: "cross-zone/v3"`
+and `type: "OPEN"` or `"CLOSE"`, using CROSS_ZONE framing and a valid event ID.
+Blue waits for READY before dispatch; it does not scan other sessions or forge
+user messages. Green replies READY, BUSY or CLOSED with exactly `protocol`,
+`type`, `event_id`, `request_event_id`, `version`, `session_url` in the receiving
+session only. BUSY never discloses the bound session. Connection grants no new
+work authority. See the [exact protocol](skills/cross-zone-development/references/protocol.md).
+
+First startup baselines existing heads and ignores old messages. REST scans run
+every `poll_seconds` (default 5); bound-session SSE accelerates processing.
+Binding, cursors and reply deduplication persist; restart resumes saved execution
+state without replay. Competing sessions receive BUSY. CLOSE releases only an
+idle binding, with no queued, running, waiting, pending-result or unresolved
+recovery work, and green returns CLOSED.
+
+For simultaneous sessions, use independent explicit `open <session-id>` or
+`run <session-id>` workers. They retain legacy behavior and do not accept blue
+automatic connection envelopes. The watchdog retains its explicit
+`watch-bridge.sh <session-id> [config-file]` form as well.
+
+## Legacy green-initiated collaboration
 
 Use the bundled v0.5 green runtime and its untracked `config.local.json`.
 
@@ -86,7 +110,7 @@ OPEN as a fresh connection, and immediately dispatches any clear, authorized
 unfinished user request whose next green step is ready. With no such work, blue
 replies ready and waits. OPEN alone adds no work authorization, and completed or
 still-running actions are not replayed. Rejections use ordinary conversation;
-blue never echoes or injects OPEN. User-requested work defaults to EXEC; TASK is
+blue never echoes or injects legacy green OPEN. User-requested work defaults to EXEC; TASK is
 reserved for local judgment, revision-bound validation or required recovery.
 Saved history and recovery safeguards remain in force; `ai_review` defaults
 to false; blue opts in when returned information may be restricted.
@@ -261,7 +285,7 @@ history and cannot establish whether an earlier remote action completed.
 ### Upgrading to 0.5.2 / v3
 
 Upgrade blue and green together. Live v2 envelopes and target fields are no longer
-accepted. OPEN includes version 0.5.2 and starts a fresh interaction at the current
+accepted. Legacy green OPEN includes version 0.5.2 and starts a fresh interaction at the current
 message head. Blue can dispatch existing authorized work immediately; the Bridge's
 retained queue is not automatically resumed. Use run only to
 intentionally continue the listener and its queue. EXEC defaults to no AI review;

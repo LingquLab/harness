@@ -3,12 +3,15 @@ from __future__ import annotations
 import json
 import pathlib
 import re
+import sys
 import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / "plugins" / "cross-zone-development"
 SKILL = PLUGIN / "skills" / "cross-zone-development"
+sys.path.insert(0, str(PLUGIN))
+from cross_zone.protocol import ProtocolError, parse_connection, parse, wire
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}\Z")
 OPEN_ID = re.compile(r"green-open-[0-9a-f]+\Z")
 SESSION_URL = re.compile(r"sessions/[A-Za-z0-9][A-Za-z0-9-]{0,127}\Z")
@@ -32,7 +35,7 @@ def validate_open(event: object) -> dict[str, object]:
 
 
 class HapiContractTest(unittest.TestCase):
-    def test_open_is_green_originated_and_not_task_bound(self) -> None:
+    def test_legacy_open_is_green_originated_and_not_task_bound(self) -> None:
         event = validate_open({
             "protocol": "cross-zone/v3",
             "type": "OPEN",
@@ -91,7 +94,6 @@ class HapiContractTest(unittest.TestCase):
         green = (SKILL / "references" / "green-zone.md").read_text(encoding="utf-8")
         self.assertIn("## Green-originated requests", protocol)
         self.assertIn("never apply TASK validation", protocol)
-        self.assertIn("Blue must not create, inject, echo", protocol)
         self.assertNotIn("send one formal TASK", blue)
         self.assertIn("blue neither requests nor names", blue)
         self.assertIn("<plugin-dir>/start-bridge.sh open <session-id>", green)
@@ -103,6 +105,18 @@ class HapiContractTest(unittest.TestCase):
         self.assertIn("prepares an isolated clean", protocol)
 
         examples = [json.loads(block) for block in re.findall(r"```json\n(.*?)\n```", protocol, re.DOTALL)]
+        connections = [event for event in examples if event["type"] == "OPEN"]
+        automatic = [event for event in connections if "version" not in event]
+        legacy = [event for event in connections if "version" in event]
+        self.assertEqual(len(automatic), 1)
+        self.assertEqual(parse_connection(wire(automatic[0])), automatic[0])
+        self.assertEqual(len(legacy), 1)
+        validate_open(legacy[0])
+        ready = next(event for event in examples if event["type"] == "READY")
+        self.assertEqual(set(ready), {"protocol", "type", "event_id", "request_event_id", "version", "session_url"})
+        self.assertEqual(ready["request_event_id"], automatic[0]["event_id"])
+        self.assertRegex(ready["event_id"], ID)
+        self.assertRegex(ready["session_url"], SESSION_URL)
         tasks = [event for event in examples if event["type"] == "TASK"]
         self.assertEqual(len(tasks), 2)
         task = tasks[0]
@@ -112,6 +126,26 @@ class HapiContractTest(unittest.TestCase):
         general_task = tasks[1]
         self.assertNotIn("revision", general_task)
         self.assertEqual(general_task["task_id"], "machine-time")
+
+    def test_blue_connection_schema_is_distinct_from_explicit_controls(self) -> None:
+        for kind in ("OPEN", "CLOSE"):
+            event = {"protocol": "cross-zone/v3", "type": kind, "event_id": "blue-connect-1"}
+            with self.subTest(kind=kind):
+                self.assertEqual(parse_connection(wire(event)), event)
+                with self.assertRaises(ProtocolError):
+                    parse(wire(event))
+            invalid = [
+                {**event, "version": "0.5.2"},
+                {**event, "session_url": "sessions/other"},
+                {**event, "target": "green"},
+                {**event, "protocol": "cross-zone/v2"},
+                {**event, "event_id": "bad/id"},
+                {**event, "event_id": "a" * 81},
+                {key: value for key, value in event.items() if key != "event_id"},
+            ]
+            for candidate in invalid:
+                with self.subTest(candidate=candidate), self.assertRaises(ProtocolError):
+                    parse_connection(wire(candidate))
 
     def test_release_metadata_is_consistent(self) -> None:
         import tomllib

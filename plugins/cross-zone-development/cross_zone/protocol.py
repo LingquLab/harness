@@ -172,6 +172,20 @@ def parse(text):
     return event
 
 
+def parse_connection(text):
+    """Blue connection controls are consumed only by the discovery supervisor."""
+    event = read_wire(text)
+    if (not isinstance(event, dict) or not isinstance(event.get("type"), str)
+            or event["type"] not in {"OPEN", "CLOSE"}):
+        return None
+    if (set(event) != {"protocol", "type", "event_id"}
+            or event["protocol"] != PROTOCOL
+            or not isinstance(event["event_id"], str)
+            or not ID.fullmatch(event["event_id"])):
+        raise ProtocolError("invalid_connection")
+    return event
+
+
 def wire(event, *, readable=False):
     if readable:
         body = json.dumps(event, ensure_ascii=False, sort_keys=True, indent=2)

@@ -19,23 +19,24 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 从绿区授权作为任务 workspace 的目录启动：
 
 ```bash
-<plugin-dir>/start-bridge.sh doctor <session-id>
-<plugin-dir>/start-bridge.sh open <session-id>
+<plugin-dir>/start-bridge.sh
+# 或指定本地配置：
+<plugin-dir>/start-bridge.sh discover [config-file]
 ```
 
 需要 Bridge 退出后自动重新拉起时，在单独的 Git Bash 窗口运行：
 
 ```bash
-<plugin-dir>/watch-bridge.sh <session-id> [config-file]
+<plugin-dir>/watch-bridge.sh
 ```
 
-守护脚本每次退出后等待 3 秒，再执行 `start-bridge.sh open`；可用
+守护脚本每次退出后等待 3 秒，再启动默认 discovery；可用
 `BRIDGE_RESTART_DELAY` 调整间隔，`Ctrl+C` 停止守护循环。先更新磁盘代码，
 再结束 Bridge 进程，下一次启动即加载新版。实例锁继续生效；中断任务不会重跑。
 后续 AI 先核查遗留进程和已完成操作，状态未知时只做只读检查，无需人工解锁。
 
 0.5.2 使用 `CROSS_ZONE` 标记及 `cross-zone/v3` 协议，所有消息删除 `target`，
-仅按当前 HAPI 会话绑定。OPEN 的 `version` 报告实际运行的 Bridge 版本。
+仅按当前 HAPI 会话绑定。READY 和旧式绿区 OPEN 的 `version` 报告实际运行的 Bridge 版本。
 
 新增 `EXEC`：蓝区提供命令参数数组，或 Bash/PowerShell/Python 脚本，Bridge
 在 session 目录原样执行，默认再由绿区 AI 仅过滤已保存的输出并回传。退出码、超时和
@@ -43,12 +44,32 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 字段与示例见[协议](skills/cross-zone-development/references/protocol.md#direct-commands-and-scripts-exec)。
 
 恢复已有监听且不需要再次发送 OPEN 时可用 `run`。首次 `run` 会绑定当前消息游标并
-跳过历史 TASK，因此应在蓝区下发任务前启动。启动脚本写入
+跳过历史 TASK，因此应在蓝区下发任务前启动。显式会话启动脚本写入
 `<plugin-dir>/.cac/bridge-<command>-<session-id>.log`；其中可以显示有长度限制的 Agent 流式输出，
 但该内容只保留在绿区。状态和任务专属 detached checkout 位于配置文件目录下的
 `.state/<session-id>/`。
 
-## 绿区主动开启协同
+## 默认自动发现
+
+不带 session 启动一个默认 Bridge，等待蓝区在当前授权 HAPI 会话中发送 OPEN。
+蓝区用 assistant 消息发送严格的 `protocol`、`type`、`event_id` 三字段信封，
+`protocol` 为 `cross-zone/v3`，`type` 为 OPEN 或 CLOSE，event_id 须符合协议 ID
+规则，并使用 CROSS_ZONE 标记。蓝区等待匹配的 READY 后才能下发工作，
+不得扫描其他会话或伪造 user 消息。有效的绿区 READY 也直接选择蓝区角色。
+绿区 READY/BUSY/CLOSED 严格包含 `protocol`、`type`、`event_id`、
+`request_event_id`、`version`、`session_url`，只回到接收请求的会话；BUSY
+绝不透露已绑定会话。连接本身不增加工作授权。详见[协议](skills/cross-zone-development/references/protocol.md)。
+
+首次启动以现有消息末尾建立基线，忽略旧消息。每隔 `poll_seconds`（默认 5 秒）
+进行 REST 扫描，已绑定会话通过 SSE 加速处理。绑定、游标、回复去重持久化，
+重启恢复执行状态而不重放。竞争会话收到 BUSY。只有没有排队、运行、等待、
+待发结果或未解决恢复事项时，CLOSE 才释放绑定，并由绿区返回 CLOSED。
+
+多会话并行使用独立的显式 `open <session-id>` 或 `run <session-id>` worker；
+这些命令保留旧行为，不接收蓝区自动连接信封。守护脚本仍支持显式
+`watch-bridge.sh <session-id> [config-file]`。
+
+## 旧式绿区主动开启协同
 
 使用插件内置的 v0.5 绿区运行时及不受 Git 跟踪的 `config.local.json`。
 
@@ -73,7 +94,7 @@ OPEN 本身不增加任务授权，不重放已完成或仍在运行的动作；
 先核查状态。Bridge 不自动恢复本地旧队列。用户请求执行工作时默认使用
 EXEC；需要绿区判断、指定 revision 的验证或必要恢复时才使用 TASK。
 历史记录和恢复保护仍然保留；`ai_review` 默认 false，可能返回受限信息时由蓝区显式设置 true。
-若不接受，则仅用普通对话说明原因。蓝区不得注入、回显或返回 OPEN 协议消息。
+若不接受，则仅用普通对话说明原因。蓝区不得注入、回显或返回旧式绿区 OPEN 协议消息。
 
 蓝区完成并检查候选修改后，先提交并把任务分支推送到批准的 GitHub 仓库，再发送
 TASK。如果启动 workspace 是 Git 仓库，绿区通过其现有 `origin` 拉取 TASK 指定的完整 revision，在隔离、

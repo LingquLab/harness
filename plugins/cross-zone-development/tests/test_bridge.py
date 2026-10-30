@@ -209,7 +209,8 @@ class GitBashLauncherTests(unittest.TestCase):
 
     def test_watchdog_rejects_invalid_arguments_and_restart_delay(self):
         watcher = Path(__file__).parents[1] / "watch-bridge.sh"
-        invalid = subprocess.run(["bash", str(watcher)], capture_output=True, text=True)
+        invalid = subprocess.run(["bash", str(watcher), "too", "many", "arguments"],
+                                 capture_output=True, text=True, timeout=5)
         self.assertEqual(invalid.returncode, 2)
         for delay in ("0", "0.0", "-1", "invalid"):
             with self.subTest(delay=delay):
