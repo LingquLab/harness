@@ -19,6 +19,12 @@ before repeating them. The Bridge does not automatically resume its saved queue.
 
 ## Dispatch and consume
 
+Bridge 0.5.2 supports concurrent EXEC/TASK under the local slot limit (default 4).
+Keep independent operations under distinct task IDs; use a separate ID for a
+status check while a download runs. Same-ID iterations stay serialized. Bind
+out-of-order results individually, and coordinate shared files or services rather
+than assuming task IDs isolate resources. Follow the protocol's scheduling rules.
+
 All v3 messages omit `target`; the current HAPI session supplies the binding.
 Check the OPEN Bridge version, then dispatch existing authorized work if ready; otherwise wait.
 Send TASK/EXEC/ANSWER/CANCEL with `CROSS_ZONE` outside an indented `json` code block.
@@ -53,7 +59,8 @@ receipt. Resolve pending recovery through TASK before dispatching another EXEC.
 
 After a TASK timeout, split remaining work into single-action TASKs; do not resend
 unchanged or merely increase the timeout. Bound each command's execution time,
-return after that action, and wait for its result before dispatching the next.
+return after that action, and wait for its result before dispatching a dependent
+next action. Independent jobs can run concurrently under separate task IDs.
 For an EXEC timeout, inspect its saved receipt and partial effects, then split only
 the unfinished portion into smaller batches; do not repeat completed commands.
 If interrupted work could have modified state, first check progress and running
@@ -92,6 +99,10 @@ status. A PASS that reports running a narrower or unrelated command is not a val
 PASS; send a more discriminating next iteration against the same pushed commit.
 
 ### Simple EXEC results without AI review
+
+EXEC never carries goal, including with review. Reviewed EXEC requires checks.
+For direct EXEC on Bridge 0.5.2+, also omit checks and the default false flag;
+keep binding, execution and both budgets. TASK still requires goal/checks.
 
 EXEC defaults to `"ai_review": false`: Bridge returns bounded stdout and exit
 status without starting green AI. Blue sets `"ai_review": true` when returned

@@ -98,16 +98,23 @@ def parse(text):
         raise ProtocolError("invalid_direction")
     extra = {
         "TASK": {"goal", "checks", "timeout_seconds"},
-        "EXEC": {"goal", "checks", "timeout_seconds", "execution", "execution_timeout_seconds"},
+        "EXEC": {"timeout_seconds", "execution", "execution_timeout_seconds"},
         "ANSWER": {"question_id", "answer"},
         "CANCEL": set(),
     }.get(kind)
     fields = set(event)
     optional_revision = {"revision"} if "revision" in fields else set()
-    if kind == "EXEC" and "ai_review" in fields:
-        extra = extra | {"ai_review"}
-        if type(event["ai_review"]) is not bool:
-            raise ProtocolError("invalid_ai_review")
+    if kind == "EXEC":
+        if "ai_review" in fields:
+            extra = extra | {"ai_review"}
+            if type(event["ai_review"]) is not bool:
+                raise ProtocolError("invalid_ai_review")
+        # EXEC never carries goal. Only reviewed execution needs check prose;
+        # keep supplied direct check IDs for result binding and deduplication.
+        if event.get("ai_review", False):
+            extra |= {"checks"}
+        else:
+            extra |= fields & {"checks"}
     if extra is None or fields != base | extra | optional_revision:
         raise ProtocolError("invalid_fields")
     for field in ("event_id", "task_id"):
@@ -120,10 +127,10 @@ def parse(text):
     if kind == "EXEC" and "revision" in event:
         raise ProtocolError("exec_revision_not_supported")
     if kind in {"TASK", "EXEC"}:
-        if not isinstance(event["goal"], str) or not 1 <= len(event["goal"]) <= 6000:
+        if "goal" in event and (not isinstance(event["goal"], str) or not 1 <= len(event["goal"]) <= 6000):
             raise ProtocolError("invalid_goal")
-        checks = event["checks"]
-        if not isinstance(checks, list) or not 1 <= len(checks) <= 20:
+        checks = event.get("checks", [])
+        if not isinstance(checks, list) or ("checks" in event and not 1 <= len(checks) <= 20):
             raise ProtocolError("invalid_checks")
         names = set()
         for check in checks:

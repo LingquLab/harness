@@ -60,6 +60,11 @@ requiring green AI decisions, revision-bound candidate validation, or recovery
 checks that EXEC cannot perform. See the execution forms and
 limits in [references/protocol.md](references/protocol.md).
 
+Independent EXEC/TASK jobs can overlap (four slots by default). Use distinct task
+IDs, correlate every result by identity, and sequence dependent operations. Shared
+files/services still require coordination; see the protocol's concurrent scheduling
+rules. Later iterations of one task remain serialized.
+
 For diagnostics and recovery checks, read
 [references/state-checks.md](references/state-checks.md). Define the subject and
 evidence, bound execution, and stop when the scoped question is answered.
@@ -87,6 +92,11 @@ configuration reference. The access key may be stored in untracked green-local
 Removed legacy configuration fields are ignored and grant no authority.
 
 ### Simple EXEC results without AI review
+
+With Bridge 0.5.2+, omit `goal`, `checks` and the default `ai_review=false` in
+direct EXEC. Keep execution, binding and both timeout fields. Use the compact
+form and compatibility rules in the protocol reference. EXEC never carries goal,
+even with review; reviewed EXEC requires checks. TASK still requires goal/checks.
 
 EXEC defaults to `"ai_review": false`: Bridge returns bounded stdout and exit
 status without starting green AI. Blue sets `"ai_review": true` when returned

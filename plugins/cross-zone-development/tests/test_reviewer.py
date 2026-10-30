@@ -89,6 +89,7 @@ class ReviewAPITests(unittest.TestCase):
         self.assertEqual(evidence["evidence"]["stderr"], "")
         self.assertEqual(json.loads(evidence["evidence"]["receipt"])["status"], "EXITED")
         self.assertNotIn("argv", evidence)
+        self.assertNotIn("goal", evidence)
         self.assertNotIn(self.key, json.dumps(payload))
         self.assertEqual(json.loads(self.review_path().read_text()), result["output"])
         self.assertNotIn(self.key, str(captured.output))
@@ -117,7 +118,7 @@ class ReviewAPITests(unittest.TestCase):
     def finish(bridge):
         for _ in range(500):
             bridge.work()
-            if bridge.current is None:
+            if not bridge.active:
                 return
             time.sleep(0.01)
         raise AssertionError("Bridge did not finish")

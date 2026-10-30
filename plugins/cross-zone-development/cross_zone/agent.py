@@ -14,6 +14,7 @@ from .egress import SCHEMA
 from .protocol import canonical
 
 LOG = logging.getLogger(__name__)
+_CHECKOUT_LOCK = threading.Lock()
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 GREEN_INSTRUCTIONS = """You are the GREEN agent in a cross-zone validation workflow.
@@ -96,35 +97,40 @@ def _bounded_log_text(value, limit):
     return value if len(value) <= limit else value[:limit] + "...[truncated]"
 
 
-def _log_stream_event(event, limit):
+class _TaskLog(logging.LoggerAdapter):
+    def process(self, message, kwargs):
+        return message + " [" + self.extra["label"] + "]", kwargs
+
+
+def _log_stream_event(event, limit, logger):
     """Render useful CodeAgent stream events to the green-local bridge log."""
     event_type = event.get("type")
     if event_type in {"assistant", "user"}:
         message = event.get("message") or {}
         content = message.get("content") or []
         if isinstance(content, str):
-            LOG.info("Agent %s: %s", event_type, _bounded_log_text(content, limit))
+            logger.info("Agent %s: %s", event_type, _bounded_log_text(content, limit))
             return
         for block in content if isinstance(content, list) else []:
             if not isinstance(block, dict):
                 continue
             block_type = block.get("type")
             if block_type == "text" and block.get("text"):
-                LOG.info("Agent %s: %s", event_type,
+                logger.info("Agent %s: %s", event_type,
                          _bounded_log_text(block["text"], limit))
             elif block_type == "tool_use":
-                LOG.info("Agent tool %s: %s", block.get("name", "unknown"),
+                logger.info("Agent tool %s: %s", block.get("name", "unknown"),
                          _bounded_log_text(block.get("input", {}), limit))
             elif block_type == "tool_result":
-                LOG.info("Agent tool result: %s",
+                logger.info("Agent tool result: %s",
                          _bounded_log_text(block.get("content", ""), limit))
     elif event_type == "system" and event.get("subtype") == "init":
-        LOG.info("Agent session initialized")
+        logger.info("Agent session initialized")
     elif event_type == "result":
-        LOG.info("Agent completed: %s", event.get("subtype", "result"))
+        logger.info("Agent completed: %s", event.get("subtype", "result"))
 
 
-def _capture_stream(pipe, path, label, live_log, limit):
+def _capture_stream(pipe, path, label, live_log, limit, logger):
     try:
         with path.open("w", encoding="utf-8", newline="") as output:
             for line in iter(pipe.readline, ""):
@@ -136,12 +142,12 @@ def _capture_stream(pipe, path, label, live_log, limit):
                     try:
                         event = json.loads(line)
                     except (TypeError, json.JSONDecodeError):
-                        LOG.info("Agent stdout: %s", _bounded_log_text(line.rstrip(), limit))
+                        logger.info("Agent stdout: %s", _bounded_log_text(line.rstrip(), limit))
                     else:
                         if isinstance(event, dict):
-                            _log_stream_event(event, limit)
+                            _log_stream_event(event, limit, logger)
                 elif line.strip():
-                    LOG.info("Agent stderr: %s", _bounded_log_text(line.rstrip(), limit))
+                    logger.info("Agent stderr: %s", _bounded_log_text(line.rstrip(), limit))
     finally:
         pipe.close()
 
@@ -275,8 +281,18 @@ class CodeAgentCLI:
         try:
             if revision:
                 checkout = Path(config["state_dir"]) / "checkouts" / request["task_id"] / str(request["iteration"])
-                cwd = prepare_checkout(workspace, revision, checkout)
-                baseline(cwd, revision, require_clean=not session_id)
+                # Git preparation mutates shared repository metadata. Waiting
+                # jobs still honor their own cancellation/deadline.
+                while not _CHECKOUT_LOCK.acquire(timeout=0.1):
+                    if stopped_result := stopped():
+                        return stopped_result
+                try:
+                    if stopped_result := stopped():
+                        return stopped_result
+                    cwd = prepare_checkout(workspace, revision, checkout)
+                    baseline(cwd, revision, require_clean=not session_id)
+                finally:
+                    _CHECKOUT_LOCK.release()
             else:
                 cwd = Path(config["state_dir"])
                 cwd.mkdir(parents=True, exist_ok=True)
@@ -345,12 +361,13 @@ class CodeAgentCLI:
                                            bufsize=1, **options)
                 live_log = config["agent_live_log"]
                 log_limit = config["agent_log_max_chars"]
+                logger = _TaskLog(LOG, {"label": f"{request['task_id']} / {request['iteration']}"})
                 readers = [
                     threading.Thread(target=_capture_stream,
-                                     args=(process.stdout, stdout_path, "stdout", live_log, log_limit),
+                                     args=(process.stdout, stdout_path, "stdout", live_log, log_limit, logger),
                                      daemon=True),
                     threading.Thread(target=_capture_stream,
-                                     args=(process.stderr, stderr_path, "stderr", live_log, log_limit),
+                                     args=(process.stderr, stderr_path, "stderr", live_log, log_limit, logger),
                                      daemon=True),
                 ]
                 for reader in readers:

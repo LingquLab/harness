@@ -25,7 +25,11 @@ class LauncherColorTests(unittest.TestCase):
                          '2026-10-22 10:35:31,925 INFO Agent stderr: diagnostic',
                          '2026-10-22 10:35:31,926 INFO Agent session initialized',
                          'program continuation line',
-                         '2026-10-22 10:35:31,927 INFO Task state: fail-test / 1 = FAIL']
+                         '2026-10-22 10:35:31,927 INFO Task state: fail-test / 1 = FAIL',
+                         '2026-10-22 10:35:31,928 INFO EXEC command: task / 1: python',
+                         '2026-10-22 10:35:31,929 INFO EXEC stdout: task / 1: 下载中',
+                         '2026-10-22 10:35:31,930 INFO EXEC stderr: task / 1: 错误',
+                         'exec stderr continuation']
                 executable = root / 'py'
                 executable.write_text("#!/bin/sh\nprintf '%s\\r\\n' " +
                                       ' '.join("'" + line + "'" for line in lines) + '\n', encoding='utf-8')
@@ -73,6 +77,10 @@ class LauncherColorTests(unittest.TestCase):
                     self.assertIn('\x1b[32massistant continuation line\x1b[0m', screen)
                     self.assertIn('\x1b[33m' + lines[5] + '\x1b[0m', screen)
                     self.assertNotIn('\x1b[33mprogram continuation line', screen)
+                    self.assertIn('\x1b[90m' + lines[9] + '\x1b[0m', screen)
+                    self.assertIn('\x1b[90m' + lines[10] + '\x1b[0m', screen)
+                    self.assertIn('\x1b[31m' + lines[11] + '\x1b[0m', screen)
+                    self.assertIn('\x1b[31mexec stderr continuation\x1b[0m', screen)
                 else:
                     self.assertNotIn('\x1b', screen)
                 self.assertIn(lines[1], screen)

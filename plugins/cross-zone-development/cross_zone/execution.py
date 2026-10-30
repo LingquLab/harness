@@ -1,6 +1,9 @@
 """Exact, noninteractive execution with optional API AI egress review."""
 
+import codecs
+import logging
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -10,12 +13,60 @@ import time
 from .agent import terminate_tree
 from .protocol import canonical
 
+LOG = logging.getLogger(__name__)
+CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 OUTPUT_LIMIT = 32 * 1024 * 1024
 REVIEW_SECONDS = 60
+DISPLAY_CHUNK_BYTES = 8192
+DISPLAY_LINES = 40
 
 
 def facts(status, exit_code=None):
     return {"status": status, "exit_code": exit_code}
+
+
+class _ExecStreamLog:
+    """Tail the raw capture without changing child pipes or waiting for a newline."""
+
+    def __init__(self, path, label, request):
+        self.path, self.label = path, label
+        self.task_id, self.iteration = request["task_id"], request["iteration"]
+        self.reader = None
+        self.failed = False
+        self.decoder = codecs.getincrementaldecoder("utf-8")("replace")
+
+    def _emit(self, text):
+        lines = text.replace("\r\n", "\n").replace("\r", "\n").splitlines()
+        if len(lines) > DISPLAY_LINES:
+            half = DISPLAY_LINES // 2
+            lines = lines[:half] + ["[display lines omitted; full output remains in capture]"] + lines[-half:]
+        for line in lines:
+            LOG.info("EXEC %s: %s / %s: %s", self.label, self.task_id, self.iteration,
+                     CONTROL_CHARS.sub("?", line))
+
+    def poll(self, final=False):
+        if self.failed:
+            return
+        try:
+            if self.reader is None:
+                self.reader = self.path.open("rb")
+            # Bound both regular polling and final display. A large console
+            # backlog must not delay receipt saving or cancellation handling.
+            if final:
+                end = self.path.stat().st_size
+                if end - self.reader.tell() > DISPLAY_CHUNK_BYTES:
+                    self.reader.seek(end - DISPLAY_CHUNK_BYTES)
+                    self.decoder.reset()
+                    self._emit("[display backlog omitted; showing final capture tail]")
+            data = self.reader.read(DISPLAY_CHUNK_BYTES)
+            self._emit(self.decoder.decode(data, final=final))
+        except OSError:
+            self.failed = True
+            LOG.warning("EXEC display unavailable: %s / %s %s; inspect the saved capture.",
+                        self.task_id, self.iteration, self.label)
+        finally:
+            if (final or self.failed) and self.reader is not None:
+                self.reader.close()
 
 
 class DirectExecutor:
@@ -47,6 +98,8 @@ class DirectExecutor:
         stdout, stderr = directory / "stdout.log", directory / "stderr.log"
         record = facts("STARTING")
         process = None
+        live_streams = []
+        live_log = self.config.get("exec_live_log", True)
 
         def save():
             temporary = receipt.with_suffix(".tmp")
@@ -74,18 +127,23 @@ class DirectExecutor:
             review_key = self.config.get("exec_review", {}).get("api_key")
             env = {k: v for k, v in os.environ.items() if not k.upper().startswith("HAPI_")
                    and (not review_key or v != review_key)}
-            env.update(PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+            env.update(PYTHONUTF8="1", PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
             options = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
             command_deadline = min(time.time() + request["execution_timeout_seconds"], deadline - REVIEW_SECONDS)
             with stdout.open("wb") as out, stderr.open("wb") as err:
                 if cancel.is_set() or time.time() >= command_deadline:
                     record.update(facts("NOT_STARTED"))
                 else:
+                    if live_log:
+                        LOG.info("EXEC command: %s / %s: %s", request["task_id"], request["iteration"], canonical(spec))
+                        live_streams = [_ExecStreamLog(stdout, "stdout", request), _ExecStreamLog(stderr, "stderr", request)]
                     process = subprocess.Popen(command, cwd=root, env=env, stdin=subprocess.DEVNULL,
                                                stdout=out, stderr=err, shell=False, **options)
                     record.update(status="RUNNING", pid=process.pid, started=time.time())
                     save()
                     while True:
+                        for stream in live_streams:
+                            stream.poll()
                         exit_code = process.poll()
                         if cancel.is_set():
                             status = "CANCELLED"
@@ -112,6 +170,9 @@ class DirectExecutor:
                     record["exit_code"] = process.returncode
                 except (OSError, RuntimeError, subprocess.SubprocessError):
                     record.update(facts("TERMINATION_UNCONFIRMED"))
+        finally:
+            for stream in live_streams:
+                stream.poll(final=True)
         record["finished"] = time.time()
         execution = facts(record["status"], record["exit_code"])
         try:
@@ -150,7 +211,7 @@ class DirectExecutor:
                         "execution": execution}
             return {"output": {"kind": "RESULT", "status": "PASS",
                                "summary": "Direct EXEC (no AI review):\n" + summary.strip(),
-                               "checks": [{"id": c["id"], "status": "PASS"} for c in request["checks"]],
+                               "checks": [{"id": c["id"], "status": "PASS"} for c in request.get("checks", [])],
                                "error_code": "", "question": "", "local_modification_tested": False,
                                "local_modification_outcome": "NOT_RUN", "egress_reviewed": False},
                     "execution": execution}

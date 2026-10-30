@@ -29,8 +29,10 @@ def load_config(path):
     config.setdefault("sse", True)
     config.setdefault("max_questions", 3)
     config.setdefault("max_task_seconds", 1800)
+    config.setdefault("max_concurrent_tasks", 4)
     config.setdefault("agent_command", ["codeagent"])
     config.setdefault("agent_live_log", True)
+    config.setdefault("exec_live_log", True)
     config.setdefault("agent_log_max_chars", 2000)
     if not isinstance(config["agent_command"], list) or not config["agent_command"] or any(
         not isinstance(v, str) or not v for v in config["agent_command"]
@@ -38,6 +40,8 @@ def load_config(path):
         raise ValueError("agent_command must be an argv array")
     if not isinstance(config["agent_live_log"], bool):
         raise ValueError("agent_live_log must be a boolean")
+    if not isinstance(config["exec_live_log"], bool):
+        raise ValueError("exec_live_log must be a boolean")
     if not isinstance(config["agent_log_max_chars"], int) or not 100 <= config["agent_log_max_chars"] <= 20000:
         raise ValueError("agent_log_max_chars out of range")
     if not 0.1 <= config["poll_seconds"] <= 300:
@@ -46,6 +50,8 @@ def load_config(path):
             or type(config["max_task_seconds"]) is not int
             or not 600 <= config["max_task_seconds"] <= 86400):
         raise ValueError("task budget out of range")
+    if type(config["max_concurrent_tasks"]) is not int or not 1 <= config["max_concurrent_tasks"] <= 16:
+        raise ValueError("max_concurrent_tasks must be an integer between 1 and 16")
     settings = config.setdefault("exec_review", {})
     if not isinstance(settings, dict) or set(settings) - {"base_url", "model", "api_key", "timeout_seconds"}:
         raise ValueError("exec_review must be an object with base_url, model, api_key and timeout_seconds")

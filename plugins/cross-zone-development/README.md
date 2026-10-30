@@ -43,7 +43,7 @@ Until those are established it may only perform read-only diagnostics and report
 concrete blockers to blue. Recovery evidence travels locally, not in the wire schema.
 Older global recovery pauses are migrated automatically on startup.
 
-Version 0.5.1 uses CROSS_ZONE and cross-zone/v3. All messages omit `target`;
+Version 0.5.2 uses CROSS_ZONE and cross-zone/v3. All messages omit `target`;
 OPEN reports the running Bridge release in `version`. Legacy target fields are
 rejected on the live transport.
 
@@ -148,6 +148,21 @@ pseudocode snippets may cross. The complete structured result is limited to
 The plugin contains original LingquLab material and is licensed under the
 repository MIT license.
 
+### Concurrent execution
+
+`max_concurrent_tasks` defaults to 4 (1–16, green-local); set 1 to restore serial
+execution. New EXEC/TASK messages are accepted during running work, and available
+slots start independent jobs immediately. Extra jobs queue. Use different task
+IDs for independent jobs: another iteration of the same ID waits for its previous
+iteration to become terminal before it can be accepted. Cancellation and results
+are per task/iteration; result order can differ from submission order. Shutdown
+cancels all active jobs, and restart preserves interrupted-job recovery records.
+
+Receipts/captures stay under each task's run directory, and live logs identify the
+task. The session cwd and remote resources remain shared; scripts must coordinate
+conflicting writes. Candidate Git preparation is serialized, then candidate tests
+can overlap. Update local configuration and restart after running work completes.
+
 ### EXEC review through an inference API
 
 `ai_review=true` uses one OpenAI-compatible Chat Completions request, without
@@ -173,7 +188,7 @@ Replace the placeholder locally; never commit the real key. Existing local confi
 need this section before requesting reviewed EXEC. `base_url` is the API prefix;
 Bridge appends `/chat/completions`. The specified internal HTTP endpoint is
 operator-authorized; keep its deployment inside the authorized network. The API
-receives the task goal/checks, execution facts and the saved receipt/stdout/stderr
+receives the requested checks, execution facts and the saved receipt/stdout/stderr
 contents, not just an already-sanitized summary. Only use an inference endpoint
 approved to process that green evidence.
 
@@ -194,6 +209,13 @@ the remaining task deadline. TASK still uses `agent_command`; direct EXEC
 
 ### Simple EXEC results without AI review
 
+From 0.5.2, direct EXEC should omit `goal`, `checks` and the redundant default
+`ai_review=false`. Retain task binding, execution and both timeout fields. With no
+requested checks, RESULT uses `checks: []`; encode required conditions as command
+assertions. EXEC rejects goal in both modes; reviewed EXEC requires checks, while
+TASK still requires goal/checks. Direct requests can still supply validated checks.
+Upgrade green before using this request format.
+
 EXEC defaults to `"ai_review": false`: Bridge returns bounded stdout and exit
 status without starting green AI. Blue sets `"ai_review": true` when returned
 information may be restricted or needs filtering, especially logs, configuration,
@@ -211,7 +233,16 @@ are not repaired by the change.
 
 In an interactive terminal, the launcher colors Bridge log timestamps and levels
 cyan. Agent text is green, tool calls/results gray, and Agent stderr yellow;
-continuation lines retain their category color. Log files and redirected output
+continuation lines retain their category color. EXEC commands/stdout are gray and
+EXEC stderr is red. With `exec_live_log=true` (default), commands are shown at
+launch and stdout/stderr are tailed during execution, including partial lines.
+Screen refresh and exit-tail display are bounded; dense output shows an omission
+marker instead of flooding the terminal or delaying completion. Set it false to
+disable EXEC display. Original stdout/stderr remain unchanged in
+the execution capture, and only the existing bounded/reviewed result crosses HAPI.
+Python child output is unbuffered. Other programs must flush their output; data
+captured or redirected inside a script is visible only when that script forwards it.
+Log files and redirected output
 remain plain text. Task-state PASS is bold green and FAIL bold red.
 Set `NO_COLOR=1` to disable color.
 
@@ -227,10 +258,10 @@ unacknowledged instruction. Retrying retains the original task/iteration identit
 Do not delete state while Bridge is running; deleting it removes local execution
 history and cannot establish whether an earlier remote action completed.
 
-### Upgrading to 0.5.1 / v3
+### Upgrading to 0.5.2 / v3
 
 Upgrade blue and green together. Live v2 envelopes and target fields are no longer
-accepted. OPEN includes version 0.5.1 and starts a fresh interaction at the current
+accepted. OPEN includes version 0.5.2 and starts a fresh interaction at the current
 message head. Blue can dispatch existing authorized work immediately; the Bridge's
 retained queue is not automatically resumed. Use run only to
 intentionally continue the listener and its queue. EXEC defaults to no AI review;

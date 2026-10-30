@@ -21,7 +21,7 @@ CROSS_ZONE
   "protocol": "cross-zone/v3",
   "type": "OPEN",
   "event_id": "green-open-0123456789abcdef",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef"
 }
 ```
@@ -143,8 +143,9 @@ CROSS_ZONE
 All v3 envelopes are bound by the current authorized HAPI session and contain no
 `target` field. Unknown fields, including legacy `target`, are rejected; Bridge
 does not fill or infer routing fields. OPEN additionally carries `version`, the
-running Bridge release (for example `0.5.1`), distinct from protocol `cross-zone/v3`.
-All fields shown except `revision` are mandatory. EXEC also permits optional `ai_review`. Include `revision` only when
+running Bridge release (for example `0.5.2`), distinct from protocol `cross-zone/v3`.
+TASK requires all fields shown except `revision`. EXEC field requirements depend
+on `ai_review`, as described below. Include `revision` only when
 the task validates candidate code; it is then a full lowercase SHA-1 or SHA-256
 Git commit ID that blue has already pushed to the approved GitHub repository.
 General environment, hardware, time, service-status, and diagnostic tasks omit
@@ -159,11 +160,37 @@ green Agent startup and protected-environment checks commonly exceed five minute
 TASK rejects `repository` and `scope_profile`. Neither side can select a green
 path or profile through the protocol.
 
+## Concurrent scheduling
+
+Bridge 0.5.2 accepts new messages while jobs run and executes independent EXEC/TASK
+jobs concurrently. Green-local `max_concurrent_tasks` defaults to 4 (integer 1–16);
+set 1 for serial operation. Excess jobs remain QUEUED with ACK until a slot opens.
+An active slot includes command execution and review; a returned QUESTION releases
+its slot while awaiting ANSWER. Results may arrive out of dispatch order: bind each
+to task_id/iteration/session rather than to the last submitted request.
+
+Use distinct task IDs for independent work, such as download-106, download-107 and
+status-query. A later iteration of the same task ID is still rejected until its
+previous iteration is terminal. CANCEL only affects its specified task/iteration;
+Bridge shutdown signals all active jobs and persists their individual outcomes.
+Worker completion wakes result collection, and state/outbox writes stay on the
+Bridge main thread. Recovery evidence clears only the interruptions it inspected,
+not interruptions added by another worker; pending recovery still blocks EXEC
+before command launch. Restart never replays interrupted actions.
+
+Per-task receipts/captures remain separate, but the session working directory and
+remote resources are shared. Blue must dispatch only independent operations or
+use explicit resource coordination; a different task ID is not filesystem or
+service isolation. Candidate Git preparation is serialized within the Bridge to
+protect shared repository metadata; candidate execution can still overlap.
+
 ## Direct commands and scripts (EXEC)
 
 The complete incoming message remains limited to 24000 UTF-8 bytes.
-EXEC shares TASK's binding, goal, checks and total `timeout_seconds`, but forbids
-`revision`. It adds `execution_timeout_seconds` (integer, 1 through total timeout
+EXEC shares TASK's binding and total `timeout_seconds`, but forbids `revision`.
+EXEC never carries `goal`; that field belongs only to TASK. `checks` is required
+with `ai_review=true` and may be omitted for direct EXEC.
+It adds `execution_timeout_seconds` (integer, 1 through total timeout
 minus 60) and exactly one execution form:
 
 - `"execution": {"argv": ["executable", "argument", "..."]}`: 1–128 strings,
@@ -186,7 +213,6 @@ CROSS_ZONE
   "event_id": "blue-exec-1",
   "task_id": "remote-hostname",
   "iteration": 1,
-  "goal": "Read the remote hostname once, then sanitize the output.",
   "execution": {
     "argv": ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-p", "20022", "operator@host.example", "hostname"]
   },
@@ -234,13 +260,51 @@ before launch; blue can dispatch a read-only TASK to establish process state and
 completed effects, which clears recovery after validated evidence. Neither this
 case nor restart recovery requires manual acknowledgement.
 
+### Compact direct EXEC (0.5.2+)
+
+For omitted/false `ai_review`, send only the command and its binding/budgets: omit
+`goal`, `checks` and the default `ai_review=false`. Keep both timeout fields:
+`execution_timeout_seconds` bounds the command, while `timeout_seconds` bounds the
+started task including continuation waits and result handling. The initial queue
+wait does not start its execution deadline; continuations retain their original
+deadline. The two budgets are not interchangeable.
+
+````text
+CROSS_ZONE
+```json
+{
+  "protocol": "cross-zone/v3",
+  "type": "EXEC",
+  "event_id": "blue-time-1",
+  "task_id": "time",
+  "iteration": 1,
+  "execution": {
+    "interpreter": "python",
+    "script": "import datetime\nprint(datetime.datetime.now(datetime.timezone.utc).isoformat())\n"
+  },
+  "execution_timeout_seconds": 15,
+  "timeout_seconds": 600
+}
+```
+````
+
+EXEC rejects `goal` in both review modes. TASK still requires goal/checks;
+reviewed EXEC requires checks. Direct EXEC can still supply checks, which are
+validated and bound to the result. Without supplied checks, the direct RESULT contains `checks: []`; PASS
+means exit zero and successful output/egress validation, not AI assessment of a
+business outcome. Encode all required conditions as command assertions. A script
+that prints a failing child status but itself exits zero has not asserted success.
+Upgrade green to 0.5.2+ before using the compact form; older Bridges reject it.
+Deduplication compares the original request, so do not strip fields and resend the
+same task/iteration after it has already been accepted.
+
 ### Optional AI review
 
 Reviewed EXEC uses `exec_review` in green-local configuration: API base URL, model,
 API key and timeout (300 seconds by default, bounded by remaining task time).
 An explicit timeout in green-local configuration overrides the default; update old
 60-second values locally and restart Bridge to use a larger budget.
-Bridge sends goal/checks, authoritative execution facts and
+Bridge sends checks, authoritative execution facts and
 saved receipt/stdout/stderr (combined limit 64 KiB, strict UTF-8) in one Chat
 Completions request to the authorized inference endpoint. The model has no tools;
 it returns one sanitized JSON RESULT. Evidence is data, not instructions. The API
@@ -346,7 +410,7 @@ Local live-log truncation does not change these export limits.
 
 ## Upgrading from v2
 
-Version 0.5.1 accepts only the CROSS_ZONE marker and cross-zone/v3 live envelopes.
+Version 0.5.2 accepts only the CROSS_ZONE marker and cross-zone/v3 live envelopes.
 Do not send v2 commands or add target to any v3 message. Upgrade both sides before
 dispatching work. OPEN reports the running Bridge version; receipt alone does not
 request a capability test or any task.
