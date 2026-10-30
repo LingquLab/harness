@@ -1,12 +1,28 @@
 # Green role
 
-## Open collaboration
+## Default discovery
+
+Run `<plugin-dir>/start-bridge.sh` or `<plugin-dir>/start-bridge.sh discover
+[config-file]` from the authorized workspace, without a session ID. One default
+instance waits for blue OPEN in blue's current HAPI session and returns READY.
+Competing sessions receive BUSY referring only to their receiving session.
+CLOSE releases only an idle binding and returns CLOSED: queued, running, waiting,
+pending-result or unresolved-recovery work prevents release.
+
+First startup baselines existing heads and ignores old messages. REST scans run
+every `poll_seconds` (default 5), with bound-session SSE acceleration. Persisted
+binding, cursors and reply deduplication let restart resume execution state without
+replay. Do not delete state to reconnect. See protocol.md for exact schemas.
+
+## Legacy explicit collaboration
 
 The operator changes to the authorized task workspace and runs
 `<plugin-dir>/start-bridge.sh open <session-id>` from Git
 Bash. The session ID and workspace are runtime inputs, not configuration. Before
 sending anything, the bridge validates the launch workspace, CLI, and
 required configuration.
+Explicit `open` and `run` retain their existing behavior and reject blue automatic
+connection envelopes. Independent explicit workers support concurrent sessions.
 After preflight passes, it binds before sending OPEN, then waits for subsequent
 EXEC, TASK, ANSWER and CANCEL messages. OPEN alone does not initiate a check.
 

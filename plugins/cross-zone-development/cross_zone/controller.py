@@ -12,7 +12,7 @@ from .egress import failure_detail, review
 from .execution import DirectExecutor
 from .reviewer import OpenAIReviewer
 from .hapi import HapiError
-from .protocol import ProtocolError, assistant_text, canonical, fingerprint, parse
+from .protocol import ProtocolError, assistant_text, canonical, fingerprint, parse, parse_connection
 from .store import Store
 
 LOG = logging.getLogger(__name__)
@@ -165,7 +165,10 @@ class Bridge:
             with self.store.db:
                 for message in messages:
                     try:
-                        event = parse(assistant_text(message))
+                        text = assistant_text(message)
+                        if self.config.get("discovery") and parse_connection(text):
+                            continue
+                        event = parse(text)
                         if event:
                             self._accept(event)
                     except ProtocolError:

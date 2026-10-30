@@ -114,7 +114,7 @@ class OpenTests(unittest.TestCase):
         event = open_event("sessions/19146292-52a4-4094-9cd5-6086b0c3ec05")
         self.assertEqual(event["protocol"], "cross-zone/v3")
         self.assertEqual(event["type"], "OPEN")
-        self.assertEqual(event["version"], "0.5.2")
+        self.assertEqual(event["version"], "0.6.0")
         self.assertNotIn("target", event)
         self.assertIn(event["session_url"], event["session_url"])
         self.assertIn("green-open-", event["event_id"])
@@ -209,7 +209,8 @@ class GitBashLauncherTests(unittest.TestCase):
 
     def test_watchdog_rejects_invalid_arguments_and_restart_delay(self):
         watcher = Path(__file__).parents[1] / "watch-bridge.sh"
-        invalid = subprocess.run(["bash", str(watcher)], capture_output=True, text=True)
+        invalid = subprocess.run(["bash", str(watcher), "too", "many", "arguments"],
+                                 capture_output=True, text=True, timeout=5)
         self.assertEqual(invalid.returncode, 2)
         for delay in ("0", "0.0", "-1", "invalid"):
             with self.subTest(delay=delay):
