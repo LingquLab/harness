@@ -188,6 +188,7 @@ No AI review is needed.
 Expected: send binding fields, execution and both runtime budgets. Omit goal,
 checks and the default ai_review=false. Put success assertions in the script.
 Consume a direct RESULT with checks=[] without inventing AI/business validation.
-For reviewed output, supply ai_review=true and full goal/checks. Do not dispatch
+For reviewed output, supply ai_review=true and checks, without goal. EXEC rejects
+goal in both modes; TASK still requires it. Do not dispatch
 this example's operations merely because they appear in documentation, or resend
 an accepted task/iteration with fields stripped (its request digest would change).

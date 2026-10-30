@@ -93,8 +93,9 @@ PASS; send a more discriminating next iteration against the same pushed commit.
 
 ### Simple EXEC results without AI review
 
-Use the protocol's compact direct EXEC form for Bridge 0.5.2+: omit AI-only
-goal/checks and the default false flag; keep binding, execution and both budgets.
+EXEC never carries goal, including with review. Reviewed EXEC requires checks.
+For direct EXEC on Bridge 0.5.2+, also omit checks and the default false flag;
+keep binding, execution and both budgets. TASK still requires goal/checks.
 
 EXEC defaults to `"ai_review": false`: Bridge returns bounded stdout and exit
 status without starting green AI. Blue sets `"ai_review": true` when returned

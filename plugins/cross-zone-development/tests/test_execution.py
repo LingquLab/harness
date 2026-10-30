@@ -18,13 +18,14 @@ from cross_zone.protocol import ProtocolError, parse, read_wire, wire
 def exec_task(**changes):
     event = fixtures.general_task(type="EXEC", execution={"argv": [sys.executable, "-c", "print('done')"]},
                                   execution_timeout_seconds=10, ai_review=True)
+    event.pop("goal")
     event.update(changes)
     return event
 
 
 def compact_exec(**changes):
     event = exec_task(**changes)
-    for field in ("goal", "checks", "ai_review"):
+    for field in ("checks", "ai_review"):
         event.pop(field, None)
     return event
 
@@ -54,12 +55,18 @@ class ExecutionProtocolTests(unittest.TestCase):
             with self.subTest(changes=changes), self.assertRaises(ProtocolError):
                 parse(wire(compact_exec() | changes))
 
-    def test_reviewed_exec_and_task_still_require_goal_and_checks(self):
-        for event in (exec_task(), fixtures.task()):
-            for fields in (("goal",), ("checks",), ("goal", "checks")):
-                missing = {k: v for k, v in event.items() if k not in fields}
-                with self.subTest(kind=event["type"], fields=fields), self.assertRaises(ProtocolError):
-                    parse(wire(missing))
+    def test_exec_rejects_goal_and_reviewed_exec_requires_checks(self):
+        for flag in (True, False):
+            with self.subTest(ai_review=flag), self.assertRaises(ProtocolError):
+                parse(wire(exec_task(ai_review=flag, goal="No longer an EXEC field")))
+        event = exec_task()
+        event.pop("checks")
+        with self.assertRaises(ProtocolError):
+            parse(wire(event))
+        for fields in (("goal",), ("checks",), ("goal", "checks")):
+            missing = {k: v for k, v in fixtures.task().items() if k not in fields}
+            with self.subTest(task_missing=fields), self.assertRaises(ProtocolError):
+                parse(wire(missing))
 
     def test_exec_inherits_session_target(self):
         event = exec_task()

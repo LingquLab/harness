@@ -109,12 +109,12 @@ def parse(text):
             extra = extra | {"ai_review"}
             if type(event["ai_review"]) is not bool:
                 raise ProtocolError("invalid_ai_review")
-        # Direct commands need no AI instructions. Still validate supplied legacy
-        # fields and retain their identity for deduplication and result binding.
+        # EXEC never carries goal. Only reviewed execution needs check prose;
+        # keep supplied direct check IDs for result binding and deduplication.
         if event.get("ai_review", False):
-            extra |= {"goal", "checks"}
+            extra |= {"checks"}
         else:
-            extra |= fields & {"goal", "checks"}
+            extra |= fields & {"checks"}
     if extra is None or fields != base | extra | optional_revision:
         raise ProtocolError("invalid_fields")
     for field in ("event_id", "task_id"):

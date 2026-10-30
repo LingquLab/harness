@@ -173,7 +173,7 @@ Replace the placeholder locally; never commit the real key. Existing local confi
 need this section before requesting reviewed EXEC. `base_url` is the API prefix;
 Bridge appends `/chat/completions`. The specified internal HTTP endpoint is
 operator-authorized; keep its deployment inside the authorized network. The API
-receives the task goal/checks, execution facts and the saved receipt/stdout/stderr
+receives the requested checks, execution facts and the saved receipt/stdout/stderr
 contents, not just an already-sanitized summary. Only use an inference endpoint
 approved to process that green evidence.
 
@@ -197,8 +197,9 @@ the remaining task deadline. TASK still uses `agent_command`; direct EXEC
 From 0.5.2, direct EXEC should omit `goal`, `checks` and the redundant default
 `ai_review=false`. Retain task binding, execution and both timeout fields. With no
 requested checks, RESULT uses `checks: []`; encode required conditions as command
-assertions. Reviewed EXEC/TASK still require goal/checks; older full direct
-requests remain accepted. Upgrade green before using this compact request format.
+assertions. EXEC rejects goal in both modes; reviewed EXEC requires checks, while
+TASK still requires goal/checks. Direct requests can still supply validated checks.
+Upgrade green before using this request format.
 
 EXEC defaults to `"ai_review": false`: Bridge returns bounded stdout and exit
 status without starting green AI. Blue sets `"ai_review": true` when returned

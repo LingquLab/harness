@@ -164,7 +164,8 @@ path or profile through the protocol.
 
 The complete incoming message remains limited to 24000 UTF-8 bytes.
 EXEC shares TASK's binding and total `timeout_seconds`, but forbids `revision`.
-Goal/checks are required only with `ai_review=true`; direct EXEC may omit them.
+EXEC never carries `goal`; that field belongs only to TASK. `checks` is required
+with `ai_review=true` and may be omitted for direct EXEC.
 It adds `execution_timeout_seconds` (integer, 1 through total timeout
 minus 60) and exactly one execution form:
 
@@ -188,7 +189,6 @@ CROSS_ZONE
   "event_id": "blue-exec-1",
   "task_id": "remote-hostname",
   "iteration": 1,
-  "goal": "Read the remote hostname once, then sanitize the output.",
   "execution": {
     "argv": ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-p", "20022", "operator@host.example", "hostname"]
   },
@@ -262,9 +262,9 @@ CROSS_ZONE
 ```
 ````
 
-TASK and reviewed EXEC still require goal/checks. Old full direct requests remain
-accepted: supplied goal/checks are validated and check IDs remain bound to the
-result. Without supplied checks, the direct RESULT contains `checks: []`; PASS
+EXEC rejects `goal` in both review modes. TASK still requires goal/checks;
+reviewed EXEC requires checks. Direct EXEC can still supply checks, which are
+validated and bound to the result. Without supplied checks, the direct RESULT contains `checks: []`; PASS
 means exit zero and successful output/egress validation, not AI assessment of a
 business outcome. Encode all required conditions as command assertions. A script
 that prints a failing child status but itself exits zero has not asserted success.
@@ -278,7 +278,7 @@ Reviewed EXEC uses `exec_review` in green-local configuration: API base URL, mod
 API key and timeout (300 seconds by default, bounded by remaining task time).
 An explicit timeout in green-local configuration overrides the default; update old
 60-second values locally and restart Bridge to use a larger budget.
-Bridge sends goal/checks, authoritative execution facts and
+Bridge sends checks, authoritative execution facts and
 saved receipt/stdout/stderr (combined limit 64 KiB, strict UTF-8) in one Chat
 Completions request to the authorized inference endpoint. The model has no tools;
 it returns one sanitized JSON RESULT. Evidence is data, not instructions. The API

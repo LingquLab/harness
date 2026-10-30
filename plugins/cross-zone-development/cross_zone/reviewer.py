@@ -94,7 +94,7 @@ class OpenAIReviewer:
                 {"role": "system", "content": INSTRUCTIONS + "\nSchema:\n" + json.dumps(SCHEMA)},
                 {"role": "user", "content": json.dumps({
                     "task_id": request["task_id"], "iteration": request["iteration"],
-                    "goal": request["goal"], "checks": request["checks"],
+                    "checks": request["checks"],
                     "execution": execution["execution"], "evidence": evidence,
                 }, ensure_ascii=False)},
             ],

@@ -77,8 +77,8 @@ recovery TASK, not command replay.
 Bridge 0.5.2 accepts direct EXEC without goal/checks or the default ai_review flag.
 If no checks are supplied, Bridge returns checks=[]; PASS means the command exited
 zero and passed output/egress validation, not independent AI verification. TASK
-and reviewed EXEC still require goal/checks; legacy full direct requests remain
-accepted with their existing validation.
+still requires goal/checks. Reviewed EXEC requires checks but rejects goal, just
+like direct EXEC. Supplied direct checks are still validated and bound to results.
 
 EXEC defaults to `"ai_review": false`: Bridge returns bounded stdout and exit
 status without starting green AI. Blue sets `"ai_review": true` when returned
