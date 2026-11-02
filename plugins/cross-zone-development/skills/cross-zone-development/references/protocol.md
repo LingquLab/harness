@@ -49,9 +49,10 @@ only when no queued, running, waiting, pending-result or unresolved-recovery wor
 remains, then returns CLOSED.
 
 First startup baselines existing message heads and ignores old messages. REST
-scans visible sessions every `poll_seconds` (default 5); bound-session SSE
-accelerates processing. Binding, per-session cursors and reply deduplication
-persist, including pending replies. Restart resumes saved execution state without
+scans visible sessions every `discovery_poll_seconds` (default 30), independently
+of bound-session SSE. Bound-session REST fallback uses `poll_seconds` (default 5);
+SSE hints coalesce to at most one sync per second under default settings. Binding,
+per-session cursors and reply deduplication persist, including pending replies. Restart resumes saved execution state without
 replay. Explicit `open <session-id>` and `run <session-id>` workers do not accept
 these blue envelopes; use independent explicit workers for simultaneous sessions.
 

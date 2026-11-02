@@ -77,7 +77,12 @@ session only. BUSY never discloses the bound session. Connection grants no new
 work authority. See the [exact protocol](skills/cross-zone-development/references/protocol.md).
 
 First startup baselines existing heads and ignores old messages. REST scans run
-every `poll_seconds` (default 5); bound-session SSE accelerates processing.
+every `discovery_poll_seconds` (default 30), independently of bound-session events.
+Bound-session REST fallback uses `poll_seconds` (default 5); SSE hints are
+coalesced to at most one sync per second with default settings and never trigger
+a global scan. Worker completion collects results without forcing a message fetch.
+Short-lived SSE streams retry with exponential backoff from 1 to 30 seconds,
+reset only after a connection lasts 30 seconds.
 Binding, cursors and reply deduplication persist; restart resumes saved execution
 state without replay. Competing sessions receive BUSY. CLOSE releases only an
 idle binding, with no queued, running, waiting, pending-result or unresolved

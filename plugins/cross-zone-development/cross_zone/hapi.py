@@ -95,6 +95,7 @@ class HapiClient:
         last_id = None
         delay = 1
         while not stop.is_set():
+            connected_at = None
             try:
                 token = self.authenticate()
                 headers = {"Authorization": "Bearer " + token, "Accept": "text/event-stream"}
@@ -105,7 +106,7 @@ class HapiClient:
                     if "text/event-stream" not in response.headers.get("Content-Type", ""):
                         raise HapiError()
                     wake.set()  # REST catch-up on every reconnection, including replay reset.
-                    delay = 1
+                    connected_at = time.monotonic()
                     while not stop.is_set():
                         line = response.readline(65537)
                         if not line or len(line) > 65536:
@@ -119,5 +120,9 @@ class HapiClient:
                     self.expires = 0
             except (OSError, ValueError):
                 pass
+            # Valid headers alone do not prove a healthy stream. Immediate EOFs
+            # must back off too, rather than reconnecting once per second forever.
+            if connected_at is not None and time.monotonic() - connected_at >= 30:
+                delay = 1
             stop.wait(delay)
             delay = min(delay * 2, 30)

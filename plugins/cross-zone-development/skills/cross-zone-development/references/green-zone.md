@@ -10,8 +10,11 @@ CLOSE releases only an idle binding and returns CLOSED: queued, running, waiting
 pending-result or unresolved-recovery work prevents release.
 
 First startup baselines existing heads and ignores old messages. REST scans run
-every `poll_seconds` (default 5), with bound-session SSE acceleration. Persisted
-binding, cursors and reply deduplication let restart resume execution state without
+every `discovery_poll_seconds` (default 30), independently of SSE or task completion.
+Bound-session REST fallback uses `poll_seconds` (default 5); SSE hints are
+coalesced with a minimum interval of `min(1, poll_seconds)` seconds. Short-lived
+SSE streams back off from 1 to 30 seconds; healthy streams remain connected.
+Persisted binding, cursors and reply deduplication let restart resume execution state without
 replay. Do not delete state to reconnect. See protocol.md for exact schemas.
 
 ## Legacy explicit collaboration

@@ -14,6 +14,8 @@ from .controller import Bridge
 from .hapi import HapiError
 from .protocol import PROTOCOL, ProtocolError, assistant_text, parse_connection, wire
 
+from .scheduling import SessionSync
+
 LOG = logging.getLogger(__name__)
 
 
@@ -45,6 +47,7 @@ class Discovery:
         self.session_lock = ExitStack()
         self.stop = threading.Event()
         self.wake = threading.Event()
+        self.sync = SessionSync(config["poll_seconds"], self.wake)
 
     def get(self, key):
         row = self.db.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
@@ -110,7 +113,7 @@ class Discovery:
         bridge.wake = self.wake
         if cfg["sse"]:
             threading.Thread(target=self.client.listen,
-                             args=(cfg["session_id"], self.wake, bridge.stop), daemon=True).start()
+                             args=(cfg["session_id"], self.sync, bridge.stop), daemon=True).start()
         LOG.info("Discovery bound to session %s", cfg["session_id"])
 
     def idle(self):
@@ -263,24 +266,28 @@ class Discovery:
                 with self.db:
                     self.db.execute("UPDATE outbox SET sent=1 WHERE id=?", (event_id,))
 
-    def tick(self):
-        self.initialize()
+    def tick(self, *, discover=True, sync=True):
+        if discover:
+            self.initialize()
         self.attach()
-        unavailable_owner = None
+        unavailable_owner = self.bridge.config["session_id"] if self.bridge and not sync else None
         # First drain commands/results of the owner so CLOSE cannot overlook an
         # accepted TASK. Connection controls themselves never enter its inbox.
         if self.bridge:
-            try:
-                self.bridge.catch_up()
-            except HapiError as exc:
-                LOG.warning("Bound session unavailable; retrying (%s)", exc)
-                unavailable_owner = self.bridge.config["session_id"]
+            if sync:
+                try:
+                    self.bridge.catch_up()
+                except HapiError as exc:
+                    LOG.warning("Bound session unavailable; retrying (%s)", exc)
+                    unavailable_owner = self.bridge.config["session_id"]
             self.bridge.work()
             try:
                 self.bridge.flush()
             except HapiError as exc:
                 LOG.warning("Bound results retained for retry (%s)", exc)
-        for session in self.client.sessions():
+        sessions = self.client.sessions() if discover else (
+            [{"id": self.bridge.config["session_id"]}] if sync and self.bridge else [])
+        for session in sessions:
             try:
                 sid = self.session_id(session["id"])
                 if sid != unavailable_owner:
@@ -290,14 +297,22 @@ class Discovery:
         self.flush()
 
     def run(self):
+        next_discovery = 0
         try:
             while not self.stop.is_set():
+                self.wake.clear()
+                now = time.monotonic()
+                discover = now >= next_discovery
+                if discover:
+                    # Advance before I/O so failed requests also respect cadence.
+                    next_discovery = now + self.config.get("discovery_poll_seconds", 30)
+                sync = self.sync.due(now)
                 try:
-                    self.tick()
+                    self.tick(discover=discover, sync=sync)
                 except HapiError as exc:
                     LOG.warning("Discovery Hub unavailable; retrying (%s)", exc)
-                self.wake.wait(self.config["poll_seconds"])
-                self.wake.clear()
+                now = time.monotonic()
+                self.wake.wait(min(self.sync.wait_seconds(now), max(0, next_discovery - now)))
         finally:
             self.close()
 
