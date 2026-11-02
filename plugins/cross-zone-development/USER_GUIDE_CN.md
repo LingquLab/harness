@@ -338,6 +338,13 @@ HAPI 返回有界结果，原始日志和执行回执保留在绿区。
 
 蓝区需要更多信息时，应请求范围明确的诊断摘要，不能用截图、文件上传或其他通道绕过结果约束。
 
+## 在 ESA 或访问日志中识别 Bridge 流量
+
+Bridge 发起的 HAPI REST、`/api/events` SSE 和 EXEC 审查 API 请求都携带
+`User-Agent: CrossZoneBridge/<版本号>`，例如 `CrossZoneBridge/0.6.0`。
+按 User-Agent 的 `CrossZoneBridge/` 前缀匹配即可跨版本统计流量；版本号自动
+跟随已安装插件，无需额外配置。EXEC 脚本或 CodeAgent 自行发起的请求使用各自的请求头。
+
 ## 配置参数参考
 
 配置使用 JSON；改动后重启 Bridge 生效。默认值与范围如下：

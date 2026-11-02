@@ -7,6 +7,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from . import USER_AGENT
+
 
 class HapiError(RuntimeError):
     def __init__(self, status=None):
@@ -34,7 +36,7 @@ class HapiClient:
             self.base + path,
             data=None if body is None else json.dumps(body).encode("utf-8"),
             method=method,
-            headers={"Content-Type": "application/json", **(headers or {})},
+            headers={"Content-Type": "application/json", "User-Agent": USER_AGENT, **(headers or {})},
         )
         try:
             return self.opener.open(request, timeout=timeout or self.timeout)

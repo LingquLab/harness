@@ -9,6 +9,7 @@ import time
 import urllib.error
 import urllib.request
 
+from . import USER_AGENT
 from .config import DEFAULT_REVIEW_TIMEOUT_SECONDS
 from .egress import SCHEMA, review
 from .hapi import NoRedirect
@@ -57,7 +58,8 @@ class OpenAIReviewer:
         # write files or publish a late response after cancellation/deadline.
         try:
             request = urllib.request.Request(url, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-                                             headers={"Content-Type": "application/json", "Authorization": "Bearer " + key},
+                                             headers={"Content-Type": "application/json", "Authorization": "Bearer " + key,
+                                                      "User-Agent": USER_AGENT},
                                              method="POST")
             with urllib.request.build_opener(NoRedirect()).open(request, timeout=timeout) as response:
                 body = response.read(RESPONSE_LIMIT + 1)
