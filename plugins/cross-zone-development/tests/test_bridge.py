@@ -13,6 +13,7 @@ import unittest
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
+from cross_zone import __version__
 from cross_zone.agent import CodeAgentCLI
 from cross_zone.cli import InstanceLock, error_hint, safe_error_detail, select_session, preflight, main
 from cross_zone.config import load_config
@@ -1184,6 +1185,7 @@ class BridgeTests(unittest.TestCase):
 class HttpTests(unittest.TestCase):
     def setUp(self):
         self.requests = []
+        self.user_agents = []
         self.auth_count = 0
         self.fail_token_once = False
         self.backend = FakeClient()
@@ -1197,6 +1199,7 @@ class HttpTests(unittest.TestCase):
             def handle_request(self):
                 body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
                 owner.requests.append((self.path, self.headers.get("Authorization"), json.loads(body) if body else None))
+                owner.user_agents.append(self.headers.get("User-Agent"))
                 if self.path == "/hapi/api/auth":
                     owner.auth_count += 1
                     self.send_json(200, {"token": "jwt-" + str(owner.auth_count)})
@@ -1252,6 +1255,7 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(path, "/hapi/api/sessions/blue/messages")
         self.assertEqual(auth, "Bearer jwt-2")
         self.assertEqual(body, {"text": "test", "localId": "stable-id", "deliveryMode": "queue"})
+        self.assertEqual(self.user_agents, [f"CrossZoneBridge/{__version__}"] * len(self.requests))
 
     def test_pagination_queries(self):
         self.client.messages("blue", limit=100, afterAt=1000, afterSeq=1, epoch=0)
@@ -1275,6 +1279,7 @@ class HttpTests(unittest.TestCase):
         path, auth, _ = next(r for r in self.requests if "/events?" in r[0])
         self.assertNotIn("token=", path)
         self.assertEqual(auth, "Bearer jwt-1")
+        self.assertEqual(self.user_agents, [f"CrossZoneBridge/{__version__}"] * len(self.requests))
 
 
 class AgentTests(unittest.TestCase):

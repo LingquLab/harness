@@ -9,6 +9,11 @@ A Windows bridge in the green protected-service zone invokes its local Claude
 Code-compatible CLI and sends only bounded, reviewed results back to blue. GitHub
 Issues and browser automation are not part of the transport.
 
+Bridge HTTP requests (HAPI REST/SSE and the EXEC review API) use
+`User-Agent: CrossZoneBridge/<version>`, for example `CrossZoneBridge/0.6.0`.
+Match the `CrossZoneBridge/` prefix in ESA/access logs to count Bridge traffic
+across releases. The version follows the installed plugin automatically.
+
 ## Green runtime setup
 
 The plugin ships the Python Bridge in [`cross_zone`](cross_zone), its Git Bash

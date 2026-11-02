@@ -8,6 +8,11 @@
 调用本地 Claude Code 兼容 CLI，只向蓝区返回经过审查的有界结果。传输不再使用
 GitHub Issue，也不需要操作浏览器。
 
+Bridge 的 HTTP 请求（HAPI REST/SSE 和 EXEC 审查 API）统一携带
+`User-Agent: CrossZoneBridge/<版本号>`，例如 `CrossZoneBridge/0.6.0`。
+在 ESA 或访问日志中匹配 `CrossZoneBridge/` 前缀即可跨版本统计 Bridge 流量，
+版本号会随已安装插件自动更新。
+
 ## 绿区运行时安装
 
 插件已经包含 Python Bridge [`cross_zone`](cross_zone)、Git Bash 启动脚本

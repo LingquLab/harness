@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import test_bridge as fixtures
 from test_execution import exec_task
+from cross_zone import __version__
 from cross_zone.config import load_config
 from cross_zone.controller import Bridge
 from cross_zone.execution import DirectExecutor
@@ -20,6 +21,7 @@ class ReviewAPITests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.cfg = fixtures.config(self.tmp.name)
         self.calls = []
+        self.user_agents = []
         self.request_started = threading.Event()
         self.body = self.response(fixtures.output(summary="中文检查通过"))
         self.status = 200
@@ -28,6 +30,7 @@ class ReviewAPITests(unittest.TestCase):
 
         class Handler(BaseHTTPRequestHandler):
             def do_POST(self):
+                case.user_agents.append(self.headers.get("User-Agent"))
                 case.calls.append((self.path, self.headers.get("Authorization"),
                                    json.loads(self.rfile.read(int(self.headers["Content-Length"])))))
                 case.request_started.set()
@@ -81,6 +84,7 @@ class ReviewAPITests(unittest.TestCase):
         path, auth, payload = self.calls[0]
         self.assertEqual(path, "/v1/chat/completions")
         self.assertEqual(auth, "Bearer " + self.key)
+        self.assertEqual(self.user_agents, [f"CrossZoneBridge/{__version__}"])
         self.assertEqual(payload["model"], "Qwen3.8")
         self.assertFalse(payload["stream"])
         self.assertNotIn("tools", payload)
