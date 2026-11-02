@@ -159,6 +159,32 @@ class DiscoveryTests(DiscoveryFixture):
         self.send("CLOSE", "close-interrupted")
         self.assert_reply("BUSY", "close-interrupted")
 
+    def test_identity_mismatch_explains_recovery_and_preserves_saved_state(self):
+        self.start()
+        self.send()
+        identity = self.discovery.get("identity")
+        binding = self.discovery.get("binding")
+        receipt = Path(self.discovery.bridge.config["state_dir"]) / "saved-receipt.json"
+        receipt.write_text('{"exit_code": 0}')
+        self.shutdown()
+        for field, value in (("hub_url", "https://another-hub.example/"),
+                             ("workspace_dir", str(Path(self.tmp.name) / "another-workspace"))):
+            with self.subTest(field=field):
+                with self.assertRaises(ValueError) as error:
+                    Discovery({**self.cfg, field: value}, self.client, InstanceLock)
+                detail = str(error.exception)
+                self.assertIn("changed: " + field, detail)
+                self.assertIn(str(Path(self.cfg["state_dir"]).parent.resolve()), detail)
+                self.assertIn("stop all Bridges", detail)
+                self.assertIn("back up (recommended) or delete", detail)
+                self.assertIn("execution history", detail)
+                self.assertIn("will not stop previously launched remote tasks", detail)
+                self.assertIn("new OPEN", detail)
+                self.assertEqual(receipt.read_text(), '{"exit_code": 0}')
+        self.restart()
+        self.assertEqual(self.discovery.get("identity"), identity)
+        self.assertEqual(self.discovery.get("binding"), binding)
+
     def test_same_session_open_preserves_waiting_task_and_cursor(self):
         self.agent.outputs = [{"output": output(kind="QUESTION", status="NEEDS_HUMAN", question="Which host?"),
                                "session_id": "green-question", "dirty": False}]

@@ -40,7 +40,16 @@ class Discovery:
         previous = self.get("identity")
         if previous is not None and previous != identity:
             self.db.close()
-            raise ValueError("Discovery state belongs to another Hub/workspace")
+            changed = ", ".join(key for key in identity if previous.get(key) != identity[key])
+            raise ValueError(
+                f"Discovery state belongs to another Hub/workspace (changed: {changed}). "
+                "Restore the original hub_url and launch workspace to reuse saved state. "
+                "If the change is intentional, stop all Bridges using "
+                f"'{self.directory.parent.resolve()}', then back up (recommended) or delete that entire "
+                ".state folder and restart. Fresh state will not retain execution history, "
+                "deduplication records or pending results, and will not stop previously launched "
+                "remote tasks. After startup, send a new OPEN to reconnect."
+            )
         with self.db:
             self.set("identity", identity)
         self.bridge = None
