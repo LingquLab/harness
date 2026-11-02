@@ -13,6 +13,7 @@ from .execution import DirectExecutor
 from .reviewer import OpenAIReviewer
 from .hapi import HapiError
 from .protocol import ProtocolError, assistant_text, canonical, fingerprint, parse, parse_connection
+from .scheduling import SessionSync
 from .store import Store
 
 LOG = logging.getLogger(__name__)
@@ -295,21 +296,23 @@ class Bridge:
 
     def run(self):
         self.store.recover()
+        sync = SessionSync(self.config["poll_seconds"], self.wake)
         if self.config["sse"]:
-            threading.Thread(target=self.client.listen, args=(self.config["session_id"], self.wake, self.stop), daemon=True).start()
+            threading.Thread(target=self.client.listen, args=(self.config["session_id"], sync, self.stop), daemon=True).start()
         try:
             while not self.stop.is_set():
-                try:
-                    self.catch_up()
-                except HapiError as exc:
-                    LOG.warning("Hub unavailable; retrying (%s)", exc)
+                self.wake.clear()
+                if sync.due(time.monotonic()):
+                    try:
+                        self.catch_up()
+                    except HapiError as exc:
+                        LOG.warning("Hub unavailable; retrying (%s)", exc)
                 self.work()
                 try:
                     self.flush()
                 except HapiError as exc:
                     LOG.warning("Outbound messages retained for retry (%s)", exc)
-                self.wake.wait(self.config["poll_seconds"])
-                self.wake.clear()
+                self.wake.wait(sync.wait_seconds(time.monotonic()))
         finally:
             self.close()
 

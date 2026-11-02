@@ -64,8 +64,11 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 `request_event_id`、`version`、`session_url`，只回到接收请求的会话；BUSY
 绝不透露已绑定会话。连接本身不增加工作授权。详见[协议](skills/cross-zone-development/references/protocol.md)。
 
-首次启动以现有消息末尾建立基线，忽略旧消息。每隔 `poll_seconds`（默认 5 秒）
-进行 REST 扫描，已绑定会话通过 SSE 加速处理。绑定、游标、回复去重持久化，
+首次启动以现有消息末尾建立基线，忽略旧消息。全会话发现使用独立的
+`discovery_poll_seconds`（默认 30 秒）；已绑定会话以 `poll_seconds`（默认 5 秒）
+轮询兜底，SSE 通知合并处理，默认最多每秒同步一次，不触发全会话扫描。
+任务完成只唤醒结果收集。短连接按 1–30 秒指数退避，
+只有连接持续至少 30 秒后才重置退避。绑定、游标、回复去重持久化，
 重启恢复执行状态而不重放。竞争会话收到 BUSY。只有没有排队、运行、等待、
 待发结果或未解决恢复事项时，CLOSE 才释放绑定，并由绿区返回 CLOSED。
 

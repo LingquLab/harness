@@ -58,7 +58,7 @@ class MultiSessionHapi:
         return [event for _, event in self.backends[session].sent]
 
 
-class DiscoveryTests(unittest.TestCase):
+class DiscoveryFixture(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -110,6 +110,8 @@ class DiscoveryTests(unittest.TestCase):
             time.sleep(0.005)
         self.fail("fake agent did not settle")
 
+
+class DiscoveryTests(DiscoveryFixture):
     def test_baseline_skips_historical_open_then_new_open_is_ready(self):
         self.client.append(connection(event_id="historical"), historical=True)
         self.start()
