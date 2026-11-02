@@ -342,7 +342,7 @@ HAPI 返回有界结果，原始日志和执行回执保留在绿区。
 
 | 字段 | 默认值或范围 | 用途 |
 | --- | --- | --- |
-| `hub_url` | 模板为 `https://su.kurox.cn/hapi/` | HAPI Hub 地址 |
+| `hub_url` | 模板为 `https://hapi.kurox.cn/` | HAPI Hub 地址 |
 | `access_key` | 模板占位符，需本地替换 | HAPI 凭据；设为 null 时可使用 `HAPI_ACCESS_KEY`，否则启动时提示输入 |
 | `poll_seconds` | 5，允许 0.1–300 | 每轮处理后的最大轮询等待秒数 |
 | `sse` | true | 开启服务器事件通知，加速已绑定会话消息获取 |
