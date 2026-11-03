@@ -24,6 +24,10 @@ Choose validation by failure risk, affected boundaries, and available environmen
 
 Use the existing test facilities and the smallest evidence needed for the requested behavior. Do not build an extra test framework, file-locking layer, protection system, or general-purpose harness for hypothetical risks. If an unrequested testing capability is necessary, describe it and obtain explicit user approval before implementing it.
 
+Exercise externally meaningful inputs, outputs and real failure boundaries. Use mocks for relevant external dependencies, not to freeze every private helper call or execution order. A green test must still exercise the behavior the user relies on.
+
+For floating-point or ML/GPU checks, use the contract's tolerances and relevant reproducibility settings. Investigate differences that exceed them or affect acceptance; do not demand byte identity without a requirement or loosen tolerances merely to pass.
+
 Validation performed during development and tests retained in the repository are separate decisions. A successful experiment does not automatically belong in the deliverable.
 
 ## Retain Only Key Tests
@@ -39,6 +43,8 @@ When the cause is uncertain, use `superpowers-neo-systematic-debugging` first.
 Add a practical regression test when the symptom is stable and the existing framework can express it without disproportionate setup. Make the test cover the reported failure, not incidental implementation details. When practical, confirm it detects the uncorrected behavior using a safe reproduction or prior revision; do not recreate the implementation merely to satisfy test ordering.
 
 If automation depends on unavailable hardware, external services, timing, credentials, or excessive setup, use the strongest feasible alternative: a minimal reproduction, captured logs, compile or static checks, a focused integration check, or documented manual validation.
+
+Once the acceptance conditions and necessary checks are satisfied, stop. Additional diagnostics, coverage or infrastructure require a remaining concrete question, not a desire to make the workflow look more thorough.
 
 ## Completion Evidence
 

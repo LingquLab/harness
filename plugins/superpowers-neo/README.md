@@ -12,6 +12,8 @@ Describe the development task normally. Each skill is independently discoverable
 
 Implement the smallest complete requested solution. Unrequested features, speculative safeguards, locking mechanisms, or extra testing infrastructure require an explanation and explicit user approval before implementation. Ordinary in-scope implementation choices remain autonomous.
 
+Avoid excessive defensive programming: retain real boundary checks, expose required failures, reuse supported implementations, and test public behavior. Do not add hypothetical guards or silently substitute execution paths. Engineering ideas informed by [avoid-overkill](https://github.com/6Kmfi6HP/avoid-overkill) are independently restated within Neo; its writing guidance and plugin machinery are not included.
+
 Run proportionate validation during development, but commit only key tests for core behavior, essential contracts, or significant regressions. Remove task-created non-core probes, debug scripts, temporary harnesses and generated artifacts before staging. Preserve existing tests, user files and explicitly requested test deliverables.
 
 ## Dependencies and effects

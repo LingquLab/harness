@@ -98,3 +98,13 @@ The `archify` plugin vendors the upstream Archify runtime release artifact:
 The included notices also record the separate terms and trademark guidance for
 bundled brand marks and fonts. The repository's root MIT license does not
 replace those terms.
+
+## Avoid Overkill Engineering Concepts
+
+Superpowers Neo independently restates selected software-design, debugging and testing principles informed by avoid-overkill. Its skill text, case files, writing guidance and plugin infrastructure are not vendored.
+
+- Project: 6Kmfi6HP/avoid-overkill
+- Source: https://github.com/6Kmfi6HP/avoid-overkill/tree/3e6c6da904f857c1eae83ee580131ca4cbd58df7/skills/avoid-overkill
+- Source commit: `3e6c6da904f857c1eae83ee580131ca4cbd58df7`
+- Copyright: Copyright (c) 2026 6Kmfi6HP
+- License: MIT License; the MIT permission and warranty notice reproduced above also applies with this source's copyright notice.

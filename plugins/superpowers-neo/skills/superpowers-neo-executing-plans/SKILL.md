@@ -41,6 +41,8 @@ Do not hard-code model names. Subagents inherit the current model and reasoning 
 
 After any required design or spec approval, proceed through an in-scope plan without asking whether to continue after each task. The plan needs no separate approval when it stays within the approved spec or settled request. Give concise progress updates and integrate results as they arrive.
 
+Keep error handling tied to supported failures and checks at real input/trust boundaries. Do not add repetitive internal guards, silent defaults or alternative execution paths for imagined failures.
+
 Implement only the requested capabilities. Do not add unrequested abstraction, locking, protection, or testing capabilities as hidden plan work. If an extra capability appears necessary, explain it and wait for explicit user approval; ordinary in-scope implementation choices remain autonomous.
 
 Adjust file choices, ordering, and implementation details when the approved behavior and acceptance criteria stay intact. Pause only for a scope or architecture change, a false core assumption, an interface or acceptance-criteria change, major risk, irreversible action, unsafe workspace conflict, genuine ambiguity, or a blocker that cannot be resolved safely.

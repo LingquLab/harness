@@ -23,6 +23,14 @@ If an extra capability seems necessary, explain the concrete need, smallest prop
 
 For example, a requested test runner does not authorize file locking or file-protection infrastructure merely to prevent hypothetical test edits. Reuse existing test facilities and simple fixtures instead of inventing extra mechanisms.
 
+## Prohibit Excessive Defensive Programming
+
+Keep validation required by public contracts, untrusted inputs, authentication, and actual data-loss boundaries. Do not repeat type/null checks throughout internal code after those conditions are established, or support states excluded by the contract merely because they can be imagined.
+
+Extra guards, retries, fallback chains, compatibility branches and configuration switches need a concrete requirement or supported failure. Evidence can justify proposing an extra capability; it does not replace the explicit user approval required above.
+
+Required failures must remain visible. Do not conceal them behind success-shaped defaults or silently change the runtime, model, data or implementation. An approved degraded mode must be identifiable and must not claim guarantees it no longer provides.
+
 ## Inspect Without Changing the Project
 
 Before proposing a design:

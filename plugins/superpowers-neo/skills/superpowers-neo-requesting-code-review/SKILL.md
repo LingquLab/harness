@@ -26,6 +26,8 @@ Report a defect only when the current code has a concrete reachable trigger and 
 
 Prefer simple, explicit failure behavior. When a required operation or internal invariant fails, propagate a clear error unless the product contract requires recovery. Do not request warnings plus continued execution, default values, retries, fallbacks, compatibility shims, or extra branches for speculative resilience. Accept degraded behavior only when the contract defines an acceptable reduced result and the path keeps state correct and tested.
 
+Check that recovery paths remain observable and preserve the accepted behavior; approved degradation must be disclosed. Do not demand guards for internal inputs excluded by a validated contract, or weaken a valid behavioral test to satisfy the implementation.
+
 Reject overengineering in the task diff: unrequested features or protective/testing infrastructure need explicit user approval, even when proposed by a reviewer. Ask for key tests of core behavior or demonstrated regressions, not speculative mechanisms or exhaustive coverage. Task-created non-core test experiments must be removed before staging; pre-existing tests are outside this cleanup scope.
 
 Do not report stylistic alternatives, speculative future-proofing, or low-impact behavior outside the supported environment as defects. Suggest the smallest correction that resolves the demonstrated problem without adding defensive complexity.
