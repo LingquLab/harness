@@ -75,10 +75,24 @@ Default to `EXEC` for user-requested work: blue supplies a bounded exact command
 or operational script, Bridge runs it unchanged, and green AI reviews saved output through the configured inference API only when
 `ai_review=true`. That endpoint must be approved to receive the saved green evidence. Prefer batching related
 commands in one EXEC script to reduce cross-zone round trips; bound runtime and
-stop dependent steps on failure. Use `TASK` for work
-requiring green AI decisions, revision-bound candidate validation, or recovery
-checks that EXEC cannot perform. See the execution forms and
+stop dependent steps on failure. Use `TASK` only when the user explicitly requests
+TASK mode. Do not switch to TASK automatically for green AI decisions, revision-bound
+validation or recovery; explain an EXEC limitation and wait for an explicit user
+request when TASK is required. See the execution forms and
 limits in [references/protocol.md](references/protocol.md).
+
+From 0.6.1, EXEC sends only its final RESULT by default, including queued and
+reviewed execution. Omit `need_ack` unless receipt/start notifications are needed;
+`need_ack: true` enables compact ACK/PROGRESS. Local green logs remain visible.
+Silence is not evidence of failure: retain task identity and do not replay work.
+
+If EXEC review errors or its local review budget expires while the total task
+still has time, Bridge automatically tries `ai_review=false` once on the same
+saved output. It never reruns the command or changes the accepted request.
+Fallback retains all direct-output guards and is labelled `AI_REVIEW_FALLBACK`,
+without an AI review claim. Encode required conditions as command assertions;
+a fallback PASS establishes direct-mode conditions only. Cancellation, total
+expiry and valid negative reviewed conclusions do not become success.
 
 Independent EXEC/TASK jobs can overlap (four slots by default). Use distinct task
 IDs, correlate every result by identity, and sequence dependent operations. Shared

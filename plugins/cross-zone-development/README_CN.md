@@ -9,7 +9,7 @@
 GitHub Issue，也不需要操作浏览器。
 
 Bridge 的 HTTP 请求（HAPI REST/SSE 和 EXEC 审查 API）统一携带
-`User-Agent: CrossZoneBridge/<版本号>`，例如 `CrossZoneBridge/0.6.0`。
+`User-Agent: CrossZoneBridge/<版本号>`，例如 `CrossZoneBridge/0.6.1`。
 在 ESA 或访问日志中匹配 `CrossZoneBridge/` 前缀即可跨版本统计 Bridge 流量，
 版本号会随已安装插件自动更新。
 
@@ -42,7 +42,8 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 再结束 Bridge 进程，下一次启动即加载新版。实例锁继续生效；中断任务不会重跑。
 后续 AI 先核查遗留进程和已完成操作，状态未知时只做只读检查，无需人工解锁。
 
-0.6.0 新增由蓝区 OPEN 发起的默认单会话自动发现，以及完整中文用户指南，保留显式会话模式。
+0.6.1 将 EXEC 改为默认仅返回最终结果，通过 `need_ack: true` 开启 ACK/PROGRESS；
+TASK 仅在用户明确要求时使用。0.6.0 引入的自动发现及显式会话模式继续保留。
 使用 `CROSS_ZONE` 标记及 `cross-zone/v3` 协议，所有消息删除 `target`，
 仅按当前 HAPI 会话绑定。READY 和旧式绿区 OPEN 的 `version` 报告实际运行的 Bridge 版本。
 
@@ -104,7 +105,8 @@ TASK/EXEC/ANSWER/CANCEL。收到有效 OPEN 即按蓝区处理，无需确认角
 尚未完成且下一步已就绪的绿区工作，就直接下发，不要求用户重复指令；否则回复就绪并等待。
 OPEN 本身不增加任务授权，不重放已完成或仍在运行的动作；先前执行效果不明时，仍须
 先核查状态。Bridge 不自动恢复本地旧队列。用户请求执行工作时默认使用
-EXEC；需要绿区判断、指定 revision 的验证或必要恢复时才使用 TASK。
+EXEC；只有用户明确要求 TASK 模式时才使用 TASK，绿区判断、revision 验证和恢复
+都不是自动切换的例外。EXEC 受阻时说明限制，等待用户明确指定 TASK。
 历史记录和恢复保护仍然保留；`ai_review` 默认 false，可能返回受限信息时由蓝区显式设置 true。
 若不接受，则仅用普通对话说明原因。蓝区不得注入、回显或返回旧式绿区 OPEN 协议消息。
 
@@ -139,7 +141,9 @@ TASK 超时不得低于 600 秒。普通代码验证建议使用 900 秒；即�
 ## 协议边界
 
 TASK/EXEC/ANSWER/CANCEL 与 ACK/PROGRESS/QUESTION/RESULT/REJECTED 使用 v3 会话绑定语义。
-ACK/PROGRESS 仅保留类型、任务 ID 和轮次；即时启动时合并为 PROGRESS。
+0.6.1 起 EXEC 默认仅回 RESULT，只有设置 `need_ack: true` 才发送 ACK/PROGRESS。
+TASK 保留现有通知行为；ACK/PROGRESS 仅含类型、任务 ID 和轮次，即时启动时合并为 PROGRESS。
+默认静默也适用于审查、排队、失败和取消，不影响绿区本地日志；没有通知不代表失败。
 消息在协议标记后使用缩进 JSON 代码块，兼容旧版单行 JSON 和完整通知。
 TASK 不携带仓库/profile 别名。
 结果必须绑定准确的任务、iteration 和当前 HAPI 会话；TASK 提供 revision 时还必须绑定该
@@ -195,8 +199,12 @@ Bridge 一次读取证据，三份文件合计最多 64 KiB，必须为 UTF-8；
 `runs/<task-id>/<iteration>/execution/review.json`。程序日志只显示审查任务标识、
 开始/完成及耗时，不打印提示词或接口响应。
 
-只请求一次，不跟随重定向、不重试、不回退到 CLI、不重跑命令。接口失败或结果无效/
-不安全时返回 NEEDS_HUMAN，原始输出不出区；超时和取消保留相应终态。已发出的请求
+接口只请求一次，不跟随重定向、不重试接口、不切换 CLI、不重跑命令。审查报错或仅
+审查阶段超时且总任务仍有时间时，自动用 `ai_review=false` 对同一份已保存输出尝试一次
+直返。成功时标记 `AI_REVIEW_FALLBACK`，明确没有 AI 审查；仍须满足退出码为零、
+stdout 为不超过 2000 字节的 UTF-8、stderr 为空、凭据及最终结果大小校验，否则扣留输出。
+检查条件须写入命令断言，降级 PASS 不代表 AI 判断通过。有效的 FAIL/BLOCKED 等审查
+结论不触发降级；取消、总任务超时和执行效果不明也不会变成成功。已发出的请求
 可能在服务端继续完成，但取消或到期后的响应不会保存或导出。等待时间同时受本地配置
 及任务剩余期限约束。普通 TASK 继续使用 `agent_command`；默认 `ai_review=false`
 的 EXEC 不调用审查接口。
@@ -245,7 +253,7 @@ HAPI 消息历史代次或游标失效时，Bridge 自动绑定到当前消息�
 
 ### v3 升级
 
-两侧需同步升级到 0.6.0；旧标记和 v2 协议不再接收。旧配置的路由身份仅用于
+两侧需同步升级到 0.6.1；旧标记和 v2 协议不再接收。旧配置的路由身份仅用于
 验证原数据库归属，不作为新协议字段。已有完成记录、回执和去重记录保留，待发
 通知保持 event_id 并转换成 v3。旧的未启动排队指令标记 BLOCKED，不会自动执行；旧执行中
 或等待继续的任务（包括回答后重新排队的续跑任务）标记 NEEDS_HUMAN 并要求恢复检查。不能验证归属的旧状态原样

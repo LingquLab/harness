@@ -73,11 +73,40 @@ class DirectExecutor:
     def __init__(self, config, reviewer):
         self.config, self.reviewer = config, reviewer
 
+    @staticmethod
+    def _direct_result(request, execution, stdout, stderr):
+        # Only successful, small stdout is eligible for direct export. Never
+        # return stderr or exception text from the command through this path.
+        if execution["status"] != "EXITED" or execution["exit_code"] != 0:
+            status = {"TIMED_OUT": "TIMED_OUT", "OUTPUT_LIMIT": "NEEDS_HUMAN",
+                      "START_FAILED": "BLOCKED", "NOT_STARTED": "BLOCKED",
+                      "EXECUTION_ERROR": "NEEDS_HUMAN"}.get(execution["status"], "FAIL")
+            return {"failure": "direct_execution_failed", "status": status,
+                    "detail": "Direct command did not exit successfully; output remains green-local.",
+                    "execution": execution}
+        try:
+            if stdout.stat().st_size > 2000 or stderr.stat().st_size:
+                raise ValueError("unexpected output")
+            summary = stdout.read_bytes().decode("utf-8-sig").replace("\r\n", "\n")
+            if any((ord(c) < 32 or 127 <= ord(c) <= 159) and c not in "\n\t" for c in summary):
+                raise ValueError("control characters")
+        except (OSError, UnicodeError, ValueError):
+            return {"failure": "direct_output_rejected", "status": "NEEDS_HUMAN",
+                    "detail": "Direct output is oversized, invalid UTF-8, contains control characters, or stderr is nonempty; output withheld.",
+                    "execution": execution}
+        return {"output": {"kind": "RESULT", "status": "PASS",
+                           "summary": "Direct EXEC (no AI review):\n" + summary.strip(),
+                           "checks": [{"id": c["id"], "status": "PASS"} for c in request.get("checks", [])],
+                           "error_code": "", "question": "", "local_modification_tested": False,
+                           "local_modification_outcome": "NOT_RUN", "egress_reviewed": False},
+                "execution": execution}
+
     def run(self, request, session_id, answer, deadline, cancel, recovery):
         if recovery:
             return {"failure": "execution_recovery_pending", "status": "BLOCKED",
-                    "detail": "Command was not started. Use a scoped read-only TASK to verify surviving "
-                              "processes and completed effects before another EXEC.",
+                    "detail": "Command was not started. Recovery requires evidence about surviving processes "
+                              "and completed effects. A read-only TASK requires an explicit user request; "
+                              "do not switch modes automatically.",
                     "execution": facts("NOT_STARTED")}
         if cancel.is_set() or time.time() >= deadline - REVIEW_SECONDS:
             return {"failure": "execution_not_started", "status": "CANCELLED" if cancel.is_set() else "TIMED_OUT",
@@ -190,31 +219,7 @@ class DirectExecutor:
                     "detail": "Execution cancelled; raw output remains green-local and was not exported.",
                     "execution": execution}
         if request.get("ai_review", False) is False:
-            # Only successful, small stdout is eligible for direct export. Never
-            # return stderr or exception text from the command through this path.
-            if execution["status"] != "EXITED" or execution["exit_code"] != 0:
-                status = {"TIMED_OUT": "TIMED_OUT", "OUTPUT_LIMIT": "NEEDS_HUMAN",
-                          "START_FAILED": "BLOCKED", "NOT_STARTED": "BLOCKED",
-                          "EXECUTION_ERROR": "NEEDS_HUMAN"}.get(execution["status"], "FAIL")
-                return {"failure": "direct_execution_failed", "status": status,
-                        "detail": "Direct command did not exit successfully; output remains green-local.",
-                        "execution": execution}
-            try:
-                if stdout.stat().st_size > 2000 or stderr.stat().st_size:
-                    raise ValueError("unexpected output")
-                summary = stdout.read_bytes().decode("utf-8-sig").replace("\r\n", "\n")
-                if any((ord(c) < 32 or 127 <= ord(c) <= 159) and c not in "\n\t" for c in summary):
-                    raise ValueError("control characters")
-            except (OSError, UnicodeError, ValueError):
-                return {"failure": "direct_output_rejected", "status": "NEEDS_HUMAN",
-                        "detail": "Direct output is oversized, invalid UTF-8, contains control characters, or stderr is nonempty; output withheld.",
-                        "execution": execution}
-            return {"output": {"kind": "RESULT", "status": "PASS",
-                               "summary": "Direct EXEC (no AI review):\n" + summary.strip(),
-                               "checks": [{"id": c["id"], "status": "PASS"} for c in request.get("checks", [])],
-                               "error_code": "", "question": "", "local_modification_tested": False,
-                               "local_modification_outcome": "NOT_RUN", "egress_reviewed": False},
-                    "execution": execution}
+            return self._direct_result(request, execution, stdout, stderr)
         context = {"receipt": str(receipt), "stdout": str(stdout), "stderr": str(stderr),
                    "execution": execution}
         try:
@@ -225,4 +230,21 @@ class DirectExecutor:
             # Reviewer exceptions must never discard authoritative execution facts or raw-log boundaries.
             result = {"failure": "execution_review_failed", "status": "NEEDS_HUMAN",
                       "detail": "Output review failed after execution; inspect saved local evidence, do not rerun."}
+        if result.get("failure") in {"execution_review_failed", "execution_review_timed_out"}:
+            if cancel.is_set():
+                return {"failure": "execution_review_cancelled", "status": "CANCELLED",
+                        "detail": "Review cancelled; no direct fallback was exported.", "execution": execution}
+            if time.time() >= deadline:
+                return {"failure": "execution_review_timed_out", "status": "TIMED_OUT",
+                        "detail": "Task deadline expired; no direct fallback was exported.", "execution": execution}
+            LOG.warning("EXEC review failed; trying direct saved-output fallback: %s / %s reason=%s",
+                        request["task_id"], request["iteration"], result["failure"])
+            direct = self._direct_result(request, execution, stdout, stderr)
+            if "output" in direct:
+                direct["output"]["summary"] = "AI review failed; saved-output fallback. " + direct["output"]["summary"]
+                direct["output"]["error_code"] = "AI_REVIEW_FALLBACK"
+                direct["ai_review_fallback"] = True
+            else:
+                direct["detail"] = "AI review failed; direct fallback from saved output was withheld. " + direct["detail"]
+            return direct
         return {**result, "execution": execution}

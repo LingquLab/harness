@@ -47,6 +47,23 @@ class ExecutionProtocolTests(unittest.TestCase):
         with self.assertRaises(ProtocolError):
             parse(wire(fixtures.general_task(ai_review=False)))
 
+    def test_need_ack_is_optional_exec_only_boolean(self):
+        for factory in (compact_exec, exec_task):
+            for flag in (True, False):
+                event = factory(need_ack=flag)
+                self.assertEqual(parse(wire(event)), event)
+            for flag in (None, 0, 1, "true", [], {}):
+                with self.subTest(flag=flag), self.assertRaises(ProtocolError):
+                    parse(wire(factory(need_ack=flag)))
+        for kind in ("TASK", "ANSWER", "CANCEL"):
+            event = fixtures.general_task(need_ack=True) if kind == "TASK" else {
+                "protocol": "cross-zone/v3", "type": kind, "event_id": "control",
+                "task_id": "task-1", "iteration": 1, "need_ack": True}
+            if kind == "ANSWER":
+                event.update(question_id="q-1", answer="yes")
+            with self.subTest(kind=kind), self.assertRaises(ProtocolError):
+                parse(wire(event))
+
     def test_compact_direct_exec_with_omitted_or_false_review(self):
         for event in (compact_exec(), compact_exec() | {"ai_review": False}):
             self.assertEqual(parse(wire(event)), event)
@@ -320,8 +337,35 @@ class DirectExecutionTests(unittest.TestCase):
         self.reviewer.run = broken
         result = self.run_command(exec_task(iteration=2))
         self.assertEqual(result["execution"], {"status": "EXITED", "exit_code": 0})
-        self.assertEqual(result["failure"], "execution_review_failed")
+        self.assertEqual(result["output"]["error_code"], "AI_REVIEW_FALLBACK")
+        self.assertTrue(result["ai_review_fallback"])
+        self.assertFalse(result["output"]["egress_reviewed"])
         self.assertNotIn("sensitive", json.dumps(result))
+
+    def test_review_error_after_cancellation_does_not_fall_back(self):
+        cancel = threading.Event()
+        def cancelled(*args):
+            cancel.set()
+            raise RuntimeError("review transport failed")
+        self.reviewer.run = cancelled
+        result = self.run_command(cancel=cancel)
+        self.assertEqual(result["status"], "CANCELLED")
+        self.assertNotIn("output", result)
+        self.assertEqual(result["execution"], {"status": "EXITED", "exit_code": 0})
+
+    def test_total_task_expiry_does_not_fall_back_after_review_timeout(self):
+        expired = [False]
+        real_time = time.time
+        deadline = real_time() + 90
+        def timeout(*args):
+            expired[0] = True
+            return {"failure": "execution_review_timed_out", "status": "TIMED_OUT"}
+        self.reviewer.run = timeout
+        with patch("cross_zone.execution.time.time", side_effect=lambda: deadline + 1 if expired[0] else real_time()):
+            result = self.runner.run(exec_task(), None, None, deadline, threading.Event(), [])
+        self.assertEqual(result["status"], "TIMED_OUT")
+        self.assertNotIn("output", result)
+        self.assertEqual(result["execution"], {"status": "EXITED", "exit_code": 0})
 
     def test_receipt_write_failure_keeps_exit_facts_and_prevents_replay(self):
         original = Path.replace
@@ -377,6 +421,97 @@ class ExecutionBridgeTests(unittest.TestCase):
                 return self.client.sent[-1][1]
             time.sleep(0.01)
         self.fail("executor did not settle")
+
+    def test_exec_default_and_false_send_only_final_result_with_or_without_review(self):
+        for iteration, factory in enumerate((compact_exec, exec_task,
+                                             lambda **kw: compact_exec(need_ack=False, **kw)), 1):
+            event = factory(iteration=iteration, event_id=f"quiet-{iteration}")
+            self.client.sent.clear()
+            self.ingest(event)
+            self.bridge.flush()
+            self.assertEqual(self.client.sent, [])
+            result = self.finish()
+            self.assertEqual(result["status"], "PASS")
+            self.assertEqual([e["type"] for _, e in self.client.sent], ["RESULT"])
+        self.assertEqual(len(self.reviewer.calls), 1)
+
+    def test_opted_in_exec_retains_queued_ack_and_compact_progress(self):
+        for iteration, factory in enumerate((compact_exec, exec_task), 1):
+            event = factory(need_ack=True, iteration=iteration, event_id=f"ack-{iteration}")
+            self.client.sent.clear()
+            self.ingest(event)
+            self.bridge.flush()
+            self.assertEqual(self.client.sent[0][1], {
+                "type": "ACK", "task_id": "task-1", "iteration": iteration})
+            self.assertEqual(self.finish()["status"], "PASS")
+            self.assertEqual([e["type"] for _, e in self.client.sent], ["ACK", "PROGRESS", "RESULT"])
+            self.assertEqual(self.client.sent[1][1], {
+                "type": "PROGRESS", "task_id": "task-1", "iteration": iteration})
+
+    def test_immediate_opted_in_exec_coalesces_unsent_ack(self):
+        self.ingest(compact_exec(need_ack=True))
+        self.assertEqual(self.finish()["status"], "PASS")
+        self.assertEqual([e["type"] for _, e in self.client.sent], ["PROGRESS", "RESULT"])
+
+    def test_quiet_exec_queued_cancellation_and_failure_still_return_results(self):
+        self.bridge.max_concurrent_tasks = 0
+        self.ingest(compact_exec())
+        self.bridge.work()
+        self.bridge.flush()
+        self.assertEqual(self.client.sent, [])
+        self.assertEqual(self.bridge.store.get_task("task-1", 1)["state"], "QUEUED")
+        self.ingest({"protocol": "cross-zone/v3", "type": "CANCEL", "event_id": "quiet-cancel",
+                     "task_id": "task-1", "iteration": 1})
+        self.bridge.flush()
+        self.assertEqual([e["type"] for _, e in self.client.sent], ["RESULT"])
+        self.assertEqual(self.client.sent[-1][1]["status"], "CANCELLED")
+        self.bridge.max_concurrent_tasks = 1
+        self.ingest(compact_exec(iteration=2, event_id="quiet-failure",
+                                 execution={"interpreter": "python", "script": "raise SystemExit(7)"}))
+        self.assertEqual(self.finish()["status"], "FAIL")
+        self.assertEqual([e["type"] for _, e in self.client.sent], ["RESULT", "RESULT"])
+
+    def test_quiet_exec_dedup_and_notification_flag_changes_do_not_replay(self):
+        event = compact_exec()
+        self.ingest(event)
+        self.finish()
+        receipt = Path(self.cfg["state_dir"]) / "runs/task-1/1/execution/execution.json"
+        saved = receipt.read_bytes()
+        self.ingest({**event, "event_id": "quiet-retry"})
+        self.bridge.work()
+        self.bridge.flush()
+        self.assertEqual([e["type"] for _, e in self.client.sent], ["RESULT"])
+        self.ingest({**event, "event_id": "changed-ack", "need_ack": True})
+        self.bridge.flush()
+        self.assertEqual(self.client.sent[-1][1]["reason"], "task_content_conflict")
+        self.assertEqual(receipt.read_bytes(), saved)
+
+    def test_restart_drops_only_unsent_quiet_exec_notices(self):
+        self.ingest(compact_exec())
+        self.finish()
+        store = self.bridge.store
+        result = store.db.execute("SELECT * FROM outbox WHERE sent=1").fetchone()
+        self.ingest(compact_exec(task_id="opt-in", event_id="opt-in", need_ack=True))
+        self.ingest(fixtures.general_task(task_id="agent-task", event_id="agent-task"))
+        requests_before = [tuple(row) for row in store.db.execute("SELECT * FROM tasks")]
+        with store.db:
+            store.db.execute("UPDATE outbox SET sent=0 WHERE id=?", (result["id"],))
+            for kind in ("ACK", "PROGRESS"):
+                event = {"type": kind, "task_id": "task-1", "iteration": 1}
+                if kind == "ACK":
+                    event.update(protocol="cross-zone/v3", event_id="old-ack", state="QUEUED")
+                store.db.execute("INSERT INTO outbox(id,text,created) VALUES (?,?,?)",
+                                 ("old-" + kind.lower(), wire(event), time.time()))
+        retained = {row["id"] for row in store.db.execute("SELECT id FROM outbox WHERE sent=0")}
+        self.bridge.close()
+        self.bridge = Bridge(self.cfg, self.client, reviewer=self.reviewer)
+        self.assertEqual([tuple(row) for row in self.bridge.store.db.execute("SELECT * FROM tasks")], requests_before)
+        pending = {row["id"] for row in self.bridge.store.db.execute("SELECT id FROM outbox WHERE sent=0")}
+        self.assertEqual(pending, retained - {"old-ack", "old-progress"})
+        self.client.sent.clear()
+        self.bridge.flush()
+        self.assertEqual({(e["type"], e["task_id"]) for _, e in self.client.sent},
+                         {("RESULT", "task-1"), ("ACK", "opt-in"), ("ACK", "agent-task")})
 
     def test_compact_exec_passes_without_ai_and_keeps_output_protections(self):
         scripts = [("print('done')", "PASS"),

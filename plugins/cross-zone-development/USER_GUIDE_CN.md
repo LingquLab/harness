@@ -117,7 +117,8 @@ SSE 通知和任务完成不会额外触发全会话扫描。正常 SSE 是长�
 短连接按 1–30 秒指数退避，连接持续至少 30 秒才重置。
 
 READY 只表示连接就绪，任务是否完成要看后续 RESULT。
-PROGRESS 表示任务已开始，QUESTION 表示需要补充信息；将答案交给蓝区 AI 继续处理即可。
+EXEC 默认不发送 ACK/PROGRESS；设置 `need_ack: true` 才启用。PROGRESS 表示已开始，
+用户明确选择 TASK 后可能收到 QUESTION，将答案交给蓝区 AI 继续处理即可。
 
 ### 3 继续使用同一个会话
 
@@ -126,8 +127,8 @@ PROGRESS 表示任务已开始，QUESTION 表示需要补充信息；将答案�
 
 简单、输出可直接返回的命令通常使用 EXEC，默认不调用绿区 AI 审查。
 日志、配置、服务响应等需要过滤的输出，应让蓝区设置 `ai_review=true`；
-需要绿区 AI 判断、候选代码验证或恢复检查的工作使用 TASK。
-这些协议选择由蓝区 AI 根据 skill 处理。
+只有用户明确指定 TASK 模式时才使用 TASK，包括绿区判断、候选代码验证或恢复。
+蓝区不得因 EXEC 受阻而自动切换 TASK。
 
 ### 4 完成后释放连接
 
@@ -176,13 +177,14 @@ bash /c/tools/cross-zone-development/start-bridge.sh run <session-id>
 
 ## 任务派发与执行方式
 
-先说明要做什么以及怎样判断成功，再由蓝区 AI 选择执行方式。
+先说明要做什么以及怎样判断成功。蓝区默认使用 EXEC；只有用户明确指定
+TASK 模式时才使用 TASK。诊断、候选代码验证和中断恢复都不是自动切换的例外。
 
 | 方式 | 适合的工作 | 谁执行与判断 |
 | --- | --- | --- |
 | EXEC 直接返回 | 精确命令、小型脚本、已知可直接返回的短输出 | Bridge 执行，按退出码、输出及出区校验构造结果，不启动 AI |
 | EXEC 加 AI 审查 | 精确命令会产生需要过滤的日志、配置或服务响应 | Bridge 执行，推理接口审查已保存证据；不追加命令 |
-| TASK | 需要绿区现场判断、补充诊断、候选代码验证或中断恢复 | 本地 Agent CLI 根据目标与 checks 执行，并审查结果 |
+| TASK | 用户明确指定 TASK，交由绿区现场判断、诊断、候选代码验证或恢复 | 本地 Agent CLI 根据目标与 checks 执行，并审查结果 |
 
 ### 直接执行命令与脚本
 
@@ -204,6 +206,10 @@ EXEC 的 `ai_review` 默认为 `false`。直接返回要求 stdout 为有效 UTF
 PASS 表示命令退出为零且结果通过输出校验，并不表示 AI 独立验证了业务目标。
 因此，失败条件必须让脚本以非零码退出，而不是只打印“失败”。
 
+0.6.1 起 EXEC 默认只返回最终 RESULT，包括排队、审查、失败和取消。需要
+接收或开始通知时设置 `need_ack: true`，才会收到 ACK/PROGRESS；通常省略该字段。
+绿区本地执行日志照常显示。没有通知不代表任务失败，不应据此重跑或自动改用 TASK。
+
 ### 对 EXEC 输出进行 AI 审查
 
 例如对蓝区说：
@@ -215,8 +221,14 @@ PASS 表示命令退出为零且结果通过输出校验，并不表示 AI 独�
 三份证据文件合计最多 64 KiB，须能按 UTF-8 解码。
 
 审查模型没有工具，不能重跑命令、读其他文件、修复问题或追加调查。
-需要进一步诊断时，由蓝区根据结果派发新的 TASK。
-接口失败、审查超时、证据超限或结果不安全时，不自动重试、切换 CLI 或重跑命令。
+进一步诊断仍默认使用 EXEC，只有用户明确指定才可派发 TASK。
+审查接口报错、配置缺失、模型结果无效或仅审查阶段超时时，若总任务仍有时间，
+Bridge 自动用 `ai_review=false` 对同一份已保存输出尝试一次直返，原命令不重跑、
+接口不重试，也不切换 CLI。降级结果带 `AI_REVIEW_FALLBACK`，明确没有经过 AI 审查。
+直返仍需满足退出码为零、stdout 不超过 2000 字节且为合法 UTF-8、stderr 为空，
+并通过凭据检测和结果大小校验；不满足则扣留输出。所需条件须写入命令断言，
+降级 PASS 只代表直接执行与机器校验通过，不代表 AI 对检查项的判断。
+有效的 FAIL/BLOCKED 等审查结论、取消和总任务超时不触发成功降级。
 非零退出、取消和超时等执行事实不会被 AI 改成 PASS。
 
 ### 让绿区 AI 完成 TASK
@@ -306,8 +318,8 @@ EXEC 不支持 QUESTION/ANSWER。等待回答期间 TASK 会释放并发槽位�
 
 | 消息或状态 | 含义与下一步 |
 | --- | --- |
-| ACK | 已持久化排队，不代表已执行；立即启动时可能直接收到 PROGRESS |
-| PROGRESS | 开始或正在执行，不是成功证据 |
+| ACK | TASK 或 `need_ack=true` 的 EXEC 已持久化排队；立即启动时可能直接收到 PROGRESS |
+| PROGRESS | TASK 或 `need_ack=true` 的 EXEC 已开始，不是成功证据 |
 | QUESTION | 需要信息，通过蓝区回答后续接 |
 | RESULT / PASS | 指定检查通过；仍需核对任务、revision 和实际证据是否匹配 |
 | RESULT / FAIL | 执行或检查失败，依据证据修改后再进行下一轮 |
@@ -341,7 +353,7 @@ HAPI 返回有界结果，原始日志和执行回执保留在绿区。
 ## 在 ESA 或访问日志中识别 Bridge 流量
 
 Bridge 发起的 HAPI REST、`/api/events` SSE 和 EXEC 审查 API 请求都携带
-`User-Agent: CrossZoneBridge/<版本号>`，例如 `CrossZoneBridge/0.6.0`。
+`User-Agent: CrossZoneBridge/<版本号>`，例如 `CrossZoneBridge/0.6.1`。
 按 User-Agent 的 `CrossZoneBridge/` 前缀匹配即可跨版本统计流量；版本号自动
 跟随已安装插件，无需额外配置。EXEC 脚本或 CodeAgent 自行发起的请求使用各自的请求头。
 
@@ -400,7 +412,7 @@ bash /c/tools/cross-zone-development/watch-bridge.sh
 已保存但未发出的结果会重试发送；中断的执行不会自动重放。
 尚有恢复事项时，新的 EXEC 会在启动命令前被阻止。
 
-在蓝区说明：
+蓝区不会自动发送恢复 TASK，须由用户明确指定，例如：
 
 > 先用只读 TASK 检查中断任务的本地回执、遗留进程和已完成效果。不要重跑原命令，确认恢复状态后再决定剩余操作。
 
@@ -416,7 +428,9 @@ bash /c/tools/cross-zone-development/watch-bridge.sh
 
 HAPI 消息历史代次或游标重置时，会从新的消息末尾重新绑定并继续监听，
 保留已有任务、回执和待发结果。窗口内尚未接收的指令可能被跳过；
-蓝区核对 ACK/PROGRESS 后，按原 task_id/iteration 重发尚未确认接收的同内容指令，
+蓝区核对已有 RESULT、可用的 ACK/PROGRESS 和绿区回执后，如需传输重试，
+按原 task_id/iteration 重发完全相同的指令；默认 EXEC 没有进度通知不构成重试依据。
+不得更改 `need_ack` 或新建轮次来获取回执，
 避免修改已接受的请求或重复已完成的操作。
 
 ## 内网下载
