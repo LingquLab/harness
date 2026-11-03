@@ -242,9 +242,15 @@ commands, read other files or change execution facts. A validated internal resul
 is saved at `runs/<task-id>/<iteration>/execution/review.json`. Logs contain only
 review task identity, start/completion and elapsed time, not prompts or responses.
 
-There is one request and no redirects, retries, CLI fallback or command replay.
-API failure or invalid/unsafe output produces NEEDS_HUMAN with raw output withheld;
-deadline/cancellation retains its terminal status. A request already sent may
+There is one API request and no redirects, API retries, CLI fallback or command
+replay. Review errors (including missing configuration, API errors, malformed
+model output or exceptions) and local review timeout automatically attempt
+`ai_review=false` once using the same saved stdout/stderr, while total task time
+remains. A successful direct fallback is labelled `AI_REVIEW_FALLBACK` and has
+no AI-review claim. It must pass direct-mode zero-exit, 2000-byte UTF-8 stdout,
+empty stderr, credential and final envelope checks. Failure still withholds
+output. Assert required conditions in the command; fallback PASS is not an AI
+assessment. Valid negative reviews, total expiry and cancellation keep their outcome. A request already sent may
 finish on the server after cancellation; its late response is discarded and is
 never saved or exported. The timeout is bounded by both local configuration and
 the remaining task deadline. TASK still uses `agent_command`; direct EXEC

@@ -157,7 +157,7 @@ class ReviewAPITests(unittest.TestCase):
         finally:
             bridge.close()
 
-    def test_invalid_model_results_are_withheld(self):
+    def test_invalid_model_results_fall_back_to_saved_stdout(self):
         variants = [b"not-json", b'{"choices": []}', self.response(fixtures.output(), finish_reason="length"),
                     self.response(fixtures.output(), tool_calls=[{"name": "anything"}]),
                     self.response(fixtures.output(kind="QUESTION", question="Please run a command")),
@@ -171,28 +171,30 @@ class ReviewAPITests(unittest.TestCase):
             with self.subTest(index=index):
                 self.body = body
                 result = self.run_exec(exec_task(task_id=f"invalid-{index}"))
-                self.assertEqual(result["status"], "NEEDS_HUMAN")
-                self.assertNotIn("output", result)
+                self.assertEqual(result["output"]["error_code"], "AI_REVIEW_FALLBACK")
+                self.assertIn("done", result["output"]["summary"])
+                self.assertTrue(result["ai_review_fallback"])
                 self.assertNotIn(self.key, json.dumps(result))
                 self.assertNotIn("never-export", json.dumps(result))
                 self.assertFalse((Path(self.cfg["state_dir"]) / f"runs/invalid-{index}/1/execution/review.json").exists())
         self.assertEqual(len(self.calls), len(variants))
 
-    def test_http_error_and_redirect_are_not_retried_or_exposed(self):
+    def test_http_errors_and_redirect_fall_back_without_retrying_api(self):
         for index, status in enumerate((401, 500, 302)):
             self.status = status
             self.body = ("unsafe server diagnostic " + self.key).encode()
             result = self.run_exec(exec_task(task_id=f"http-{index}"))
-            self.assertEqual(result["status"], "NEEDS_HUMAN")
-            self.assertIn(f"HTTP {status}", result["detail"])
+            self.assertEqual(result["output"]["error_code"], "AI_REVIEW_FALLBACK")
+            self.assertFalse(result["output"]["egress_reviewed"])
+            self.assertIn("done", result["output"]["summary"])
             self.assertNotIn(self.key, json.dumps(result))
         self.assertEqual(len(self.calls), 3)
 
-    def test_missing_or_placeholder_key_withholds_without_request(self):
+    def test_missing_or_placeholder_key_uses_direct_fallback_without_request(self):
         for index, key in enumerate((None, "REPLACE_WITH_REVIEW_API_KEY")):
             self.cfg["exec_review"]["api_key"] = key
             result = self.run_exec(exec_task(task_id=f"key-{index}"))
-            self.assertEqual(result["status"], "NEEDS_HUMAN")
+            self.assertEqual(result["output"]["error_code"], "AI_REVIEW_FALLBACK")
             self.assertEqual(result["execution"]["exit_code"], 0)
         self.assertEqual(self.calls, [])
 
@@ -203,10 +205,10 @@ class ReviewAPITests(unittest.TestCase):
             self.assertEqual(result["status"], "NEEDS_HUMAN")
         self.assertEqual(self.calls, [])
 
-    def test_oversized_response_is_withheld(self):
+    def test_oversized_model_response_falls_back_to_saved_stdout(self):
         self.body = b"x" * (64 * 1024 + 1)
         result = self.run_exec()
-        self.assertEqual(result["status"], "NEEDS_HUMAN")
+        self.assertEqual(result["output"]["error_code"], "AI_REVIEW_FALLBACK")
         self.assertFalse(self.review_path().exists())
 
     def test_cancel_and_deadline_drop_late_responses(self):
@@ -240,9 +242,78 @@ class ReviewAPITests(unittest.TestCase):
         first = self.run_exec(event)
         second = self.run_exec(event)
         self.assertEqual(first["execution"]["exit_code"], 0)
+        self.assertEqual(first["output"]["error_code"], "AI_REVIEW_FALLBACK")
+        self.assertTrue(first["ai_review_fallback"])
         self.assertEqual(second["failure"], "execution_already_attempted")
         self.assertEqual((Path(self.cfg["state_dir"]) / "counter").read_text(), "x")
         self.assertEqual(len(self.calls), 1)
+
+    def test_local_review_timeout_falls_back_without_reexecuting_or_late_save(self):
+        self.delay = 0.3
+        self.cfg["exec_review"]["timeout_seconds"] = 0.05
+        event = exec_task(execution={"interpreter": "python", "script":
+            "from pathlib import Path\np=Path('timeout-counter');p.write_text(p.read_text()+'x' if p.exists() else 'x');print('done')"})
+        result = self.run_exec(event)
+        self.assertEqual(result["output"]["error_code"], "AI_REVIEW_FALLBACK")
+        self.assertFalse(result["output"]["egress_reviewed"])
+        self.assertEqual((Path(self.cfg["state_dir"]) / "timeout-counter").read_text(), "x")
+        time.sleep(0.35)
+        self.assertFalse(self.review_path().exists())
+        self.assertEqual(len(self.calls), 1)
+
+    def test_valid_negative_review_is_not_replaced_by_direct_success(self):
+        for index, status in enumerate(("FAIL", "BLOCKED", "NEEDS_HUMAN")):
+            value = fixtures.output(status=status, checks=[{"id": "regression", "status": "FAIL"}])
+            self.body = self.response(value)
+            result = self.run_exec(exec_task(task_id=f"negative-{index}"))
+            self.assertEqual(result["output"]["status"], status)
+            self.assertNotIn("ai_review_fallback", result)
+            self.assertTrue(result["output"]["egress_reviewed"])
+
+    def test_fallback_uses_final_direct_egress_and_preserves_request_identity(self):
+        self.status = 500
+        agent, client = fixtures.FakeAgent(), fixtures.FakeClient()
+        bridge = Bridge(self.cfg, client, agent)
+        try:
+            bridge.bind()
+            texts = ("safe-result", client.access_key, client.token, self.key, "password=hidden")
+            for iteration, text in enumerate(texts, 1):
+                event = exec_task(iteration=iteration, event_id=f"fallback-{iteration}",
+                                 execution={"interpreter": "python", "script": f"print({text!r})"})
+                client.rows.append(fixtures.message(event, len(client.rows) + 1))
+                bridge.catch_up()
+                self.finish(bridge)
+                bridge.flush()
+                result = client.sent[-1][1]
+                self.assertEqual(result["status"], "PASS" if iteration == 1 else "NEEDS_HUMAN")
+                saved = json.loads(bridge.store.get_task(event["task_id"], iteration)["request"])
+                self.assertTrue(saved["ai_review"])
+                self.assertNotIn("ai_review_fallback", result)
+                self.assertNotIn("egress_reviewed", result)
+                if iteration == 1:
+                    self.assertEqual(result["error_code"], "AI_REVIEW_FALLBACK")
+                    self.assertIn("no AI review", result["summary"])
+                else:
+                    self.assertNotIn(text, json.dumps(result))
+            self.assertFalse(agent.calls)
+            self.assertTrue(all(value["type"] == "RESULT" for _, value in client.sent))
+        finally:
+            bridge.close()
+
+    def test_review_failure_direct_fallback_retains_output_limits_and_exit_facts(self):
+        self.status = 500
+        scripts = (("print('x'*2001)", "NEEDS_HUMAN"),
+                   ("import sys;sys.stderr.write('private');print('done')", "NEEDS_HUMAN"),
+                   ("import sys;sys.stdout.buffer.write(bytes([255]))", "NEEDS_HUMAN"),
+                   ("import sys;sys.stdout.buffer.write(bytes([1]))", "NEEDS_HUMAN"),
+                   ("raise SystemExit(7)", "FAIL"))
+        for index, (script, status) in enumerate(scripts):
+            result = self.run_exec(exec_task(task_id=f"guard-{index}",
+                                   execution={"interpreter": "python", "script": script}))
+            self.assertEqual(result["status"], status)
+            self.assertNotIn("output", result)
+            self.assertEqual(result["execution"]["status"], "EXITED")
+            self.assertEqual(result["execution"]["exit_code"], 7 if status == "FAIL" else 0)
 
     def test_review_key_is_excluded_from_child_environment_and_direct_export(self):
         event = exec_task(ai_review=False, execution={"interpreter": "python", "script":

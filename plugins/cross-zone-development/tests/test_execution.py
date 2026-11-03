@@ -337,8 +337,35 @@ class DirectExecutionTests(unittest.TestCase):
         self.reviewer.run = broken
         result = self.run_command(exec_task(iteration=2))
         self.assertEqual(result["execution"], {"status": "EXITED", "exit_code": 0})
-        self.assertEqual(result["failure"], "execution_review_failed")
+        self.assertEqual(result["output"]["error_code"], "AI_REVIEW_FALLBACK")
+        self.assertTrue(result["ai_review_fallback"])
+        self.assertFalse(result["output"]["egress_reviewed"])
         self.assertNotIn("sensitive", json.dumps(result))
+
+    def test_review_error_after_cancellation_does_not_fall_back(self):
+        cancel = threading.Event()
+        def cancelled(*args):
+            cancel.set()
+            raise RuntimeError("review transport failed")
+        self.reviewer.run = cancelled
+        result = self.run_command(cancel=cancel)
+        self.assertEqual(result["status"], "CANCELLED")
+        self.assertNotIn("output", result)
+        self.assertEqual(result["execution"], {"status": "EXITED", "exit_code": 0})
+
+    def test_total_task_expiry_does_not_fall_back_after_review_timeout(self):
+        expired = [False]
+        real_time = time.time
+        deadline = real_time() + 90
+        def timeout(*args):
+            expired[0] = True
+            return {"failure": "execution_review_timed_out", "status": "TIMED_OUT"}
+        self.reviewer.run = timeout
+        with patch("cross_zone.execution.time.time", side_effect=lambda: deadline + 1 if expired[0] else real_time()):
+            result = self.runner.run(exec_task(), None, None, deadline, threading.Event(), [])
+        self.assertEqual(result["status"], "TIMED_OUT")
+        self.assertNotIn("output", result)
+        self.assertEqual(result["execution"], {"status": "EXITED", "exit_code": 0})
 
     def test_receipt_write_failure_keeps_exit_facts_and_prevents_replay(self):
         original = Path.replace

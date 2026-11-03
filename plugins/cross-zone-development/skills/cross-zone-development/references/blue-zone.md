@@ -97,6 +97,11 @@ execution facts and requested evidence normally.
 From 0.6.1, omit `need_ack` by default: EXEC returns only RESULT, even when queued
 or reviewed. Set `need_ack: true` only when receipt/start notifications are needed.
 Missing ACK/PROGRESS is expected and does not justify replay or switching to TASK.
+Review errors automatically try the same saved output once without AI review;
+`AI_REVIEW_FALLBACK` identifies this result. Do not resend EXEC or change its flag
+to implement the fallback yourself. Conditions must be asserted in the command;
+fallback PASS does not establish an AI assessment. All direct-export guards
+remain, and a valid negative reviewed conclusion is not an error to override.
 
 Accept compact and legacy ACK/PROGRESS as specified in protocol.md. ACK means
 queued; PROGRESS also confirms receipt. Accept a result only when protocol, task ID, iteration, current session

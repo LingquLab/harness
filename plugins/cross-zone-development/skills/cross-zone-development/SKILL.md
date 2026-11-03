@@ -86,6 +86,14 @@ reviewed execution. Omit `need_ack` unless receipt/start notifications are neede
 `need_ack: true` enables compact ACK/PROGRESS. Local green logs remain visible.
 Silence is not evidence of failure: retain task identity and do not replay work.
 
+If EXEC review errors or its local review budget expires while the total task
+still has time, Bridge automatically tries `ai_review=false` once on the same
+saved output. It never reruns the command or changes the accepted request.
+Fallback retains all direct-output guards and is labelled `AI_REVIEW_FALLBACK`,
+without an AI review claim. Encode required conditions as command assertions;
+a fallback PASS establishes direct-mode conditions only. Cancellation, total
+expiry and valid negative reviewed conclusions do not become success.
+
 Independent EXEC/TASK jobs can overlap (four slots by default). Use distinct task
 IDs, correlate every result by identity, and sequence dependent operations. Shared
 files/services still require coordination; see the protocol's concurrent scheduling

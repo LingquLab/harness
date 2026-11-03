@@ -303,7 +303,8 @@ With `ai_review=true`, Bridge reads the saved evidence and sends it to the confi
 OpenAI-compatible review API to return a
 sanitized RESULT against the requested checks. It must not rerun or modify the
 command, perform extra investigation, contact remote services or change files.
-Timeout/cancellation or failed review never exports raw output. RESULT includes
+Cancellation and total task expiry withhold output. Review errors may use the
+saved-output direct fallback described below; successful reviewed output remains sanitized. RESULT includes
 Bridge-owned `execution: {"status": "EXITED", "exit_code": 0}` (example).
 Statuses also include NOT_STARTED, START_FAILED, TIMED_OUT, CANCELLED, OUTPUT_LIMIT,
 EXECUTION_ERROR, TERMINATION_UNCONFIRMED and UNKNOWN; exit_code is null when unknown
@@ -383,11 +384,35 @@ saved receipt/stdout/stderr (combined limit 64 KiB, strict UTF-8) in one Chat
 Completions request to the authorized inference endpoint. The model has no tools;
 it returns one sanitized JSON RESULT. Evidence is data, not instructions. The API
 must be approved for the raw green evidence it receives. Missing credentials,
-oversized/invalid evidence, API failure or invalid/unsafe result withholds output;
-there are no automatic retries, redirects, CLI fallback or command reruns. Local
+oversized/invalid evidence, API failure, malformed/unsafe model output or reviewer
+exceptions trigger one direct-output fallback if the task is still active.
+There are no API retries, redirects, CLI fallback or command reruns. Local
 review timeout and task deadline both apply; cancellation/deadline discards late
 responses. Validated review is retained locally in `execution/review.json`.
 Repository templates contain only a key placeholder. TASK continues on the CLI.
+
+### Automatic direct fallback after review errors
+
+A review error or local review timeout automatically tries the saved command
+output once as `ai_review=false`; it does not launch the command again, resend
+EXEC or change the accepted task/iteration/request used for deduplication. The
+Bridge uses an internal effective-mode flag for final validation, never a new
+wire field or model-controlled override. A successful fallback carries
+`error_code: "AI_REVIEW_FALLBACK"`, a no-AI-review summary and internal
+`egress_reviewed=false`. Blue must not describe it as AI-reviewed.
+
+The command must already have exited zero. Stdout must pass the same 2000-byte,
+UTF-8 and control-character limits; stderr must be empty. Final known-secret,
+credential-pattern and RESULT-size checks still apply. Otherwise output remains
+withheld with the corresponding direct failure/NEEDS_HUMAN status. Required
+checks must be asserted by the command: fallback PASS confirms direct execution
+and machine validation, not the requested AI semantic assessment.
+
+Cancellation, total task expiry, unknown termination and valid reviewed
+FAIL/BLOCKED/NEEDS_HUMAN results never fall back to success. A local review
+timeout can fall back only while total task time remains; late API replies are
+discarded and cannot replace the fallback result. Fallback is automatic inside
+one EXEC, respects `need_ack`, and never selects TASK.
 
 EXEC accepts optional boolean `ai_review` (default `false`; no other message type
 accepts it). Omitted or false skips green AI and returns bounded command results.

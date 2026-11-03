@@ -204,7 +204,12 @@ class Bridge:
             output = result["output"]
             if request["type"] == "EXEC" and (not isinstance(output, dict) or output.get("kind") != "RESULT"):
                 raise ValueError("exec_review: output reviewer must return RESULT; command will not be repeated")
-            fields = review(output, request, secrets=self._secrets(), execution=execution)
+            # The executor alone selects fallback mode. Keep the accepted request
+            # unchanged for deduplication and validate saved output as direct EXEC.
+            validation_request = request
+            if request["type"] == "EXEC" and result.get("ai_review_fallback") is True:
+                validation_request = {**request, "ai_review": False}
+            fields = review(output, validation_request, secrets=self._secrets(), execution=execution)
             if execution:
                 fields["execution"] = execution
                 forced = {"TIMED_OUT": "TIMED_OUT", "CANCELLED": "CANCELLED", "OUTPUT_LIMIT": "NEEDS_HUMAN",
