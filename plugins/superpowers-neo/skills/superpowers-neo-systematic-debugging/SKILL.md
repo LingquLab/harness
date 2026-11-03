@@ -18,6 +18,8 @@ Base fixes on evidence that explains the symptom. Scale the investigation to the
 5. Once evidence is sufficient, fix the identified cause directly and keep unrelated changes out of the attempt.
 6. Verify the original symptom and relevant regression surface. Use `superpowers-neo-validation-strategy` to choose automated tests or alternative validation.
 
+Fix the implementation or environment boundary responsible for a failure. Do not hardcode fixture values, introduce test-only production branches, or replace a behavioral check with a source-text assertion to obtain a pass. Change a test's expected behavior or acceptance criteria only when evidence shows the expected contract is wrong; keep implementation and test aligned. Fixture repairs, setup fixes and added coverage may preserve the existing contract.
+
 ## After a Failed Fix
 
 Treat failure as evidence that the hypothesis was incomplete or wrong. Do not stack another speculative change on top. Separate the failed attempt from the next check, revisit the observations and boundaries, then form a revised hypothesis with a new falsifying test. Repeated failures are a reason to broaden the investigation or question an architectural assumption, not to keep guessing.

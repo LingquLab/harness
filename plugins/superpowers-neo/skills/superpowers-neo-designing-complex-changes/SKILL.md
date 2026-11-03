@@ -15,6 +15,22 @@ Use this workflow only when at least one trigger in the description applies. Do 
 
 The user may explicitly waive this design workflow. Record the waiver and proceed within the stated scope. Do not infer a waiver from urgency or brevity.
 
+## Prohibit Overengineering
+
+Implement the smallest complete solution to the user's requested behavior. Do not add unrequested capabilities, frameworks, generalization, or protective infrastructure for hypothetical needs. Calling an addition a best practice, safety measure, or internal detail does not bring it into scope.
+
+If an extra capability seems necessary, explain the concrete need, smallest proposed addition, and cost, then wait for explicit user approval before implementing it. This applies even to a small addition. Routine implementation choices needed to deliver the requested behavior do not require separate approval.
+
+For example, a requested test runner does not authorize file locking or file-protection infrastructure merely to prevent hypothetical test edits. Reuse existing test facilities and simple fixtures instead of inventing extra mechanisms.
+
+## Prohibit Excessive Defensive Programming
+
+Keep validation required by public contracts, untrusted inputs, authentication, and actual data-loss boundaries. Do not repeat type/null checks throughout internal code after those conditions are established, or support states excluded by the contract merely because they can be imagined.
+
+Extra guards, retries, fallback chains, compatibility branches and configuration switches need a concrete requirement or supported failure. Evidence can justify proposing an extra capability; it does not replace the explicit user approval required above.
+
+Required failures must remain visible. Do not conceal them behind success-shaped defaults or silently change the runtime, model, data or implementation. An approved degraded mode must be identifiable and must not claim guarantees it no longer provides.
+
 ## Inspect Without Changing the Project
 
 Before proposing a design:
