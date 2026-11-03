@@ -15,6 +15,14 @@ Use this workflow only when at least one trigger in the description applies. Do 
 
 The user may explicitly waive this design workflow. Record the waiver and proceed within the stated scope. Do not infer a waiver from urgency or brevity.
 
+## Prohibit Overengineering
+
+Implement the smallest complete solution to the user's requested behavior. Do not add unrequested capabilities, frameworks, generalization, or protective infrastructure for hypothetical needs. Calling an addition a best practice, safety measure, or internal detail does not bring it into scope.
+
+If an extra capability seems necessary, explain the concrete need, smallest proposed addition, and cost, then wait for explicit user approval before implementing it. This applies even to a small addition. Routine implementation choices needed to deliver the requested behavior do not require separate approval.
+
+For example, a requested test runner does not authorize file locking or file-protection infrastructure merely to prevent hypothetical test edits. Reuse existing test facilities and simple fixtures instead of inventing extra mechanisms.
+
 ## Inspect Without Changing the Project
 
 Before proposing a design:

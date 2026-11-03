@@ -8,6 +8,12 @@ This ZCode and Codex plugin provides modular software-development workflows whos
 
 Describe the development task normally. Each skill is independently discoverable and activates only when its focused workflow applies; there is no mandatory startup or umbrella skill.
 
+## Scope and Test Delivery
+
+Implement the smallest complete requested solution. Unrequested features, speculative safeguards, locking mechanisms, or extra testing infrastructure require an explanation and explicit user approval before implementation. Ordinary in-scope implementation choices remain autonomous.
+
+Run proportionate validation during development, but commit only key tests for core behavior, essential contracts, or significant regressions. Remove task-created non-core probes, debug scripts, temporary harnesses and generated artifacts before staging. Preserve existing tests, user files and explicitly requested test deliverables.
+
 ## Dependencies and effects
 
 - Network: Git delivery may contact configured Git remotes and forge APIs when the user requests delivery.

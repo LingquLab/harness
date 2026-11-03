@@ -20,6 +20,18 @@ Choose validation by failure risk, affected boundaries, and available environmen
    - Cross-component changes merit integration or end-to-end checks at the affected boundaries.
    - High-impact changes merit broader regression coverage and realistic failure-path checks.
 
+## Keep Test Work Proportional
+
+Use the existing test facilities and the smallest evidence needed for the requested behavior. Do not build an extra test framework, file-locking layer, protection system, or general-purpose harness for hypothetical risks. If an unrequested testing capability is necessary, describe it and obtain explicit user approval before implementing it.
+
+Validation performed during development and tests retained in the repository are separate decisions. A successful experiment does not automatically belong in the deliverable.
+
+## Retain Only Key Tests
+
+- Commit only tests protecting core requested behavior, an essential public contract, or a concrete significant regression. Prefer a small set of meaningful cases over exhaustive speculative coverage or tests that mirror implementation.
+- Before staging, delete task-created non-core test code: one-off probes, debug scripts, disposable reproductions, temporary harnesses and their generated artifacts. Keep verification results in the delivery summary; do not commit these files merely because they were useful during development.
+- Preserve pre-existing tests and user-owned files. This cleanup applies only to disposable artifacts created for the current task; it does not authorize broad test deletion. A test framework or test code explicitly requested as a deliverable stays in scope.
+
 ## Bug Fixes
 
 When the cause is uncertain, use `superpowers-neo-systematic-debugging` first.

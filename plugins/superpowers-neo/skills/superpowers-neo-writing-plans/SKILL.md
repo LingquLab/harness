@@ -30,6 +30,8 @@ Include:
 - Verification strategy with checks justified by risk.
 - Independently assignable tasks where work can be separated safely.
 
+Every planned capability must trace to the user's request or explicit approval. Do not pad the plan with speculative hardening, generalization, locks, or test infrastructure. Propose a necessary extra capability separately and wait for approval before adding it to implementation scope.
+
 Point to repository-relative sources instead of duplicating unrelated material. Do not require code blocks, line-by-line edits, unnecessary implementation detail, or per-task commits.
 
 ## Make Each Task Subagent-Ready
