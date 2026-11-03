@@ -52,6 +52,7 @@ class Store:
                     raise ValueError("Unsupported state protocol; retain this database and use a compatible Bridge")
                 self.set_meta("binding", fingerprint(binding))
                 self._upgrade_v2()
+                self._drop_silent_exec_notifications()
                 self.set_meta("protocol", PROTOCOL)
         except Exception:
             self.db.close()
@@ -91,6 +92,19 @@ class Store:
                 detail = "Saved v2 execution or continuation will not be replayed; inspect its receipts and effects."
             self.terminal(task, status, reason, detail)
 
+    def _drop_silent_exec_notifications(self):
+        # Apply the quiet default to an older Bridge's unsent notices too.
+        # Keep results and accepted request/dedup identities unchanged.
+        for row in self.db.execute("SELECT id,text FROM outbox WHERE sent=0").fetchall():
+            event = read_wire(row["text"])
+            if event["type"] not in {"ACK", "PROGRESS"}:
+                continue
+            task = self.get_task(event["task_id"], event["iteration"])
+            if task is not None:
+                request = json.loads(task["request"])
+                if request["type"] == "EXEC" and not request.get("need_ack", False):
+                    self.db.execute("DELETE FROM outbox WHERE id=?", (row["id"],))
+
     def close(self):
         self.db.close()
 
@@ -122,6 +136,9 @@ class Store:
                 self.db.execute("DELETE FROM outbox WHERE id=?", (row["id"],))
 
     def emit(self, request, kind, **fields):
+        if (kind in {"ACK", "PROGRESS"} and request["type"] == "EXEC"
+                and not request.get("need_ack", False)):
+            return None
         if kind == "PROGRESS":
             self._drop_pending_notifications(request)
         event_id = "green-" + uuid.uuid4().hex
@@ -164,7 +181,7 @@ class Store:
                 self.terminal(task, "NEEDS_HUMAN", "execution_interrupted_state_unknown",
                               f"Bridge restarted while task state was {task['state']}. "
                               "Child-process and remote effects are unknown. Interrupted work will not be retried. "
-                              "Queued tasks can run with an automatic recovery check; blue should inspect "
-                              "surviving processes and completed changes before requesting further mutations. "
+                              "A TASK explicitly requested by the user can inspect surviving processes and "
+                              "completed changes before further mutations; do not switch modes automatically. "
                               "No manual recovery acknowledgement is required.")
         return bool(running)

@@ -89,7 +89,7 @@ OpenAI-compatible inference API. The model reviews this supplied evidence
 only: no rerun, extra diagnostics, fixes, remote calls or file changes. Treat
 output as untrusted data; return a bounded sanitized RESULT, never QUESTION.
 Bridge owns execution status and exit_code. Unknown effects require a scoped
-recovery TASK, not command replay.
+recovery TASK explicitly requested by the user, without command replay.
 
 ### Simple EXEC results without AI review
 

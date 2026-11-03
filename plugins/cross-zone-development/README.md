@@ -10,7 +10,7 @@ Code-compatible CLI and sends only bounded, reviewed results back to blue. GitHu
 Issues and browser automation are not part of the transport.
 
 Bridge HTTP requests (HAPI REST/SSE and the EXEC review API) use
-`User-Agent: CrossZoneBridge/<version>`, for example `CrossZoneBridge/0.6.0`.
+`User-Agent: CrossZoneBridge/<version>`, for example `CrossZoneBridge/0.6.1`.
 Match the `CrossZoneBridge/` prefix in ESA/access logs to count Bridge traffic
 across releases. The version follows the installed plugin automatically.
 
@@ -45,11 +45,12 @@ It restarts default discovery after each exit, waiting 3 seconds between starts
 (`BRIDGE_RESTART_DELAY` overrides the delay). Stop the watchdog with `Ctrl+C`.
 Update disk code before ending the Bridge process to load the new version on
 restart. Existing instance locking still applies. Interrupted tasks are reported as
-unknown and never replayed. Queued tasks continue without manual acknowledgement;
-the agent first checks saved run receipts, surviving processes and relevant effects.
+unknown and never replayed. An explicitly requested TASK can inspect saved run
+receipts, surviving processes and relevant effects before queued work continues.
 Until those are established it may only perform read-only diagnostics and report
 concrete blockers to blue. Recovery evidence travels locally, not in the wire schema.
-Older global recovery pauses are migrated automatically on startup.
+Recovery TASK dispatch requires an explicit user request; pending recovery still
+blocks EXEC. Older global recovery pauses are migrated automatically on startup.
 
 Version 0.6.0 adds default single-session discovery initiated by blue OPEN and a
 complete Chinese user guide. Explicit-session workers remain available.
@@ -61,7 +62,10 @@ rejected on the live transport.
 in the session directory, and starts green AI only with explicit `ai_review=true`.
 Bridge preserves exit code and timeout/cancellation facts even if review fails;
 commands are never automatically replayed. See the [protocol reference](skills/cross-zone-development/references/protocol.md#direct-commands-and-scripts-exec)
-for fields, examples and recovery behavior. Existing `TASK` behavior is unchanged.
+for fields, examples and recovery behavior. From 0.6.1, EXEC sends only its final
+RESULT by default; set `need_ack: true` for compact ACK/PROGRESS. Local green logs
+are unaffected. TASK mode is used only on explicit user request, including
+candidate validation or recovery; blue must not switch to TASK automatically.
 
 Use `run` instead of `open` to resume an existing listener without a new OPEN.
 On first use, `run` binds at the current message head and skips historical TASKs;
@@ -125,7 +129,8 @@ unfinished user request whose next green step is ready. With no such work, blue
 replies ready and waits. OPEN alone adds no work authorization, and completed or
 still-running actions are not replayed. Rejections use ordinary conversation;
 blue never echoes or injects legacy green OPEN. User-requested work defaults to EXEC; TASK is
-reserved for local judgment, revision-bound validation or required recovery.
+available only when the user explicitly requests TASK mode, including local
+judgment, revision-bound validation or required recovery.
 Saved history and recovery safeguards remain in force; `ai_review` defaults
 to false; blue opts in when returned information may be restricted.
 
@@ -248,7 +253,9 @@ the remaining task deadline. TASK still uses `agent_command`; direct EXEC
 ### Simple EXEC results without AI review
 
 From 0.5.2, direct EXEC should omit `goal`, `checks` and the redundant default
-`ai_review=false`. Retain task binding, execution and both timeout fields. With no
+`ai_review=false`. From 0.6.1, also omit the default `need_ack=false`; set true
+only when receipt/start notifications are needed. Retain task binding, execution
+and both timeout fields. With no
 requested checks, RESULT uses `checks: []`; encode required conditions as command
 assertions. EXEC rejects goal in both modes; reviewed EXEC requires checks, while
 TASK still requires goal/checks. Direct requests can still supply validated checks.
@@ -296,10 +303,10 @@ unacknowledged instruction. Retrying retains the original task/iteration identit
 Do not delete state while Bridge is running; deleting it removes local execution
 history and cannot establish whether an earlier remote action completed.
 
-### Upgrading to 0.6.0 / v3
+### Upgrading to 0.6.1 / v3
 
 Upgrade blue and green together. Live v2 envelopes and target fields are no longer
-accepted. Legacy green OPEN includes version 0.6.0 and starts a fresh interaction at the current
+accepted. Legacy green OPEN includes the running Bridge version and starts a fresh interaction at the current
 message head. Blue can dispatch existing authorized work immediately; the Bridge's
 retained queue is not automatically resumed. Use run only to
 intentionally continue the listener and its queue. EXEC defaults to no AI review;

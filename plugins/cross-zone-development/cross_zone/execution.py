@@ -76,8 +76,9 @@ class DirectExecutor:
     def run(self, request, session_id, answer, deadline, cancel, recovery):
         if recovery:
             return {"failure": "execution_recovery_pending", "status": "BLOCKED",
-                    "detail": "Command was not started. Use a scoped read-only TASK to verify surviving "
-                              "processes and completed effects before another EXEC.",
+                    "detail": "Command was not started. Recovery requires evidence about surviving processes "
+                              "and completed effects. A read-only TASK requires an explicit user request; "
+                              "do not switch modes automatically.",
                     "execution": facts("NOT_STARTED")}
         if cancel.is_set() or time.time() >= deadline - REVIEW_SECONDS:
             return {"failure": "execution_not_started", "status": "CANCELLED" if cancel.is_set() else "TIMED_OUT",

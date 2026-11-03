@@ -34,7 +34,7 @@ CLOSED each contain exactly these six fields:
   "type": "READY",
   "event_id": "green-ready-1",
   "request_event_id": "blue-open-1",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef"
 }
 ```
@@ -69,7 +69,7 @@ CROSS_ZONE
   "protocol": "cross-zone/v3",
   "type": "OPEN",
   "event_id": "green-open-0123456789abcdef",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "session_url": "sessions/01234567-89ab-cdef-0123-456789abcdef"
 }
 ```
@@ -126,20 +126,29 @@ CROSS_ZONE
 ````
 
 PROGRESS also confirms receipt and replaces an unsent ACK for the same task.
-Queued tasks still receive ACK; already sent ACKs remain valid. Event IDs stay
+TASK and EXEC with `need_ack=true` receive ACK while queued; already sent ACKs
+remain valid. From 0.6.1, EXEC with omitted/false `need_ack` emits neither ACK nor
+PROGRESS, regardless of review or queue state; it returns the final RESULT only.
+Local task/command/output logs are unaffected. Silence does not imply rejection,
+failure or permission to rerun a command. Event IDs stay
 in the durable outbox and HAPI `localId` for retry deduplication. Legacy pending
-outbox entries are sent unchanged. Other message formats are unchanged.
+outbox entries are sent unchanged except that unsent ACK/PROGRESS for EXEC
+without `need_ack=true` are removed on startup; results, accepted requests and
+deduplication records are retained. Other message formats are unchanged.
 
 ## Blue task and controls
 
 EXEC is the default dispatch mode once the user requests work; blue provides the
-exact bounded command or script. Use TASK for green-local decisions, revision-bound
-candidate validation, or recovery that EXEC cannot perform. EXEC also defaults
+exact bounded command or script. Use TASK only when the user explicitly requests
+TASK mode. Green-local decisions, revision-bound validation and recovery do not
+authorize an automatic switch; explain any EXEC blocker and wait for an explicit
+user request when TASK is required. EXEC also defaults
 to `ai_review=false`; blue explicitly sets true when returned information may be
 restricted or requires green AI filtering. Dispatch either mode only for authorized
 user work, including an existing ready request when READY or legacy green OPEN arrives.
 
-Blue sends TASK as a top-level assistant message:
+Only after an explicit user request for TASK mode, blue sends TASK as a top-level
+assistant message:
 
 ````text
 CROSS_ZONE
@@ -191,7 +200,7 @@ CROSS_ZONE
 All v3 envelopes are bound by the current authorized HAPI session and contain no
 `target` field. Unknown fields, including legacy `target`, are rejected; Bridge
 does not fill or infer routing fields. Legacy green OPEN additionally carries `version`, the
-running Bridge release (for example `0.6.0`), distinct from protocol `cross-zone/v3`.
+running Bridge release (for example `0.6.1`), distinct from protocol `cross-zone/v3`.
 TASK requires all fields shown except `revision`. EXEC field requirements depend
 on `ai_review`, as described below. Include `revision` only when
 the task validates candidate code; it is then a full lowercase SHA-1 or SHA-256
@@ -212,7 +221,8 @@ path or profile through the protocol.
 
 Bridge 0.5.2 accepts new messages while jobs run and executes independent EXEC/TASK
 jobs concurrently. Green-local `max_concurrent_tasks` defaults to 4 (integer 1–16);
-set 1 for serial operation. Excess jobs remain QUEUED with ACK until a slot opens.
+set 1 for serial operation. Excess jobs remain QUEUED until a slot opens. TASK
+and EXEC with `need_ack=true` receive ACK; default EXEC remains silent.
 An active slot includes command execution and review; a returned QUESTION releases
 its slot while awaiting ANSWER. Results may arrive out of dispatch order: bind each
 to task_id/iteration/session rather than to the last submitted request.
@@ -304,14 +314,30 @@ exit zero alone is insufficient: reviewed checks and egress validation must also
 EXEC has no QUESTION/ANSWER continuation. Deduplication and cancellation use the
 same task/iteration rules as TASK. A receipt is claimed before launch; an existing
 receipt or interrupted iteration is never replayed. Pending recovery blocks EXEC
-before launch; blue can dispatch a read-only TASK to establish process state and
-completed effects, which clears recovery after validated evidence. Neither this
+before launch; a read-only TASK explicitly requested by the user can establish
+process state and completed effects, clearing recovery after validated evidence. Neither this
 case nor restart recovery requires manual acknowledgement.
+
+### EXEC receipt notifications (0.6.1+)
+
+`need_ack` is optional, strictly boolean and valid only on EXEC. Its default is
+false: accepted EXEC jobs return RESULT without ACK/PROGRESS, including reviewed
+execution, queue waits, failures and cancellation. `need_ack: true` enables the
+existing compact receipt/start notifications; immediate start replaces an unsent
+ACK with PROGRESS. TASK retains its existing notifications and does not accept
+this field. Invalid/conflicting requests can still receive REJECTED. Local green
+console logs are independent of these HAPI notifications.
+
+Upgrade green to 0.6.1+ before supplying `need_ack`; older versions reject this
+field. Default silence must not trigger a retry or TASK. If a transport retry is
+needed, preserve the exact accepted request and task identity; never change this
+flag or allocate a new iteration merely to obtain a receipt.
 
 ### Compact direct EXEC (0.5.2+)
 
 For omitted/false `ai_review`, send only the command and its binding/budgets: omit
-`goal`, `checks` and the default `ai_review=false`. Keep both timeout fields:
+`goal`, `checks` and the default `ai_review=false`. On 0.6.1+, also omit the
+default `need_ack=false`. Keep both timeout fields:
 `execution_timeout_seconds` bounds the command, while `timeout_seconds` bounds the
 started task including continuation waits and result handling. The initial queue
 wait does not start its execution deadline; continuations retain their original
@@ -458,7 +484,7 @@ Local live-log truncation does not change these export limits.
 
 ## Upgrading from v2
 
-Version 0.6.0 accepts only the CROSS_ZONE marker and cross-zone/v3 live envelopes.
+Version 0.6.0 and later accept only the CROSS_ZONE marker and cross-zone/v3 live envelopes.
 Do not send v2 commands or add target to any v3 message. Upgrade both sides before
 dispatching work. READY and legacy green OPEN report the running Bridge version; receipt alone does not
 request a capability test or any task.

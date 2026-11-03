@@ -105,6 +105,10 @@ def parse(text):
     fields = set(event)
     optional_revision = {"revision"} if "revision" in fields else set()
     if kind == "EXEC":
+        if "need_ack" in fields:
+            extra |= {"need_ack"}
+            if type(event["need_ack"]) is not bool:
+                raise ProtocolError("invalid_need_ack")
         if "ai_review" in fields:
             extra = extra | {"ai_review"}
             if type(event["ai_review"]) is not bool:

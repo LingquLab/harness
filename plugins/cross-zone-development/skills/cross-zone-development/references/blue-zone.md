@@ -59,15 +59,17 @@ Use at least 600 seconds for TASK timeout; 900 seconds is the normal default for
 code validation and 600 seconds for a small read-only environment check.
 
 Use EXEC by default for user-requested work. Supply an exact bounded command or
-script; use TASK only when green-local judgment, revision-bound validation or
-required recovery cannot be expressed through EXEC. Bridge executes directly; green AI filters saved output through its configured
+script. Use TASK only when the user explicitly requests TASK mode. Green-local
+judgment, revision-bound validation and recovery are not automatic exceptions;
+if EXEC cannot proceed, explain the limitation and wait for an explicit user request. Bridge executes directly; green AI filters saved output through its configured
 OpenAI-compatible inference API only when ai_review=true. Prefer one EXEC per phase, combining related commands in a
 script instead of dispatching each command separately. Stop dependent steps on failure and preserve stage evidence.
 Set a bounded execution timeout. For reviewed EXEC, set the total task timeout to
 cover that command timeout plus the configured review budget (300 seconds by
 default); remaining task time still caps review. Do not resend a failed
-or interrupted EXEC to recover output: request a read-only TASK against its saved
-receipt. Resolve pending recovery through TASK before dispatching another EXEC.
+or interrupted EXEC to recover output. A read-only recovery TASK requires an
+explicit user request; otherwise report the blocker without dispatching TASK.
+Keep EXEC blocked until recovery is resolved using evidence of prior effects.
 
 After a TASK timeout, split remaining work into single-action TASKs; do not resend
 unchanged or merely increase the timeout. Bound each command's execution time,
@@ -78,7 +80,8 @@ the unfinished portion into smaller batches; do not repeat completed commands.
 If interrupted work could have modified state, first check progress and running
 processes to avoid duplicate execution. Bridge restarts do not require manual
 acknowledgement: interrupted iterations remain terminal, and subsequent agents
-receive recovery context. Send a scoped read-only check first; use its evidence
+receive recovery context. A TASK check still requires an explicit user request;
+use the evidence
 to decide the next action rather than replaying the interrupted task.
 
 For diagnostic handoffs, use [state-checks.md](state-checks.md). Define the
@@ -90,6 +93,10 @@ RESULT is sent. Do not require it in HAPI results or ask green to supplement or
 re-review an otherwise valid result solely because it is absent. For
 `ai_review=false`, no AI egress review is claimed. Validate the received binding,
 execution facts and requested evidence normally.
+
+From 0.6.1, omit `need_ack` by default: EXEC returns only RESULT, even when queued
+or reviewed. Set `need_ack: true` only when receipt/start notifications are needed.
+Missing ACK/PROGRESS is expected and does not justify replay or switching to TASK.
 
 Accept compact and legacy ACK/PROGRESS as specified in protocol.md. ACK means
 queued; PROGRESS also confirms receipt. Accept a result only when protocol, task ID, iteration, current session

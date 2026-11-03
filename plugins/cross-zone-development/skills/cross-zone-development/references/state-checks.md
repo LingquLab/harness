@@ -17,8 +17,9 @@ finding no task receipt does not prove that no process exists elsewhere.
 
 ## Bound work and stop deliberately
 
-Default to EXEC with an exact bounded command or script; use TASK when green-local
-judgment or required recovery cannot be expressed through EXEC. An OPEN alone
+Default to EXEC with an exact bounded command or script. Use TASK only when the
+user explicitly requests TASK mode. If recovery or another prerequisite blocks
+EXEC, explain the blocker; do not dispatch TASK automatically. An OPEN alone
 does not authorize a diagnostic. Existing recovery rules still apply. Scope the handoff to the decisions needed
 next, with a time budget and explicit stopping conditions. Enforce command and
 subprocess timeouts with execution tools; an outer agent deadline or prose alone
