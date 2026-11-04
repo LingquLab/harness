@@ -27,7 +27,13 @@ Write README files, plugin catalogs and product guides for the intended user. Le
 
 Move adaptation history, upstream commit hashes, implementation chronology, internal protocol mechanics and maintainer procedures to linked attribution, design or maintenance documents. Preserve required license notices and useful operational instructions. Keep translations consistent and check examples against actual behavior. Documentation-only changes also receive this pass; do not rewrite unrelated documents or strip details needed by their intended technical audience.
 
-Prefer original English names for specialized concepts and technical terms in Chinese documentation. Keep terms such as `token` untranslated; avoid forced or unnatural Chinese equivalents. When explanation helps, explain the meaning in Chinese alongside the original term and use it consistently.
+Prefer original English names for specialized concepts and technical terms in Chinese documentation and code comments. Keep terms such as `token` and `opaque handle` in English; avoid forced or unnatural Chinese equivalents. When explanation helps, explain the meaning in Chinese alongside the original term and use it consistently.
+
+## Code Comments
+
+Write Chinese comments as explanations of the actual code, not word-for-word translations of English. Preserve technical terms and identifiers, then explain their meaning when needed. For example, keep `opaque handle` and explain that callers use the handle without accessing the internal object, rather than translating it as “不透明句柄”.
+
+Describe concrete actions, ownership and cleanup order. Replace vague verbs such as “协调” (`coordinate`) with the operations the code actually performs, such as waiting for completion, calling a cleanup function or releasing a resource. Read the implementation before making that description; do not invent synchronization, ordering or success guarantees. Bilingual comments should agree in meaning without copying each other's sentence structure.
 
 ## Re-establish Evidence
 

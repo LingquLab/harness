@@ -21,7 +21,7 @@ Replace `superpowers-neo` with a plugin name below. Start a new Codex task after
 
 | Plugin | What it helps you do | Version |
 |---|---|---|
-| [superpowers-neo](plugins/superpowers-neo/README.md) | Design, implement, debug, review and deliver software changes with checks suited to the task | `0.3.4` |
+| [superpowers-neo](plugins/superpowers-neo/README.md) | Design, implement, debug, review and deliver software changes with checks suited to the task | `0.3.5` |
 | [ascendc-development](plugins/ascendc-development/README.md) | Develop Ascend C operators, check APIs, diagnose runtime failures and configure CANN | `0.3.1` |
 | [cross-zone-development](plugins/cross-zone-development/README.md) | Run protected-environment checks and receive bounded results through HAPI | `0.7.0` |
 | [persistent-shell](plugins/persistent-shell/README.md) | Reuse SSH sessions from Windows while keeping the remote directory and shell state | `0.1.1` |

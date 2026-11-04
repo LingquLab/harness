@@ -21,7 +21,7 @@ codex plugin add superpowers-neo@lingqulab
 
 | 插件 | 可以帮你做什么 | 版本 |
 |---|---|---|
-| [superpowers-neo](plugins/superpowers-neo/README_CN.md) | 完成软件设计、实现、调试、审查和交付，并按任务选择适当的检查 | `0.3.4` |
+| [superpowers-neo](plugins/superpowers-neo/README_CN.md) | 完成软件设计、实现、调试、审查和交付，并按任务选择适当的检查 | `0.3.5` |
 | [ascendc-development](plugins/ascendc-development/README_CN.md) | 开发 Ascend C 算子、核对 API、诊断运行时故障和配置 CANN | `0.3.1` |
 | [cross-zone-development](plugins/cross-zone-development/README_CN.md) | 在受保护环境执行检查，通过 HAPI 返回限定范围内的结果 | `0.7.0` |
 | [persistent-shell](plugins/persistent-shell/README_CN.md) | 从 Windows 复用 SSH session，保留远程工作目录和 shell 状态 | `0.1.1` |
