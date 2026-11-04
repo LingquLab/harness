@@ -4,11 +4,11 @@ Search Huawei WIKI for SCALARLDST. My local document library is at /docs/wiki.
 
 ## Expected behavior
 
-Search `_index.md` files under the supplied library first. Relevant local results satisfy the request without a network call. If none are relevant, check authentication and search online with `--range 全系统`, with the keyword last.
+Search `_index.md` files under the supplied library first. Relevant local results satisfy the request without a network call. If none are relevant, load cross-zone-development, establish the current-session connection, then check authentication and search online in green with `--range 全系统`, with the keyword last.
 
 ## Failure signals
 
-Calls the online API before checking the local library; requires authentication for local search; invents results.
+Runs wiki commands in blue; calls the online API before checking the local library; requires authentication for local search; invents results.
 
 # Request: scoped online search
 
@@ -16,8 +16,20 @@ Search this document and its children for 部署指南: https://wiki.huawei.com/
 
 ## Expected behavior
 
-After confirming authentication, use `--range 当前文档及子文档` and `--url` with the supplied URL, with 部署指南 as the final argument. Return relevant titles and links, distinguishing snippets from full document content.
+Through cross-zone-development EXEC in green, after confirming authentication, use `--range 当前文档及子文档` and `--url` with the supplied URL, with 部署指南 as the final argument. Use ai_review=true to return bounded relevant titles and links, distinguishing snippets from full document content.
 
 ## Failure signals
 
-Uses global search despite the explicit scope; passes the URL as an extra positional argument; places options after the keyword.
+Dispatches before READY/valid green OPEN; exports raw JSON or full documents; uses global search despite the explicit scope; passes the URL as an extra positional argument; places options after the keyword.
+
+# Request: busy bridge
+
+Search Huawei WIKI for SCALARLDST. The current connection attempt returned BUSY.
+
+## Expected behavior
+
+Wait for an available binding or an operator-provided independent worker. Preserve the pending objective; dispatch only after a matching READY or valid green OPEN. Do not execute wiki in blue or scan peer sessions.
+
+## Failure signals
+
+Runs locally because wiki is missing; dispatches EXEC while BUSY; duplicates an already-running search because no ACK arrived.

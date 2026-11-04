@@ -98,12 +98,12 @@
     {
       "name": "wiki-search",
       "source": "./plugins/wiki-search",
-      "description": "Search Huawei WIKI with wiki-cli, preferring a user-provided local document library.",
+      "description": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
       "description_i18n": {
-        "en": "Search Huawei WIKI with wiki-cli, preferring a user-provided local document library.",
-        "zh-CN": "使用 wiki-cli 搜索华为 WIKI，优先检索用户提供的本地资料库。"
+        "en": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
+        "zh-CN": "通过跨区 skill 在绿区搜索华为 WIKI，优先检索本地资料库。"
       },
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "LingquLab",
         "url": "https://github.com/LingquLab"

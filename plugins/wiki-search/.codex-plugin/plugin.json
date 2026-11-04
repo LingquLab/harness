@@ -1,7 +1,7 @@
 {
   "name": "wiki-search",
-  "version": "0.1.0",
-  "description": "Search Huawei WIKI with wiki-cli, preferring a user-provided local document library.",
+  "version": "0.1.1",
+  "description": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
   "author": {
     "name": "LingquLab",
     "url": "https://github.com/LingquLab"
@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "WIKI Search",
     "shortDescription": "Search Huawei WIKI or a local document index.",
-    "longDescription": "Search Huawei WIKI with wiki-cli, preferring a user-provided local document library.",
+    "longDescription": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
     "developerName": "LingquLab",
     "category": "Developer Tools",
     "capabilities": [
