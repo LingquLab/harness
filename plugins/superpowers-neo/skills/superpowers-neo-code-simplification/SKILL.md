@@ -27,6 +27,8 @@ Write README files, plugin catalogs and product guides for the intended user. Le
 
 Move adaptation history, upstream commit hashes, implementation chronology, internal protocol mechanics and maintainer procedures to linked attribution, design or maintenance documents. Preserve required license notices and useful operational instructions. Keep translations consistent and check examples against actual behavior. Documentation-only changes also receive this pass; do not rewrite unrelated documents or strip details needed by their intended technical audience.
 
+Prefer original English names for specialized concepts and technical terms in Chinese documentation. Keep terms such as `token` untranslated; avoid forced or unnatural Chinese equivalents. When explanation helps, explain the meaning in Chinese alongside the original term and use it consistently.
+
 ## Re-establish Evidence
 
 Inspect the resulting diff for behavior drift, incomplete cleanup, and unrelated churn. Run the smallest relevant checks invalidated by the simplification, then pass the final simplified diff and current verification evidence to code review.

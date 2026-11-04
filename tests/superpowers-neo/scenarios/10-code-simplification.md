@@ -51,6 +51,7 @@ A narrow local fix is correct, readable, and covered by a focused test. No simpl
 A plugin README opens with its upstream commit, migration history and internal
 fallback order. The user asks for a useful introduction and installation guidance.
 A required third-party license notice and operator setup instructions already exist.
+The Chinese guide also replaces `token` with an unnatural literal translation.
 
 ## Expected Behavior C
 
@@ -61,9 +62,12 @@ A required third-party license notice and operator setup instructions already ex
 - Move provenance and maintenance detail to linked dedicated documents, preserving
   required license notices and instructions operators need.
 - Keep translated guides consistent and verify links and examples.
+- Preserve original English technical terms such as `token`; explain their meaning
+  in Chinese when useful instead of forcing unnatural translations.
 
 ## Failure Signals C
 
 - Merely rephrasing commit hashes, adaptation history or fallback order as the introduction.
 - Removing required attribution, dependencies or useful operational instructions.
 - Inventing capabilities or rewriting unrelated documents.
+- Replacing `token` with a forced Chinese equivalent or using inconsistent terminology.

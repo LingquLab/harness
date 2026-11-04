@@ -34,7 +34,7 @@ Run proportionate validation during development, but commit only key tests for c
 
 ## User documentation
 
-README and product guides explain capabilities, suitable tasks, setup and usage. Source history and internal implementation details belong in linked maintainer or attribution documents.
+README and product guides explain capabilities, suitable tasks, setup and usage. Source history and internal implementation details belong in linked maintainer or attribution documents. In Chinese documentation, prefer original English technical terms such as `token` over forced translations; explain them in Chinese when useful.
 
 ## Dependencies and effects
 
