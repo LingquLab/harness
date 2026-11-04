@@ -1,7 +1,7 @@
 {
   "name": "wiki-search",
-  "version": "0.1.1",
-  "description": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
+  "version": "0.1.2",
+  "description": "Search green-zone Huawei WIKI after AIKG, checking WIKI local libraries before online access.",
   "author": {
     "name": "LingquLab",
     "url": "https://github.com/LingquLab"
@@ -18,14 +18,14 @@
   "interface": {
     "displayName": "WIKI Search",
     "shortDescription": "Search Huawei WIKI or a local document index.",
-    "longDescription": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
+    "longDescription": "Search green-zone Huawei WIKI after AIKG, checking WIKI local libraries before online access.",
     "developerName": "LingquLab",
     "category": "Developer Tools",
     "capabilities": [
       "Read"
     ],
     "defaultPrompt": [
-      "Search Huawei WIKI for the requested topic, checking my local library first if provided."
+      "For general knowledge, check AIKG first, then search Huawei WIKI in green if more evidence is needed."
     ]
   }
 }

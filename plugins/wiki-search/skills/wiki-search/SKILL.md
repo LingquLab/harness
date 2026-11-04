@@ -7,6 +7,12 @@ description: 搜索华为 WIKI 文档或用户提供的本地 WIKI 资料库；�
 
 使用 `wiki-cli` 提供的 `wiki doc search` 搜索华为 WIKI。线上命令只能在绿区执行，依赖已安装的 `cross-zone-development` skill；蓝区通过 HAPI 委派，不在蓝区尝试连接 WIKI。默认优先全系统搜索；用户明确限定范围时遵循其范围。
 
+## 知识搜索顺序
+
+未指定来源的知识查询先使用 `aikg-search` 检索公开 AIKG（https://github.com/AmourSec/aikg）。已读到足够、适用的正文证据时直接回答，不启动绿区；无相关结果、证据不足或 AIKG 不可访问时，再进入下述 WIKI 检索。已完成的 AIKG 检索无需重复，也不要从 WIKI 再跳回 AIKG。
+
+用户明确要求 WIKI、限定某个 WIKI URL/知识库，或明确只搜所给本地库时，直接按指定来源检索。若尚未安装 `aikg-search`，可先读取公开的 `https://amoursec.github.io/aikg/llms.txt` 和相关正文，不因此阻塞检索。
+
 ## 本地优先与前置条件
 
 用户提供本地资料库地址时，先用文本搜索工具递归检索其中的 `_index.md`，例如：

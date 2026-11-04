@@ -96,14 +96,36 @@
       "strict": true
     },
     {
+      "name": "aikg-search",
+      "source": "./plugins/aikg-search",
+      "description": "Search the public AI Knowledge Graph first, then use green-zone WIKI search for unresolved questions.",
+      "description_i18n": {
+        "en": "Search the public AI Knowledge Graph first, then use green-zone WIKI search for unresolved questions.",
+        "zh-CN": "优先检索公开 AI Knowledge Graph 知识库，证据不足时再通过绿区 WIKI 搜索补充。"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "LingquLab",
+        "url": "https://github.com/LingquLab"
+      },
+      "category": "developer-tools",
+      "keywords": [
+        "aikg",
+        "knowledge",
+        "search",
+        "ai-infrastructure"
+      ],
+      "strict": true
+    },
+    {
       "name": "wiki-search",
       "source": "./plugins/wiki-search",
-      "description": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
+      "description": "Search green-zone Huawei WIKI after AIKG, checking WIKI local libraries before online access.",
       "description_i18n": {
-        "en": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
-        "zh-CN": "通过跨区 skill 在绿区搜索华为 WIKI，优先检索本地资料库。"
+        "en": "Search green-zone Huawei WIKI after AIKG, checking WIKI local libraries before online access.",
+        "zh-CN": "AIKG 证据不足时在绿区搜索华为 WIKI，WIKI 阶段优先检索本地资料库。"
       },
-      "version": "0.1.1",
+      "version": "0.1.2",
       "author": {
         "name": "LingquLab",
         "url": "https://github.com/LingquLab"

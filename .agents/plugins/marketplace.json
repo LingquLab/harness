@@ -65,6 +65,18 @@
       "category": "Developer Tools"
     },
     {
+      "name": "aikg-search",
+      "source": {
+        "source": "local",
+        "path": "./plugins/aikg-search"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    },
+    {
       "name": "wiki-search",
       "source": {
         "source": "local",
