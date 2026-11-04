@@ -291,7 +291,7 @@ def extract_frontmatter(content, path)
 end
 
 def reject_duplicate_mapping_keys(text, path)
-  stream = Psych.parse_stream(text, path)
+  stream = Psych.parse_stream(text, filename: path)
   visit = lambda do |node|
     if node.is_a?(Psych::Nodes::Mapping)
       keys = []

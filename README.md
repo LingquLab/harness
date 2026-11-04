@@ -145,7 +145,7 @@ See the [Superpowers Neo design](docs/specs/2026-07-22-superpowers-neo-design.md
 
 ## Validate
 
-The repository validator uses Ruby standard libraries and needs no package installation:
+The validator uses Ruby standard libraries. Its offline regression checks also run Python 3; persistent-shell tests require Paramiko in the active `python3` environment (`python3 -m pip install paramiko`, preferably in a virtual environment).
 
 ```bash
 ruby scripts/validate-skills.rb
