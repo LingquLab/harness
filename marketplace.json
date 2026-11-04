@@ -94,6 +94,27 @@
       "category": "developer-tools",
       "keywords": ["architecture", "diagrams", "visualization"],
       "strict": true
+    },
+    {
+      "name": "wiki-search",
+      "source": "./plugins/wiki-search",
+      "description": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
+      "description_i18n": {
+        "en": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
+        "zh-CN": "通过跨区 skill 在绿区搜索华为 WIKI，优先检索本地资料库。"
+      },
+      "version": "0.1.1",
+      "author": {
+        "name": "LingquLab",
+        "url": "https://github.com/LingquLab"
+      },
+      "category": "developer-tools",
+      "keywords": [
+        "wiki",
+        "search",
+        "wiki-cli"
+      ],
+      "strict": true
     }
   ]
 }

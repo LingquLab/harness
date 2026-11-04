@@ -1,0 +1,31 @@
+{
+  "name": "wiki-search",
+  "version": "0.1.1",
+  "description": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
+  "author": {
+    "name": "LingquLab",
+    "url": "https://github.com/LingquLab"
+  },
+  "homepage": "https://github.com/LingquLab/harness",
+  "repository": "https://github.com/LingquLab/harness",
+  "license": "MIT",
+  "keywords": [
+    "wiki",
+    "search",
+    "wiki-cli"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "WIKI Search",
+    "shortDescription": "Search Huawei WIKI or a local document index.",
+    "longDescription": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
+    "developerName": "LingquLab",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read"
+    ],
+    "defaultPrompt": [
+      "Search Huawei WIKI for the requested topic, checking my local library first if provided."
+    ]
+  }
+}
