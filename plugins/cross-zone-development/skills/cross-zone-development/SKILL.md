@@ -29,7 +29,10 @@ The green operator runs `./start-bridge.sh` or `./start-bridge.sh discover
 connection envelope from protocol.md as an assistant message in its current
 authorized HAPI session, then waits for matching `READY` before dispatch. Blue
 does not scan other sessions or forge user messages. `BUSY` means the single
-default worker is occupied and reveals no bound session. When finished, blue
+default worker is occupied and reveals no bound session. After BUSY, ask whether
+the user wants FORCE_OPEN, explaining that it cancels the old binding's tasks.
+Send FORCE_OPEN only after explicit confirmation and only to Bridge 0.7.0+; wait
+for its matching READY before work. When finished, blue
 sends `CLOSE`; green releases only an idle binding and returns `CLOSED`.
 Connection alone grants no work authority. On READY, dispatch an already
 authorized ready step without replaying completed or still-running work.

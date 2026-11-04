@@ -13,7 +13,7 @@ notifications use HAPI message identity.
 The default `./start-bridge.sh` (or `discover [config-file]`) runs one discovery
 instance without a session argument. Blue sends OPEN as an assistant message in
 its current authorized HAPI session; blue never scans other sessions or forges
-user messages. OPEN and CLOSE each contain exactly `protocol`, `type`, `event_id`.
+user messages. OPEN, CLOSE and FORCE_OPEN each contain exactly `protocol`, `type`, `event_id`.
 The event ID follows the general ID rule above; no other fields are allowed:
 
 ```json
@@ -25,6 +25,38 @@ The event ID follows the general ID rule above; no other fields are allowed:
 ```
 
 CLOSE uses the same schema with `type: "CLOSE"` and its own event ID.
+From Bridge 0.7.0, blue may send FORCE_OPEN after BUSY **only with explicit user
+confirmation**. Explain that the previous binding's tasks will be interrupted.
+It uses the same three fields and no target/session selector:
+
+```json
+{
+  "protocol": "cross-zone/v3",
+  "type": "FORCE_OPEN",
+  "event_id": "blue-force-open-1"
+}
+```
+
+The default discovery worker persists the takeover, stops old-session scheduling,
+cancels queued/waiting tasks, and signals every running worker to stop. It waits
+for those workers to return before releasing the old binding and returning READY
+to the requester. Late successful results cannot overwrite cancellation. It then
+binds the requesting session at the current message head; wait for READY before
+sending work. With no binding it connects normally; on the same binding it also
+interrupts retained work and starts a fresh listening interaction.
+
+Task receipts, terminal results and unresolved recovery stay in the old session's
+state. Pending old results are delivered to that old session even after takeover,
+without preventing the new connection when the old session is unreachable.
+Interrupted effects are not rolled back. Unknown termination remains NEEDS_HUMAN
+in the old results; READY alone does not prove remote effects are safe or undone.
+A restart resumes durable takeover without rerunning old tasks. Duplicate event
+IDs do not repeat takeover, even after another session has since connected.
+Normal OPEN/CLOSE behavior is unchanged. FORCE_OPEN controls only the default
+worker and never kills independent explicit workers or bypasses their state locks;
+a target held by an explicit worker still returns BUSY. Upgrade green before use;
+older Bridges do not support this connection type.
+
 Green replies as a user message in the receiving session only. READY, BUSY and
 CLOSED each contain exactly these six fields:
 

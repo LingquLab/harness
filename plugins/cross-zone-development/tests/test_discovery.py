@@ -17,6 +17,7 @@ from cross_zone.discovery import Discovery
 from cross_zone.hapi import HapiError
 from cross_zone.protocol import PROTOCOL, read_wire, wire
 from test_bridge import FakeAgent, FakeClient, config, general_task, message, output
+from test_execution import compact_exec
 
 
 OWNER = "19146292-52a4-4094-9cd5-6086b0c3ec05"
@@ -129,6 +130,162 @@ class DiscoveryTests(DiscoveryFixture):
         reply = self.assert_reply("BUSY", "other-open", OTHER)
         self.assertNotIn(OWNER, json.dumps(reply))
         self.assertEqual(len(self.created), 1)
+
+    def test_force_open_replaces_idle_binding_and_duplicate_does_not_reclaim(self):
+        self.start()
+        self.send()
+        self.send("FORCE_OPEN", "takeover", OTHER)
+        self.assert_reply("READY", "takeover", OTHER)
+        self.assertEqual(self.discovery.bridge.config["session_id"], OTHER)
+        self.send("FORCE_OPEN", "take-back", OWNER)
+        self.assert_reply("READY", "take-back", OWNER)
+        self.send("FORCE_OPEN", "takeover", OTHER)
+        self.assertEqual(self.discovery.bridge.config["session_id"], OWNER)
+        self.restart()
+        self.start()
+        self.send("FORCE_OPEN", "takeover", OTHER)
+        self.assertEqual(self.discovery.bridge.config["session_id"], OWNER)
+        self.assertEqual(sum(e["request_event_id"] == "takeover" for e in self.client.replies(OTHER)), 1)
+
+    def test_force_open_cancels_queued_work_and_retains_unsent_old_results(self):
+        self.start()
+        self.send()
+        self.discovery.bridge.max_concurrent_tasks = 0
+        self.client.backends[OWNER].fail_send = True
+        self.client.append(general_task())
+        self.discovery.tick()
+        self.send("FORCE_OPEN", "takeover", OTHER)
+        self.assert_reply("READY", "takeover", OTHER)
+        self.assertEqual(self.agent.calls, [])
+        self.client.backends[OWNER].fail_send = False
+        self.discovery.tick()
+        results = [e for e in self.client.replies(OWNER) if e["type"] == "RESULT"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["status"], "CANCELLED")
+        self.assertFalse(any(e.get("task_id") for e in self.client.replies(OTHER)))
+        self.restart()
+        self.start()
+        self.send(event_id="old-session-open")
+        self.assert_reply("BUSY", "old-session-open")
+        self.assertEqual(self.agent.calls, [])
+
+    def test_force_open_preserves_waiting_task_recovery(self):
+        self.agent.outputs = [{"output": output(kind="QUESTION", status="NEEDS_HUMAN", question="Which host?"),
+                               "session_id": "green-question", "dirty": False}]
+        self.start()
+        self.send()
+        self.client.append(general_task())
+        self.settle()
+        self.send("FORCE_OPEN", "takeover", OTHER)
+        self.assert_reply("READY", "takeover", OTHER)
+        self.send("FORCE_OPEN", "return-to-owner", OWNER)
+        self.assert_reply("READY", "return-to-owner", OWNER)
+        store = self.discovery.bridge.store
+        self.assertEqual(store.get_task("task-1", 1)["state"], "CANCELLED")
+        self.assertTrue(store.get_meta("recovery_required"))
+        self.assertEqual(len(self.agent.calls), 1)
+
+    def test_force_open_waits_for_running_worker_and_cancels_late_success(self):
+        entered, cancelled, release = threading.Event(), threading.Event(), threading.Event()
+        original = self.agent.run
+
+        def running(*args):
+            entered.set()
+            if args[4].wait(3):
+                cancelled.set()
+            release.wait(3)
+            return original(*args)
+
+        self.agent.run = running
+        self.addCleanup(release.set)
+        self.start()
+        self.send()
+        self.client.append(general_task())
+        self.discovery.tick()
+        self.assertTrue(entered.wait(1))
+        self.send("FORCE_OPEN", "takeover", OTHER)
+        self.assertTrue(cancelled.wait(1))
+        self.assertEqual(self.discovery.bridge.config["session_id"], OWNER)
+        self.assertIsNotNone(self.discovery.get("force_open"))
+        self.assertFalse(self.client.replies(OTHER))
+        release.set()
+        deadline = time.monotonic() + 3
+        while self.discovery.get("force_open") and time.monotonic() < deadline:
+            self.discovery.tick()
+            time.sleep(0.005)
+        self.assert_reply("READY", "takeover", OTHER)
+        results = [e for e in self.client.replies(OWNER) if e["type"] == "RESULT"]
+        self.assertEqual(results[-1]["status"], "CANCELLED")
+        self.assertEqual(len(self.agent.calls), 1)
+
+    def test_force_open_stops_real_exec_and_preserves_receipt(self):
+        self.start()
+        self.send()
+        self.client.append(compact_exec(execution={"interpreter": "python", "script":
+                                                  "from pathlib import Path\nimport time\n"
+                                                  "Path('started').touch()\ntime.sleep(30)\n"
+                                                  "Path('unexpected-completion').touch()\n"}))
+        self.discovery.tick()
+        directory = Path(self.cfg["state_dir"]).parent / OWNER
+        marker = directory / "started"
+        deadline = time.monotonic() + 3
+        while not marker.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertTrue(marker.exists())
+        self.send("FORCE_OPEN", "takeover", OTHER)
+        deadline = time.monotonic() + 5
+        while self.discovery.get("force_open") and time.monotonic() < deadline:
+            self.discovery.tick()
+            time.sleep(0.01)
+        self.assert_reply("READY", "takeover", OTHER)
+        results = [e for e in self.client.replies(OWNER) if e["type"] == "RESULT"]
+        self.assertEqual(results[-1]["status"], "CANCELLED")
+        self.assertEqual(results[-1]["execution"]["status"], "CANCELLED")
+        receipt = directory / "runs/task-1/1/execution/execution.json"
+        self.assertEqual(json.loads(receipt.read_text())["status"], "CANCELLED")
+        self.assertFalse((directory / "unexpected-completion").exists())
+
+    def test_restart_resumes_pending_force_open_without_starting_old_queue(self):
+        self.start()
+        self.send()
+        self.discovery.bridge.max_concurrent_tasks = 0
+        self.client.append(general_task())
+        self.discovery.tick()
+        self.client.append(connection("FORCE_OPEN", "takeover"), OTHER)
+        with patch.object(self.discovery, "finish_force_open", return_value=False):
+            self.discovery.tick()
+        self.assertIsNotNone(self.discovery.get("force_open"))
+        self.restart()
+        self.start()
+        self.assert_reply("READY", "takeover", OTHER)
+        self.assertEqual(self.agent.calls, [])
+        self.assertIsNone(self.discovery.get("force_open"))
+
+    def test_restart_after_binding_switch_returns_busy_for_locked_target(self):
+        self.start()
+        self.send()
+        self.client.append(connection("FORCE_OPEN", "takeover"), OTHER)
+        with patch.object(self.discovery, "release", side_effect=RuntimeError("simulated crash")):
+            with self.assertRaisesRegex(RuntimeError, "simulated crash"):
+                self.discovery.tick()
+        self.assertEqual(self.discovery.get("force_open")["phase"], "connect")
+        self.restart()
+        with InstanceLock(Path(self.cfg["state_dir"]).parent / OTHER):
+            self.start()
+        self.assert_reply("BUSY", "takeover", OTHER)
+        self.assertIsNone(self.discovery.get("force_open"))
+        self.assertIsNone(self.discovery.get("binding"))
+        self.assertEqual(self.agent.calls, [])
+
+    def test_force_open_does_not_take_explicit_worker_lock(self):
+        self.start()
+        with InstanceLock(Path(self.cfg["state_dir"]).parent / OTHER):
+            self.send("FORCE_OPEN", "takeover", OTHER)
+        self.assert_reply("BUSY", "takeover", OTHER)
+        self.assertIsNone(self.discovery.bridge)
+        self.assertIsNone(self.discovery.get("binding"))
+        self.send("FORCE_OPEN", "retry-takeover", OTHER)
+        self.assert_reply("READY", "retry-takeover", OTHER)
 
     def test_new_session_bootstrap_finds_open_before_large_message_burst(self):
         self.start()

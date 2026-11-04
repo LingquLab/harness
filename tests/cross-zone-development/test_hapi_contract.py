@@ -128,7 +128,7 @@ class HapiContractTest(unittest.TestCase):
         self.assertEqual(general_task["task_id"], "machine-time")
 
     def test_blue_connection_schema_is_distinct_from_explicit_controls(self) -> None:
-        for kind in ("OPEN", "CLOSE"):
+        for kind in ("OPEN", "CLOSE", "FORCE_OPEN"):
             event = {"protocol": "cross-zone/v3", "type": kind, "event_id": "blue-connect-1"}
             with self.subTest(kind=kind):
                 self.assertEqual(parse_connection(wire(event)), event)
@@ -150,7 +150,7 @@ class HapiContractTest(unittest.TestCase):
     def test_release_metadata_is_consistent(self) -> None:
         import tomllib
         version = tomllib.loads((PLUGIN / "pyproject.toml").read_text())["project"]["version"]
-        self.assertEqual(version, "0.6.1")
+        self.assertEqual(version, "0.7.0")
         for name in (".codex-plugin/plugin.json", ".zcode-plugin/plugin.json"):
             self.assertEqual(json.loads((PLUGIN / name).read_text())["version"], version)
         self.assertIn(f'__version__ = "{version}"', (PLUGIN / "cross_zone/__init__.py").read_text())

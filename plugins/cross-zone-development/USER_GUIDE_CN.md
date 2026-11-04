@@ -515,3 +515,14 @@ bash /c/tools/cross-zone-development/start-bridge.sh sessions
 
 完整参数、任务格式和结果约束见 [中文说明](README_CN.md) 与
 [协议参考](skills/cross-zone-development/references/protocol.md)。
+
+## BUSY 后强制连接
+
+蓝区收到 BUSY 后须先询问用户是否 force open，并说明会中断旧连接任务。
+仅在用户明确确认后，发送与 OPEN 相同三字段的 `FORCE_OPEN`，使用新的 event_id，
+等待匹配的 READY 再下发任务。默认 worker 取消排队和等待任务，通知运行 worker
+停止，待其返回后才切换到当前会话。旧任务执行凭据、结果及恢复记录保留在原会话
+状态目录；待发送结果仍回原会话。重启继续未完成的切换，不重跑旧任务；重复事件
+不会再次抢占后续连接。独立显式 worker 的锁不被强占。强制连接不撤销已完成操作，
+READY 不代表未知远端影响已消除，冲突操作前仍须检查恢复证据。详见
+[协议](skills/cross-zone-development/references/protocol.md#automatic-connection-envelopes)。

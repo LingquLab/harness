@@ -180,7 +180,7 @@ def parse_connection(text):
     """Blue connection controls are consumed only by the discovery supervisor."""
     event = read_wire(text)
     if (not isinstance(event, dict) or not isinstance(event.get("type"), str)
-            or event["type"] not in {"OPEN", "CLOSE"}):
+            or event["type"] not in {"OPEN", "CLOSE", "FORCE_OPEN"}):
         return None
     if (set(event) != {"protocol", "type", "event_id"}
             or event["protocol"] != PROTOCOL

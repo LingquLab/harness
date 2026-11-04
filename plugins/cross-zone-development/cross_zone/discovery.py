@@ -149,6 +149,41 @@ class Discovery:
             self.db.execute("INSERT INTO outbox(id,session,text) VALUES (?,?,?)",
                             (response["event_id"], session, wire(response, readable=True)))
 
+    def finish_force_open(self):
+        """Resume a durable takeover; do not launch old work while cancellation drains."""
+        pending = self.get("force_open")
+        session, event = pending["session"], pending["event"]
+        try:
+            if pending["phase"] == "cancel":
+                self.attach()
+                if self.bridge:
+                    self.bridge.interrupt_connection()
+                    if self.bridge.active:
+                        return False
+                    # Keep original delivery IDs and destination when moving the
+                    # old outbox. A crash may repeat the copy, never the command.
+                    owner = self.bridge.config["session_id"]
+                    with self.db:
+                        for row in self.bridge.store.db.execute("SELECT id,text FROM outbox WHERE sent=0 ORDER BY rowid"):
+                            self.db.execute("INSERT OR IGNORE INTO outbox(id,session,text) VALUES (?,?,?)",
+                                            (row["id"], owner, row["text"]))
+                with self.db:
+                    self.set("binding", {"session": session, "prepared": False})
+                    self.set("force_open", {**pending, "phase": "connect"})
+                self.release()
+            self.attach()
+        except ValueError as exc:
+            if str(exc) != "Another bridge owns this state directory":
+                raise
+            with self.db:
+                self.set("binding", None)
+                self.respond(session, event, "BUSY")
+                self.set("force_open", None)
+            return
+        with self.db:
+            self.respond(session, event, "READY")
+            self.set("force_open", None)
+
     def handle(self, session, event, position=None):
         prior = self.db.execute("SELECT request,response FROM requests WHERE session=? AND event_id=?",
                                 (session, event["event_id"])).fetchone()
@@ -163,6 +198,10 @@ class Discovery:
                 self.db.execute("INSERT INTO requests(session,event_id,request) VALUES (?,?,?)",
                                 (session, event["event_id"], json.dumps(event)))
         binding = self.get("binding")
+        if event["type"] == "FORCE_OPEN":
+            with self.db:
+                self.set("force_open", {"session": session, "event": event, "phase": "cancel"})
+            return self.finish_force_open()
         if event["type"] == "OPEN":
             if binding and binding["session"] != session:
                 self.respond(session, event, "BUSY")
@@ -278,6 +317,10 @@ class Discovery:
     def tick(self, *, discover=True, sync=True):
         if discover:
             self.initialize()
+        if self.get("force_open"):
+            self.finish_force_open()
+            self.flush()
+            return
         self.attach()
         unavailable_owner = self.bridge.config["session_id"] if self.bridge and not sync else None
         # First drain commands/results of the owner so CLOSE cannot overlook an
@@ -297,6 +340,8 @@ class Discovery:
         sessions = self.client.sessions() if discover else (
             [{"id": self.bridge.config["session_id"]}] if sync and self.bridge else [])
         for session in sessions:
+            if self.get("force_open"):
+                break
             try:
                 sid = self.session_id(session["id"])
                 if sid != unavailable_owner:
