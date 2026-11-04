@@ -1,0 +1,4 @@
+interface:
+  display_name: "WIKI Search"
+  short_description: "Search Huawei WIKI, checking a local library first."
+  default_prompt: "Use $wiki-search to find relevant Huawei WIKI documents."

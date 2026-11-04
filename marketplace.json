@@ -94,6 +94,27 @@
       "category": "developer-tools",
       "keywords": ["architecture", "diagrams", "visualization"],
       "strict": true
+    },
+    {
+      "name": "wiki-search",
+      "source": "./plugins/wiki-search",
+      "description": "Search Huawei WIKI with wiki-cli, preferring a user-provided local document library.",
+      "description_i18n": {
+        "en": "Search Huawei WIKI with wiki-cli, preferring a user-provided local document library.",
+        "zh-CN": "使用 wiki-cli 搜索华为 WIKI，优先检索用户提供的本地资料库。"
+      },
+      "version": "0.1.0",
+      "author": {
+        "name": "LingquLab",
+        "url": "https://github.com/LingquLab"
+      },
+      "category": "developer-tools",
+      "keywords": [
+        "wiki",
+        "search",
+        "wiki-cli"
+      ],
+      "strict": true
     }
   ]
 }

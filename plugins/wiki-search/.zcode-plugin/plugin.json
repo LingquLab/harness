@@ -1,0 +1,22 @@
+{
+  "name": "wiki-search",
+  "version": "0.1.0",
+  "description": "Search Huawei WIKI with wiki-cli, preferring a user-provided local document library.",
+  "author": {
+    "name": "LingquLab",
+    "url": "https://github.com/LingquLab"
+  },
+  "homepage": "https://github.com/LingquLab/harness",
+  "repository": "https://github.com/LingquLab/harness",
+  "license": "MIT",
+  "keywords": [
+    "wiki",
+    "search",
+    "wiki-cli"
+  ],
+  "description_i18n": {
+    "en": "Search Huawei WIKI with wiki-cli, preferring a user-provided local document library.",
+    "zh-CN": "使用 wiki-cli 搜索华为 WIKI，优先检索用户提供的本地资料库。"
+  },
+  "skills": "skills"
+}

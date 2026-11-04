@@ -868,6 +868,7 @@ end
 
 begin
   validate_marketplace
+  validate_skill(File.join(PLUGINS_ROOT, "wiki-search", "skills"), "wiki-search")
   zcode_validator = File.join(ROOT, "scripts", "validate-zcode.py")
   unless system(
     { "PYTHONDONTWRITEBYTECODE" => "1" },

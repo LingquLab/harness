@@ -37,6 +37,11 @@ Start a new Codex task after installation so newly installed skills are discover
 | `cross-zone-development` | Secure GitHub issue handoffs between blue development and green service-debugging zones | `0.1.4` |
 | `persistent-shell` | Reusable stateful SSH shell sessions from Windows | `0.1.1` |
 | `archify` | Validated, interactive architecture and system diagrams | `2.17.0-dev.1` |
+| `wiki-search` | Huawei WIKI search with local-library priority | `0.1.0` |
+
+## WIKI Search
+
+Install with `codex plugin add wiki-search@lingqulab`. The `wiki-search` skill searches a user-provided local library first, then uses authenticated `wiki doc search` when needed. See the [plugin documentation](plugins/wiki-search/README.md) for prerequisites and effects.
 
 ## Archify
 
