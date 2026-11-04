@@ -1,5 +1,7 @@
 # LingquLab Skills
 
+[中文文档](README_CN.md)
+
 Skills for ZCode and Codex that help you develop software, build Ascend C operators, research AI systems, create diagrams, and validate work across development and protected environments. Install only the plugins you need.
 
 ## Install
