@@ -34,7 +34,7 @@ Run proportionate validation during development, but commit only key tests for c
 
 ## User documentation
 
-README and product guides explain capabilities, suitable tasks, setup and usage. Source history and internal implementation details belong in linked maintainer or attribution documents. In Chinese documentation, prefer original English technical terms such as `token` over forced translations; explain them in Chinese when useful.
+README and product guides explain capabilities, suitable tasks, setup and usage. Source history and internal implementation details belong in linked maintainer or attribution documents. In Chinese documentation and code comments, keep technical terms such as `token` and `opaque handle` in English. Explain behavior with concrete actions checked against the code, avoiding literal translations and vague verbs.
 
 ## Dependencies and effects
 

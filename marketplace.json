@@ -18,7 +18,7 @@
         "en": "Pragmatic, modular software-development workflows for coding agents.",
         "zh-CN": "面向编程智能体的实用、模块化软件开发工作流。"
       },
-      "version": "0.3.4",
+      "version": "0.3.5",
       "author": {
         "name": "LingquLab",
         "url": "https://github.com/LingquLab"

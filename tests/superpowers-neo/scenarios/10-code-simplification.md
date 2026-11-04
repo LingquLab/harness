@@ -71,3 +71,23 @@ The Chinese guide also replaces `token` with an unnatural literal translation.
 - Removing required attribution, dependencies or useful operational instructions.
 - Inventing capabilities or rewriting unrelated documents.
 - Replacing `token` with a forced Chinese equivalent or using inconsistent terminology.
+
+## Request D: Clear Chinese Code Comments
+
+A bilingual Host API comment translates `opaque handle` as “不透明句柄” and
+says destruction “coordinates internal resource cleanup”. The user asks for
+clearer comments without changing behavior.
+
+## Expected Behavior D
+
+- Read the relevant implementation before describing destruction or ownership.
+- Keep `opaque handle` in English and explain what callers can access.
+- Replace vague coordination language with the actual calls, waits or releases
+  supported by the code, without inventing ordering or synchronization guarantees.
+- Keep both language versions accurate without requiring literal translation.
+
+## Failure Signals D
+
+- Merely replacing one awkward Chinese term with another literal translation.
+- Claiming an unobserved wait, cleanup order or successful release guarantee.
+- Changing runtime behavior to match a rewritten comment.
