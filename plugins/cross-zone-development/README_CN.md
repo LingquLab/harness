@@ -61,9 +61,21 @@ TASK 仅在用户明确要求时使用。0.6.0 引入的自动发现及显式会
 
 ## 默认自动发现
 
+### BUSY 后强制连接（0.7.0+）
+
+蓝区收到 BUSY 后须先询问用户是否 force open，并说明会中断旧连接任务。
+仅在用户明确确认后，发送与 OPEN 相同三字段的 `FORCE_OPEN`，使用新的 event_id，
+等待匹配的 READY 再下发任务。默认 worker 取消排队和等待任务，通知运行 worker
+停止，待其返回后才切换到当前会话。旧任务执行凭据、结果及恢复记录保留在原会话
+状态目录；待发送结果仍回原会话。重启继续未完成的切换，不重跑旧任务；重复事件
+不会再次抢占后续连接。独立显式 worker 的锁不被强占。强制连接不撤销已完成操作，
+READY 不代表未知远端影响已消除，冲突操作前仍须检查恢复证据。详见
+[协议](skills/cross-zone-development/references/protocol.md#automatic-connection-envelopes)。
+
+
 不带 session 启动一个默认 Bridge，等待蓝区在当前授权 HAPI 会话中发送 OPEN。
 蓝区用 assistant 消息发送严格的 `protocol`、`type`、`event_id` 三字段信封，
-`protocol` 为 `cross-zone/v3`，`type` 为 OPEN 或 CLOSE，event_id 须符合协议 ID
+`protocol` 为 `cross-zone/v3`，`type` 为 OPEN、CLOSE 或 FORCE_OPEN，event_id 须符合协议 ID
 规则，并使用 CROSS_ZONE 标记。蓝区等待匹配的 READY 后才能下发工作，
 不得扫描其他会话或伪造 user 消息。有效的绿区 READY 也直接选择蓝区角色。
 绿区 READY/BUSY/CLOSED 严格包含 `protocol`、`type`、`event_id`、

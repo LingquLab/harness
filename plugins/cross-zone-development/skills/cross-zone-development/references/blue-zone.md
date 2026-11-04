@@ -6,8 +6,15 @@ Send the exact blue OPEN envelope from protocol.md as a top-level assistant
 message in the current authorized HAPI session. Wait for READY matching its
 request_event_id, Bridge version and current session_url before sending work.
 Do not scan other sessions or forge user messages. A valid green READY also
-selects the blue role. BUSY reveals no other session; wait or use an independent
-explicit worker arranged by the operator. Send CLOSE when finished; CLOSED
+selects the blue role. BUSY reveals no other session. Ask the user whether to force open, explaining
+that this interrupts the previous binding's queued, waiting and running tasks.
+Only after explicit confirmation send the three-field FORCE_OPEN envelope from
+protocol.md (Bridge 0.7.0+), using a fresh event ID in this current session.
+Wait for its matching READY before dispatch. Do not auto-escalate on BUSY,
+repeat pending requests, or infer confirmation from elapsed time. If declined,
+wait or use an independent explicit worker arranged by the operator. Retained
+recovery/unknown effects still need investigation before conflicting operations;
+READY confirms a binding, not that prior operations were undone. Send CLOSE when finished; CLOSED
 confirms an idle release. Connection does not authorize new work or permit replay.
 On READY, dispatch an existing authorized ready step, preserving execution history
 and recovery safeguards. Restart of discovery resumes saved execution state.

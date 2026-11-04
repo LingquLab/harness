@@ -76,9 +76,23 @@ task-owned detached checkouts live under the config directory’s `.state/<sessi
 
 ## Default automatic discovery
 
+### Force open after BUSY (0.7.0+)
+
+After BUSY, blue asks whether to force open and explains that the old connection's
+tasks will be interrupted. Only after explicit user confirmation does blue send
+`FORCE_OPEN` with the same three fields as OPEN and a fresh event ID. Wait for the
+matching READY before sending work. The worker cancels queued/waiting work, signals
+running workers and waits for them to return before switching. Old receipts,
+results and recovery records remain; pending results go to the old session.
+Restart resumes the takeover without replay; duplicate events do not reclaim a
+later binding. Independent explicit workers keep their locks. Unknown effects are
+not undone: inspect old recovery evidence before conflicting operations. See the
+[protocol](skills/cross-zone-development/references/protocol.md#automatic-connection-envelopes).
+
+
 One default Bridge waits for blue OPEN in blue's current authorized HAPI session.
 Blue sends exactly `{protocol, type, event_id}`, with `protocol: "cross-zone/v3"`
-and `type: "OPEN"` or `"CLOSE"`, using CROSS_ZONE framing and a valid event ID.
+and `type: "OPEN"`, `"CLOSE"` or `"FORCE_OPEN"`, using CROSS_ZONE framing and a valid event ID.
 Blue waits for READY before dispatch; it does not scan other sessions or forge
 user messages. Green replies READY, BUSY or CLOSED with exactly `protocol`,
 `type`, `event_id`, `request_event_id`, `version`, `session_url` in the receiving

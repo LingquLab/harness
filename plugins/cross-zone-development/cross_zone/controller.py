@@ -321,6 +321,26 @@ class Bridge:
         finally:
             self.close()
 
+    def interrupt_connection(self):
+        """Stop accepting work and cancel this binding without dropping receipts."""
+        self.stop.set()
+        with self.store.db:
+            for task in self.store.db.execute(
+                "SELECT * FROM tasks WHERE state IN ('QUEUED','WAITING_ANSWER','RUNNING')"
+            ).fetchall():
+                if task["state"] == "RUNNING":
+                    self.store.update(task, state="CANCELLING")
+                else:
+                    if task["state"] == "WAITING_ANSWER" or task["session_id"] or task["answer"] is not None:
+                        self.store.require_recovery(task)
+                    self.store._drop_pending_notifications(json.loads(task["request"]), kinds={"ACK", "QUESTION"})
+                    self.store.terminal(task, "CANCELLED", "connection_forced_closed",
+                                        "Another session requested FORCE_OPEN. Work will not be resumed; "
+                                        "completed effects and recovery records are retained.")
+        for future, cancel, recovery in self.active.values():
+            cancel.set()
+        self.work()
+
     def close(self):
         self.stop.set()
         # Signal every job before waiting for any one of them. Completion and
