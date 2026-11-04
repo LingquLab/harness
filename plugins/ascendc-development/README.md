@@ -8,6 +8,21 @@ This ZCode and Codex plugin provides version-aware workflows for Ascend C operat
 
 Ask the agent to develop or migrate an operator, check an Ascend C API, review Host/Tiling/Kernel code, inspect an Ascend environment, view NPU occupancy, install or repair CANN, or diagnose a runtime failure. Eight focused skills are selected independently from the request.
 
+## Skills
+
+The plugin contains eight independently triggered skills:
+
+| Skill | Use when |
+|---|---|
+| `ascendc-api-best-practices` | Implementing or debugging Ascend C API usage and alignment, buffer, precision, or pipeline behavior |
+| `ascendc-code-review` | Reviewing Host, Tiling, Kernel, SIMT, build, or operator changes |
+| `ascendc-docs-search` | Locating version-matched local or official Ascend C documentation and examples |
+| `ascendc-env-check` | Performing read-only CANN environment and NPU visibility diagnostics |
+| `ascendc-npu-status` | Checking JSON-listed Ascend NPU process occupancy locally or over SSH |
+| `ascendc-operator-development` | Developing or migrating a complete registered or direct-launch Ascend C operator through layered validation |
+| `ascendc-runtime-debug` | Diagnosing runtime, Tiling, launch, device-exception, hang, precision, or performance failures from bounded evidence |
+| `cann-env-setup` | Planning or carrying out a guarded, version-matched CANN installation or repair |
+
 ## Dependencies and effects
 
 - Network: documentation searches may access Huawei documentation and public GitCode content. Remote environment and NPU checks may use SSH when the user names a host.
@@ -16,4 +31,4 @@ Ask the agent to develop or migrate an operator, check an Ascend C API, review H
 - Services: complete runtime validation requires a compatible Ascend device, driver, firmware, CANN toolkit, and operator package.
 - Hooks and MCP: none.
 
-Some skills are adapted from TileXR material. Provenance is recorded in the repository `THIRD_PARTY_NOTICES.md`; the plugin is distributed under its bundled CANN Open Software License Agreement Version 2.0.
+Distributed under the bundled [CANN Open Software License Agreement Version 2.0](LICENSE). Attribution is available in [third-party notices](../../THIRD_PARTY_NOTICES.md).

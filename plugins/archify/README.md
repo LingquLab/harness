@@ -19,13 +19,10 @@ can inspect repository evidence when the diagram must reflect real code.
 - Network: the packaged update checker may fetch Archify's fixed stable update
   manifest; set `ARCHIFY_UPDATE_CHECK_DISABLED=1` to disable it. Diagram
   generation itself is local.
-- Commands: invokes the vendored Node.js renderer, validator, preview, and
+- Commands: invokes the bundled Node.js renderer, validator, preview, and
   export utilities.
 - Files: writes requested JSON specifications and generated HTML or export
   artifacts. Preview mode opens a loopback-only local server.
 - Hooks and MCP: none.
 
-The upstream release artifact is vendored at the commit recorded in
-[VENDORED.md](./VENDORED.md). Archify is MIT-licensed; bundled brand marks and
-fonts retain the terms documented in
-[`skills/archify/THIRD_PARTY_NOTICES.md`](./skills/archify/THIRD_PARTY_NOTICES.md).
+Archify is MIT-licensed. Bundled brand marks and fonts retain the terms in [third-party notices](skills/archify/THIRD_PARTY_NOTICES.md).

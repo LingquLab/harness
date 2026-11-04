@@ -1,4 +1,4 @@
 interface:
   display_name: "Neo Code Simplification"
-  short_description: "Simplify final code without changing behavior"
+  short_description: "Simplify code and write clear user-facing docs"
   default_prompt: "Use $superpowers-neo-code-simplification to simplify the current task changes while preserving behavior."

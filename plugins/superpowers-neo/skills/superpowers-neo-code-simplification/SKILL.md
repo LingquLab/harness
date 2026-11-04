@@ -1,6 +1,6 @@
 ---
 name: superpowers-neo-code-simplification
-description: Use after implementing or modifying code and before final review or Git delivery, or when asked to simplify, clean up, or reduce complexity without changing behavior
+description: Use after implementing or modifying code or user-facing documentation and before final review or Git delivery, or when asked to simplify, clean up, or reduce complexity without changing behavior
 ---
 
 # Code Simplification
@@ -20,6 +20,12 @@ Make the current task's code easier to understand and maintain while preserving 
 Check the task diff for unrequested capabilities or speculative protection/testing infrastructure; remove task-owned additions outside the approved scope while preserving requested behavior. If an extra capability is necessary, explain it and obtain user approval rather than treating it as cleanup. Before staging, remove task-created non-core test probes, debug helpers and temporary harnesses, retaining only key tests as defined by `superpowers-neo-validation-strategy`; preserve pre-existing tests and user files.
 
 If the code is already clear, make no edit. If simplification requires a behavior or interface decision, leave it unchanged and report the trade-off instead of expanding the task.
+
+## User-Facing Documentation
+
+Write README files, plugin catalogs and product guides for the intended user. Lead with what the product does, when to use it, and how to get started. Describe each capability by the problem it solves; source priority, fallback order and internal orchestration should not define a feature's introduction. Include dependencies, access requirements and limitations when they affect the user's choices or actions.
+
+Move adaptation history, upstream commit hashes, implementation chronology, internal protocol mechanics and maintainer procedures to linked attribution, design or maintenance documents. Preserve required license notices and useful operational instructions. Keep translations consistent and check examples against actual behavior. Documentation-only changes also receive this pass; do not rewrite unrelated documents or strip details needed by their intended technical audience.
 
 ## Re-establish Evidence
 

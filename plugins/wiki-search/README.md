@@ -1,15 +1,19 @@
 # WIKI Search
 
-[中文文档](./README_CN.md)
+[中文文档](README_CN.md)
 
-Search Huawei WIKI using `wiki-cli`. A user-provided local library is searched through its `_index.md` files first; online search is used when no relevant local result is found.
+Find Huawei WIKI documents by keyword, title or body text. Search the whole platform, a knowledge base, a category, or a document and its children. Results include relevant document links and short matching summaries.
 
-For general knowledge queries, use `aikg-search` first; enter the WIKI stage only when AIKG evidence is insufficient or the user explicitly requests WIKI.
+## Use
 
-Install with `codex plugin add wiki-search@lingqulab`, then ask to search Huawei WIKI or invoke `$wiki-search`. See [the skill](skills/wiki-search/SKILL.md) for ranges, parameters, examples, and result handling.
+Install with `codex plugin add wiki-search@lingqulab`, then ask to search Huawei WIKI or invoke `$wiki-search`. Provide a document URL when limiting the search to a knowledge base, category or subtree. A supplied local WIKI library is searched first.
 
-Dependencies: install `cross-zone-development@lingqulab` and establish its HAPI connection (OPEN/READY or a valid green OPEN). Online commands run only in the green zone through bounded EXEC; TASK requires an explicit user request. Install `wiki-cli` separately in the green zone; online searches require `wiki auth status` to return `✓ 已认证`. This plugin does not install the CLI or authenticate for you. Local search needs a text search tool such as `rg`, without network access or authentication.
+General knowledge questions start with `aikg-search`; explicitly requesting WIKI takes you directly to this plugin. See [the search guide](skills/wiki-search/SKILL.md) for parameters and examples.
 
-Commands: `wiki auth status` and `wiki doc search`, optionally `wiki doc search --help`. Online search sends keywords and reference URLs to Huawei WIKI through the CLI and needs access to that service. Local searches read the supplied library in its own zone. Protected responses use AI-reviewed cross-zone results; raw search JSON and full documents stay in green. The skill does not request document writes or create local files; CLI credential/cache behavior belongs to the separately installed CLI. No Hooks, MCP servers, or background services are bundled; cross-zone execution uses the separately configured HAPI Bridge.
+## Requirements and access
 
-The guidance is based on user-supplied wiki-cli search instructions, including the local `wiki-doc.md` search reference. The CLI and Huawei service are not bundled. This plugin is licensed under the repository's MIT license.
+Online search requires `cross-zone-development@lingqulab`, a connected green Bridge, and `wiki-cli` installed and authenticated in green (`wiki auth status` returns `✓ 已认证`). The agent checks authentication and runs `wiki doc search` in green. Local-library retrieval needs a text search tool such as `rg`, without WIKI authentication.
+
+Online queries send keywords and reference URLs to Huawei WIKI through the CLI. Local queries read the supplied library in its own zone. Protected results return through cross-zone review; raw responses and full documents stay in green. Search does not edit documents. Credentials and caches are managed by wiki-cli. Hooks and MCP: none; cross-zone execution uses the separately configured HAPI Bridge.
+
+Licensed under MIT. The CLI and Huawei service are provided separately.

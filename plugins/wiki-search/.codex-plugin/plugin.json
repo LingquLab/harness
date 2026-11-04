@@ -1,7 +1,7 @@
 {
   "name": "wiki-search",
   "version": "0.1.2",
-  "description": "Search green-zone Huawei WIKI after AIKG, checking WIKI local libraries before online access.",
+  "description": "Find Huawei WIKI documents by keyword, knowledge base, category or document subtree.",
   "author": {
     "name": "LingquLab",
     "url": "https://github.com/LingquLab"
@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "WIKI Search",
     "shortDescription": "Search Huawei WIKI or a local document index.",
-    "longDescription": "Search green-zone Huawei WIKI after AIKG, checking WIKI local libraries before online access.",
+    "longDescription": "Find Huawei WIKI documents by keyword, knowledge base, category or document subtree.",
     "developerName": "LingquLab",
     "category": "Developer Tools",
     "capabilities": [

@@ -12,9 +12,29 @@
 
 禁止过度设计，只实现完整满足用户需求的最小方案。未经要求的功能、假设风险下的保护机制、文件锁或额外测试框架，必须先说明必要性和代价，等待用户明确确认后再开发。需求范围内的常规实现选择不需要重复确认。
 
-禁止过度防御编程：保留真实边界校验，让必要失败明确暴露，优先复用已有实现，并测试用户依赖的行为；不为假设状态层层加防御，也不静默切换执行路径。参考 [avoid-overkill](https://github.com/6Kmfi6HP/avoid-overkill) 的编程思想，以 Neo 自身表述整合；未引入其写作规则或插件结构。
+禁止过度防御编程：保留真实边界校验，让必要失败明确暴露，优先复用已有实现，并测试用户依赖的行为；不为假设状态层层加防御，也不静默切换执行路径。
 
 开发中按风险做必要验证；上库只保留验证核心行为、关键契约或重大具体回归的测试。提交前删除本次创建的非核心测试代码、一次性探针、调试脚本、临时框架及生成物。保留原有测试、用户文件，以及用户明确要求交付的测试代码或框架。
+
+## Skills
+
+| Skill | 适用场景 |
+|---|---|
+| `superpowers-neo-designing-complex-changes` | 设计复杂、跨模块或有关键歧义的变更 |
+| `superpowers-neo-writing-plans` | 为多步骤工作制定可执行计划 |
+| `superpowers-neo-using-git-worktrees` | 按需隔离工作区，保护现有改动 |
+| `superpowers-neo-executing-plans` | 执行计划并协调相互依赖的步骤 |
+| `superpowers-neo-validation-strategy` | 按风险选择必要的验证方式 |
+| `superpowers-neo-systematic-debugging` | 用可复现证据定位故障原因 |
+| `superpowers-neo-code-simplification` | 简化代码并检查面向用户的文档 |
+| `superpowers-neo-requesting-code-review` | 为重要改动安排适当的独立审查 |
+| `superpowers-neo-handling-code-review-feedback` | 核实并处理审查意见 |
+| `superpowers-neo-verification-before-completion` | 确认完成结论有当前验证证据 |
+| `superpowers-neo-git-delivery` | 按授权完成提交、推送与 PR 交付 |
+
+## 用户文档
+
+README 和产品指南介绍能力、适用任务、安装及使用方式。来源历史和内部实现细节放在链接可达的维护或署名文档中。
 
 ## 依赖与行为
 
@@ -24,4 +44,4 @@
 - 服务：除仓库自身工具链及交付所需的 Git 托管服务外，无额外服务依赖。
 - Hook 与 MCP：无。
 
-本插件是受 Jesse Vincent 的 Superpowers 启发的独立改编，并包含其他已注明来源的材料。详情见仓库 `THIRD_PARTY_NOTICES.md`；插件采用 MIT 许可证。
+本插件采用 MIT 许可证，来源署名见[第三方说明](../../THIRD_PARTY_NOTICES.md)。

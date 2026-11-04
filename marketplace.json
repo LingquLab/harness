@@ -18,7 +18,7 @@
         "en": "Pragmatic, modular software-development workflows for coding agents.",
         "zh-CN": "面向编程智能体的实用、模块化软件开发工作流。"
       },
-      "version": "0.3.3",
+      "version": "0.3.4",
       "author": {
         "name": "LingquLab",
         "url": "https://github.com/LingquLab"
@@ -98,10 +98,10 @@
     {
       "name": "aikg-search",
       "source": "./plugins/aikg-search",
-      "description": "Search the public AI Knowledge Graph first, then use green-zone WIKI search for unresolved questions.",
+      "description": "Find AI systems knowledge, including inference, training, GPU/NPU architecture and performance analysis.",
       "description_i18n": {
-        "en": "Search the public AI Knowledge Graph first, then use green-zone WIKI search for unresolved questions.",
-        "zh-CN": "优先检索公开 AI Knowledge Graph 知识库，证据不足时再通过绿区 WIKI 搜索补充。"
+        "en": "Find AI systems knowledge, including inference, training, GPU/NPU architecture and performance analysis.",
+        "zh-CN": "检索 AI 系统知识，覆盖推理训练、GPU/NPU 架构与性能分析。"
       },
       "version": "0.1.0",
       "author": {
@@ -120,10 +120,10 @@
     {
       "name": "wiki-search",
       "source": "./plugins/wiki-search",
-      "description": "Search green-zone Huawei WIKI after AIKG, checking WIKI local libraries before online access.",
+      "description": "Find Huawei WIKI documents by keyword, knowledge base, category or document subtree.",
       "description_i18n": {
-        "en": "Search green-zone Huawei WIKI after AIKG, checking WIKI local libraries before online access.",
-        "zh-CN": "AIKG 证据不足时在绿区搜索华为 WIKI，WIKI 阶段优先检索本地资料库。"
+        "en": "Find Huawei WIKI documents by keyword, knowledge base, category or document subtree.",
+        "zh-CN": "按关键词、知识库、类目或文档子树查找华为 WIKI 文档。"
       },
       "version": "0.1.2",
       "author": {
