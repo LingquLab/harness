@@ -1,15 +1,19 @@
 # WIKI 搜索
 
-[English documentation](./README.md)
+[English documentation](README.md)
 
-使用 `wiki-cli` 搜索华为 WIKI。用户提供本地资料库时，先全文检索其中的 `_index.md`，没有相关结果再在线搜索。
+按关键词、标题或正文查找华为 WIKI 文档。支持全平台、知识库、类目，以及某个文档及其子文档范围，返回相关文档链接和简短匹配摘要。
 
-未限定来源的知识查询先使用 `aikg-search`；AIKG 证据不足或用户明确要求 WIKI 时，才进入 WIKI 检索阶段。
+## 使用方式
 
-使用 `codex plugin add wiki-search@lingqulab` 安装，然后要求搜索华为 WIKI，或调用 `$wiki-search`。范围、参数、示例和结果处理见 [skill 正文](skills/wiki-search/SKILL.md)。
+使用 `codex plugin add wiki-search@lingqulab` 安装，然后要求搜索华为 WIKI，或调用 `$wiki-search`。限定知识库、类目或文档子树时，提供相应文档链接。提供本地 WIKI 资料库时会优先检索本地内容。
 
-依赖：安装 `cross-zone-development@lingqulab`，按其流程建立 HAPI 连接（OPEN/READY 或有效绿区 OPEN）。线上命令仅通过有界 EXEC 在绿区执行，TASK 需用户明确要求。在绿区单独安装 `wiki-cli`；线上搜索要求 `wiki auth status` 返回 `✓ 已认证`。插件不安装 CLI，也不代为认证。本地检索需要 `rg` 等文本搜索工具，无需网络或认证。
+一般知识问题先使用 `aikg-search`；明确要求 WIKI 时直接使用本插件。参数与示例见[搜索指南](skills/wiki-search/SKILL.md)。
 
-命令包括 `wiki auth status`、`wiki doc search`，必要时使用 `wiki doc search --help`。在线搜索通过 CLI 向华为 WIKI 发送关键词和参考 URL，需要能够访问该服务。本地检索在资料库所在区读取用户指定的资料库。受保护响应通过跨区 AI 审查后回传，原始搜索 JSON 和完整正文留在绿区。skill 不要求写入文档或创建本地文件；凭据和缓存行为由单独安装的 CLI 管理。不附带 Hooks、MCP 服务或后台服务；跨区执行使用单独配置的 HAPI Bridge。
+## 依赖与访问范围
 
-本指导来自用户提供的 wiki-cli 搜索说明，包括本机 `wiki-doc.md` 的 search 参考。不附带 CLI 或华为服务。本插件按仓库的 MIT 许可证分发。
+在线搜索需要 `cross-zone-development@lingqulab`、已连接的绿区 Bridge，以及在绿区安装并认证的 `wiki-cli`（`wiki auth status` 返回 `✓ 已认证`）。智能体在绿区核对认证并运行 `wiki doc search`。本地资料库检索需要 `rg` 等文本搜索工具，无需 WIKI 认证。
+
+在线查询通过 CLI 向华为 WIKI 发送关键词和参考 URL。本地查询在资料库所在区读取内容。受保护结果通过跨区审查后回传，原始响应和完整正文留在绿区。搜索不修改文档，凭据和缓存由 wiki-cli 管理。无 Hooks 或 MCP；跨区执行使用单独配置的 HAPI Bridge。
+
+插件采用 MIT 许可证，CLI 和华为服务需另行提供。

@@ -2,10 +2,16 @@
 
 [English documentation](README.md)
 
-未限定来源的知识查询优先检索公开的 [AI Knowledge Graph](https://github.com/AmourSec/aikg)，再使用华为 WIKI。读取 `llms.txt` 定位相关 Markdown 正文并引用来源；证据不足或不可访问时回退 `wiki-search`。用户明确指定的来源优先。
+从公开的 [AI Knowledge Graph](https://github.com/AmourSec/aikg) 查找知识解释和参考资料，覆盖 AI 基础、推理与训练系统、GPU/NPU 架构、Ascend/CANN、算子、编译器和性能分析。
 
-使用 `codex plugin add aikg-search@lingqulab` 安装，调用 `$aikg-search` 或直接提出 AI 基础设施问题。见 [skill 正文](skills/aikg-search/SKILL.md)。可选回退插件为 `wiki-search@lingqulab` 和 `cross-zone-development@lingqulab`，WIKI 命令仅在绿区执行。
+## 使用方式
 
-依赖和影响：使用可用的网页读取工具，或 Git 与 `rg` 检索本地 Markdown。已有 checkout 可离线只读检索；可选浅克隆仅写临时目录。不需要也不附带 MkDocs 服务、上游自动路由器、Python 包、Hooks 或 MCP 服务。公开检索访问 GitHub 或 GitHub Pages，不向其发送内部 WIKI 资料。绿区回退使用单独配置的 HAPI Bridge 和已认证的 wiki-cli。
+使用 `codex plugin add aikg-search@lingqulab` 安装，然后直接提问，例如“解释 KV Cache 的显存占用”，或调用 `$aikg-search`。回答基于相关文档证据，并附来源链接。也可以提供本地 AIKG checkout 进行离线检索。
 
-本插件以 MIT 许可发布，仅包含 harness 编写的检索指导，不内置上游正文或代码。上游文档为 CC-BY-4.0，代码与配置为 MIT，使用其内容时保留来源署名。集成时核对的上游提交为 `f4a42b37e4b9c13e829d9ac9800a26684db7de2d`；实际检索使用当前来源或注明本地快照。见 [上游许可](https://github.com/AmourSec/aikg/blob/master/LICENSE)。
+一般知识查询优先检索 AIKG。需要补充证据时，可继续使用 `wiki-search@lingqulab`；在线 WIKI 检索还需要 `cross-zone-development@lingqulab` 和已配置的绿区环境。你可以明确限定查询来源。
+
+## 依赖与访问范围
+
+公开检索使用可用的网页读取工具，或通过 Git 和 `rg` 检索本地 Markdown。网络访问目标为 GitHub 或 GitHub Pages，不向其发送内部 WIKI 资料。已有 checkout 只读访问，可选浅克隆会写临时目录。不需要启动网站服务。无 Hooks 或 MCP。
+
+插件采用 MIT 许可证。AIKG 文档采用 CC-BY-4.0，使用时应保留来源署名。详见[第三方说明](../../THIRD_PARTY_NOTICES.md)和[上游条款](https://github.com/AmourSec/aikg/blob/master/LICENSE)。

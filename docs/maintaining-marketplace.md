@@ -1,0 +1,45 @@
+# Maintaining the Marketplace
+
+## Validate
+
+The validator uses Ruby standard libraries. Its offline regression checks also run Python 3; persistent-shell tests require Paramiko in the active `python3` environment (`python3 -m pip install paramiko`, preferably in a virtual environment).
+
+```bash
+ruby scripts/validate-skills.rb
+ruby -c scripts/validate-skills.rb
+python3 scripts/validate-zcode.py
+bash -n scripts/install.sh
+```
+
+These checks cover both marketplace catalogs, all Codex and ZCode manifests, localized plugin documentation, skill packages, relative documentation links, and plugin behavior scenarios.
+
+Behavioral validation is a fresh-agent evaluation. Give a new agent only the relevant `SKILL.md` files and the request section from one file under `tests/<plugin-name>/scenarios/`, then compare the response with its expected behaviors and failure signals. Do not include the expected result in the agent prompt.
+
+Before publishing a plugin change, also run the current validator supplied by Codex's installed `plugin-creator` skill against that plugin directory. This catches schema changes that may be newer than the repository validator.
+
+## Add a Plugin
+
+Each independently versioned plugin lives under:
+
+```text
+plugins/<plugin-name>/
+|-- .codex-plugin/plugin.json
+|-- .zcode-plugin/plugin.json
+|-- README.md
+|-- README_CN.md
+`-- skills/
+```
+
+To add a plugin:
+
+1. Use one normalized lower-case hyphenated name for its directory, manifest, and marketplace entry.
+2. Give the plugin its own strict semantic version.
+3. Put runtime skills under `plugins/<plugin-name>/skills/`.
+4. Register it in root `marketplace.json` for ZCode and `.agents/plugins/marketplace.json` for Codex; catalog order is user-visible.
+5. Keep the plugin version synchronized across both manifests, the root marketplace entry, and the root README.
+6. Use a supported lower-case ZCode category and include the Codex installation and authentication policy fields.
+7. Provide semantically equivalent `README.md` and `README_CN.md` files covering invocation, dependencies, network access, commands, file effects, Hooks, MCP, and licensing. Keep provenance in THIRD_PARTY_NOTICES.md or a dedicated source record, linked from the README.
+8. Add plugin-specific tests under `tests/<plugin-name>/` and extend repository validation.
+9. Document its Codex selector as `<plugin-name>@lingqulab`.
+
+Keep coherent skill series together, but publish unrelated skills as separate plugins instead of expanding one catch-all package.

@@ -83,6 +83,8 @@ The `ascendc-development` plugin adapts and modifies Ascend C and CANN skill doc
 
 The CANN license applies to the `ascendc-development` plugin and its adapted contents. In particular, its grant is limited to developing software for use with Ascend processors. The repository's root MIT license does not replace that plugin-specific license.
 
+The original five skills are adapted from TileXR's Claude skills at source commit `1e2619e793b5894a1aec2d7d6897dbe5f7c501c0`. The operator-development and runtime-debugging workflows extend that baseline without importing cannBot automation. Claude-specific tool calls, fixed environment assumptions, destructive diagnostic commands, and the duplicate `commit-push-pr` skill are intentionally not shipped. Useful online workflows remain scripted: one dependency-free client searches and fetches Huawei's official documentation, and another obtains public GitCode PR diffs through bounded shallow fetches. See the [migration audit](docs/specs/2026-07-23-ascendc-development-migration.md), [expansion plan](docs/plans/2026-07-24-ascendc-development-expansion.md), and [third-party notices](THIRD_PARTY_NOTICES.md).
+
 ## Archify
 
 The `archify` plugin vendors the upstream Archify runtime release artifact:
@@ -108,3 +110,7 @@ Superpowers Neo independently restates selected software-design, debugging and t
 - Source commit: `3e6c6da904f857c1eae83ee580131ca4cbd58df7`
 - Copyright: Copyright (c) 2026 6Kmfi6HP
 - License: MIT License; the MIT permission and warranty notice reproduced above also applies with this source's copyright notice.
+
+## AI Knowledge Graph retrieval source
+
+The aikg-search plugin links to [AmourSec/aikg](https://github.com/AmourSec/aikg); it does not vendor its documents, code or skills. Integration was reviewed against commit `f4a42b37e4b9c13e829d9ac9800a26684db7de2d`. Its documentation is CC-BY-4.0 and its code/configuration is MIT; see the [upstream license](https://github.com/AmourSec/aikg/blob/master/LICENSE). Retrieval uses current sources or identifies the local snapshot.

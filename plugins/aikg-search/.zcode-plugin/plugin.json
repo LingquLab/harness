@@ -1,7 +1,7 @@
 {
   "name": "aikg-search",
   "version": "0.1.0",
-  "description": "Search the public AI Knowledge Graph first, then use green-zone WIKI search for unresolved questions.",
+  "description": "Find AI systems knowledge, including inference, training, GPU/NPU architecture and performance analysis.",
   "author": {
     "name": "LingquLab",
     "url": "https://github.com/LingquLab"
@@ -17,7 +17,7 @@
   ],
   "skills": "skills",
   "description_i18n": {
-    "en": "Search the public AI Knowledge Graph first, then use green-zone WIKI search for unresolved questions.",
-    "zh-CN": "优先检索公开 AI Knowledge Graph 知识库，证据不足时再通过绿区 WIKI 搜索补充。"
+    "en": "Find AI systems knowledge, including inference, training, GPU/NPU architecture and performance analysis.",
+    "zh-CN": "检索 AI 系统知识，覆盖推理训练、GPU/NPU 架构与性能分析。"
   }
 }
