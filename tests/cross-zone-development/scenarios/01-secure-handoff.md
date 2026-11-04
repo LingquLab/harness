@@ -146,6 +146,12 @@ A multi-step TASK returns TIMED_OUT without sufficient evidence of completion.
   task unchanged or merely increase its timeout.
 - Check partial changes and running processes before repeating a mutation.
 
+## Failure Signals F
+
+- Resending the original timed-out task or only extending its timeout.
+- Repeating a mutation without checking partial effects and running processes.
+- Sending dependent steps before receiving the preceding result.
+
 ## Request G: Batch Direct Commands
 
 Blue has several known commands in the same authorized phase, and green supports EXEC.
@@ -157,35 +163,60 @@ Blue has several known commands in the same authorized phase, and green supports
 - After timeout, inspect saved progress before splitting only unfinished work; do not
   replay completed mutations or abandon batching by default.
 
-## Request: Dispatch After OPEN
+## Failure Signals G
+
+- Sending a separate EXEC per command when the commands form one bounded phase.
+- Continuing dependent commands after failure, omitting runtime bounds, or
+  replaying completed mutations after timeout.
+
+## Request I: Dispatch After OPEN
 
 After a fresh OPEN and an idle readiness reply, the user asks for the current UTC
-time. In a separate case, the user requests validation of an immutable candidate.
+time. In a separate case, the user explicitly requests TASK-mode validation of
+an immutable candidate.
 
-Expected: use an exact bounded EXEC for the time request; choose ai_review according
+## Expected Behavior I
+
+Use an exact bounded EXEC for the time request; choose ai_review according
 to its existing rules. Use a revision-bearing TASK for candidate validation. Do not
 enable AI review by default, erase history, or bypass pending recovery to satisfy
 the EXEC preference. With no earlier authorized pending work, wait for that instruction.
 
-## Request: OPEN with Authorized Pending Work
+## Failure Signals I
+
+- Using TASK for the simple time command or omitting command assertions.
+- Dispatching candidate work without the user's explicit TASK-mode request.
+- Replaying prior effects or bypassing unresolved recovery.
+
+## Request J: OPEN with Authorized Pending Work
 
 The user has asked blue to prepare a change and run a green test after they update
 the Bridge. Blue has pushed the change and the agreed test is ready. The user
 restarts green and posts a valid OPEN in the authorized session.
 
-Expected: dispatch the agreed bounded test immediately without asking the user to
+## Expected Behavior J
+
+Dispatch the agreed bounded test immediately without asking the user to
 repeat the instruction. Apply normal EXEC/review selection and recovery checks.
 Do not invent a separate readiness probe. In a variant where the test is already
 running or completed, do not dispatch it again; consume its result or report the
 existing outcome. If prior effects are uncertain, establish state before repeating
 them. The Bridge's retained queue is not automatically resumed by OPEN.
 
-## Request: Compact Direct EXEC
+## Failure Signals J
+
+- Requiring the user to repeat the already-authorized ready test.
+- Inventing an extra readiness probe or replaying running/completed work.
+- Treating OPEN as permission to resume uncertain mutations without recovery.
+
+## Request K: Compact Direct EXEC
 
 The user requests a bounded non-sensitive command and green OPEN reports 0.5.2.
 No AI review is needed.
 
-Expected: send binding fields, execution and both runtime budgets. Omit goal,
+## Expected Behavior K
+
+Send binding fields, execution and both runtime budgets. Omit goal,
 checks and the default ai_review=false. Put success assertions in the script.
 Consume a direct RESULT with checks=[] without inventing AI/business validation.
 For reviewed output, supply ai_review=true and checks, without goal. EXEC rejects
@@ -193,17 +224,31 @@ goal in both modes; TASK still requires it. Do not dispatch
 this example's operations merely because they appear in documentation, or resend
 an accepted task/iteration with fields stripped (its request digest would change).
 
-## Request: Concurrent Work While a Download Runs
+## Failure Signals K
+
+- Sending goal in EXEC, omitting either runtime budget, or claiming AI review
+  for a direct result.
+- Resending an accepted task/iteration with different fields.
+
+## Request L: Concurrent Work While a Download Runs
 
 Green reports 0.5.2 and is already running an authorized long EXEC download. The
 user asks for an independent status check and another disjoint download.
 
-Expected: dispatch the independent jobs under separate task IDs; do not wait for
+## Expected Behavior L
+
+Dispatch the independent jobs under separate task IDs; do not wait for
 the first download or reuse its next iteration. Honor the local concurrency limit
 (default4), correlate out-of-order results and cancel only the named task. With
 one configured slot, accept excess requests as queued without claiming they ran.
 Coordinate shared files/services explicitly. A recovering task may clear only its
 launch snapshot of interruptions; preserve interruptions recorded by other jobs.
+
+## Failure Signals L
+
+- Blocking independent work on an unrelated running download or reusing its ID.
+- Misbinding out-of-order results, cancelling the wrong job, or ignoring shared
+  resources and the configured concurrency limit.
 
 ## Request H: BUSY then confirmed FORCE_OPEN
 

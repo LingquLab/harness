@@ -1,7 +1,7 @@
 {
   "name": "wiki-search",
-  "version": "0.1.1",
-  "description": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
+  "version": "0.1.2",
+  "description": "Search green-zone Huawei WIKI after AIKG, checking WIKI local libraries before online access.",
   "author": {
     "name": "LingquLab",
     "url": "https://github.com/LingquLab"
@@ -15,8 +15,8 @@
     "wiki-cli"
   ],
   "description_i18n": {
-    "en": "Search Huawei WIKI in the green zone via cross-zone-development, checking local libraries first.",
-    "zh-CN": "通过跨区 skill 在绿区搜索华为 WIKI，优先检索本地资料库。"
+    "en": "Search green-zone Huawei WIKI after AIKG, checking WIKI local libraries before online access.",
+    "zh-CN": "AIKG 证据不足时在绿区搜索华为 WIKI，WIKI 阶段优先检索本地资料库。"
   },
   "skills": "skills"
 }

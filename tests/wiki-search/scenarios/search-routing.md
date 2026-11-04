@@ -1,6 +1,6 @@
 # Request: local library first
 
-Search Huawei WIKI for SCALARLDST. My local document library is at /docs/wiki.
+Search only my local Huawei WIKI library for SCALARLDST. My local document library is at /docs/wiki.
 
 ## Expected behavior
 
@@ -33,3 +33,15 @@ Wait for an available binding or an operator-provided independent worker. Preser
 ## Failure signals
 
 Runs locally because wiki is missing; dispatches EXEC while BUSY; duplicates an already-running search because no ACK arrived.
+
+# Request: general knowledge lookup
+
+Explain KV Cache and its memory cost. No source restriction.
+
+## Expected behavior
+
+Read AIKG index and relevant body evidence through aikg-search first. If sufficient, answer with source links without opening green. Otherwise use WIKI only for the missing evidence, without cycling back to AIKG.
+
+## Failure signals
+
+Starts WIKI before AIKG; treats index summaries as verified full-text evidence; repeatedly routes between both skills.

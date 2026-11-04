@@ -291,7 +291,7 @@ def extract_frontmatter(content, path)
 end
 
 def reject_duplicate_mapping_keys(text, path)
-  stream = Psych.parse_stream(text, path)
+  stream = Psych.parse_stream(text, filename: path)
   visit = lambda do |node|
     if node.is_a?(Psych::Nodes::Mapping)
       keys = []
@@ -868,6 +868,7 @@ end
 
 begin
   validate_marketplace
+  validate_skill(File.join(PLUGINS_ROOT, "aikg-search", "skills"), "aikg-search")
   validate_skill(File.join(PLUGINS_ROOT, "wiki-search", "skills"), "wiki-search")
   zcode_validator = File.join(ROOT, "scripts", "validate-zcode.py")
   unless system(

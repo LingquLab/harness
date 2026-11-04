@@ -37,11 +37,16 @@ Start a new Codex task after installation so newly installed skills are discover
 | `cross-zone-development` | HAPI blue/green collaboration with confirmed force-open takeover | `0.7.0` |
 | `persistent-shell` | Reusable stateful SSH shell sessions from Windows | `0.1.1` |
 | `archify` | Validated, interactive architecture and system diagrams | `2.17.0-dev.1` |
-| `wiki-search` | Green-zone Huawei WIKI search with local-library priority | `0.1.1` |
+| `aikg-search` | Public AIKG knowledge retrieval before WIKI fallback | `0.1.0` |
+| `wiki-search` | Green-zone Huawei WIKI search after AIKG, with local-library priority | `0.1.2` |
+
+## AIKG Search
+
+Install with `codex plugin add aikg-search@lingqulab`. General knowledge searches start with the public [AI Knowledge Graph](https://github.com/AmourSec/aikg), reading its index and relevant Markdown evidence. Unresolved questions fall back to `wiki-search@lingqulab`, which requires `cross-zone-development@lingqulab` for green-zone online access. Explicit source restrictions take precedence. See the [plugin documentation](plugins/aikg-search/README.md).
 
 ## WIKI Search
 
-Install with `codex plugin add wiki-search@lingqulab`. The `wiki-search` skill searches a user-provided local library first, then delegates authenticated `wiki doc search` to the green zone through the required `cross-zone-development` skill. See the [plugin documentation](plugins/wiki-search/README.md) for prerequisites and effects.
+Install with `codex plugin add wiki-search@lingqulab`. The `wiki-search` skill follows AIKG for general knowledge queries, searches a user-provided WIKI library first within its WIKI stage, then delegates authenticated `wiki doc search` to the green zone through the required `cross-zone-development` skill. See the [plugin documentation](plugins/wiki-search/README.md) for prerequisites and effects.
 
 ## Archify
 
@@ -140,7 +145,7 @@ See the [Superpowers Neo design](docs/specs/2026-07-22-superpowers-neo-design.md
 
 ## Validate
 
-The repository validator uses Ruby standard libraries and needs no package installation:
+The validator uses Ruby standard libraries. Its offline regression checks also run Python 3; persistent-shell tests require Paramiko in the active `python3` environment (`python3 -m pip install paramiko`, preferably in a virtual environment).
 
 ```bash
 ruby scripts/validate-skills.rb

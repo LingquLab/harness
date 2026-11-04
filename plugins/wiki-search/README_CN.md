@@ -4,6 +4,8 @@
 
 使用 `wiki-cli` 搜索华为 WIKI。用户提供本地资料库时，先全文检索其中的 `_index.md`，没有相关结果再在线搜索。
 
+未限定来源的知识查询先使用 `aikg-search`；AIKG 证据不足或用户明确要求 WIKI 时，才进入 WIKI 检索阶段。
+
 使用 `codex plugin add wiki-search@lingqulab` 安装，然后要求搜索华为 WIKI，或调用 `$wiki-search`。范围、参数、示例和结果处理见 [skill 正文](skills/wiki-search/SKILL.md)。
 
 依赖：安装 `cross-zone-development@lingqulab`，按其流程建立 HAPI 连接（OPEN/READY 或有效绿区 OPEN）。线上命令仅通过有界 EXEC 在绿区执行，TASK 需用户明确要求。在绿区单独安装 `wiki-cli`；线上搜索要求 `wiki auth status` 返回 `✓ 已认证`。插件不安装 CLI，也不代为认证。本地检索需要 `rg` 等文本搜索工具，无需网络或认证。

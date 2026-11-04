@@ -4,6 +4,8 @@
 
 Search Huawei WIKI using `wiki-cli`. A user-provided local library is searched through its `_index.md` files first; online search is used when no relevant local result is found.
 
+For general knowledge queries, use `aikg-search` first; enter the WIKI stage only when AIKG evidence is insufficient or the user explicitly requests WIKI.
+
 Install with `codex plugin add wiki-search@lingqulab`, then ask to search Huawei WIKI or invoke `$wiki-search`. See [the skill](skills/wiki-search/SKILL.md) for ranges, parameters, examples, and result handling.
 
 Dependencies: install `cross-zone-development@lingqulab` and establish its HAPI connection (OPEN/READY or a valid green OPEN). Online commands run only in the green zone through bounded EXEC; TASK requires an explicit user request. Install `wiki-cli` separately in the green zone; online searches require `wiki auth status` to return `✓ 已认证`. This plugin does not install the CLI or authenticate for you. Local search needs a text search tool such as `rg`, without network access or authentication.

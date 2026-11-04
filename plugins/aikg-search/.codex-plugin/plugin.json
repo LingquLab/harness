@@ -1,0 +1,32 @@
+{
+  "name": "aikg-search",
+  "version": "0.1.0",
+  "description": "Search the public AI Knowledge Graph first, then use green-zone WIKI search for unresolved questions.",
+  "author": {
+    "name": "LingquLab",
+    "url": "https://github.com/LingquLab"
+  },
+  "homepage": "https://github.com/LingquLab/harness",
+  "repository": "https://github.com/LingquLab/harness",
+  "license": "MIT",
+  "keywords": [
+    "aikg",
+    "knowledge",
+    "search",
+    "ai-infrastructure"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "AIKG Search",
+    "shortDescription": "Search AIKG before falling back to Huawei WIKI.",
+    "longDescription": "Search the public AI Knowledge Graph first, then use green-zone WIKI search for unresolved questions.",
+    "developerName": "LingquLab",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read"
+    ],
+    "defaultPrompt": [
+      "Use aikg-search to research this topic, then wiki-search if AIKG evidence is insufficient."
+    ]
+  }
+}

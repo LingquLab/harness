@@ -1,0 +1,4 @@
+interface:
+  display_name: "AIKG Search"
+  short_description: "Search AIKG first, then WIKI for missing evidence."
+  default_prompt: "Use $aikg-search to research this topic before falling back to wiki-search."
