@@ -13,6 +13,11 @@ Bridge 的 HTTP 请求（HAPI REST/SSE 和 EXEC 审查 API）统一携带
 在 ESA 或访问日志中匹配 `CrossZoneBridge/` 前缀即可跨版本统计 Bridge 流量，
 版本号会随已安装插件自动更新。
 
+当 `hub_url=https://hapi.kurox.cn/` 时，Bridge 优先连接
+`https://hapi-cf.kurox.cn/`。连接或 HTTP 请求失败后，会输出本地警告，
+并在本次运行中改用 `https://hapi.kurox.cn/`；重启后重新尝试优先地址。
+REST 和 SSE 均使用此规则；其他 Hub 地址和已保存的绑定身份保持不变。
+
 ## 绿区运行时安装
 
 插件已经包含 Python Bridge [`cross_zone`](cross_zone)、Git Bash 启动脚本

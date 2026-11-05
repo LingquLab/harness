@@ -14,6 +14,12 @@ Bridge HTTP requests (HAPI REST/SSE and the EXEC review API) use
 Match the `CrossZoneBridge/` prefix in ESA/access logs to count Bridge traffic
 across releases. The version follows the installed plugin automatically.
 
+For `hub_url=https://hapi.kurox.cn/`, Bridge first connects through
+`https://hapi-cf.kurox.cn/`. A connection or HTTP error switches requests to
+`https://hapi.kurox.cn/` for the rest of the process lifetime, with a local warning.
+Restarting tries the preferred endpoint again. This applies to REST and SSE;
+other Hub URLs and saved binding identities remain unchanged.
+
 ## Green runtime setup
 
 The plugin ships the Python Bridge in [`cross_zone`](cross_zone), its Git Bash

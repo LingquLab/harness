@@ -69,11 +69,9 @@ def _unique_object(pairs):
     return result
 
 
-def read_wire(text, *, max_bytes=None):
+def read_wire(text):
     if not text or not text.startswith(MARKER):
         return None
-    if max_bytes is not None and len(text.encode("utf-8")) > max_bytes:
-        raise ProtocolError("request_too_large")
     body = text[len(MARKER):].strip()
     if body.startswith("```json\n") and body.endswith("\n```"):
         body = body[len("```json\n"):-len("\n```")]
@@ -86,7 +84,7 @@ def read_wire(text, *, max_bytes=None):
 def parse(text):
     if not text or not text.startswith(MARKER):
         return None
-    event = read_wire(text, max_bytes=24000)
+    event = read_wire(text)
     if not isinstance(event, dict) or event.get("protocol") != PROTOCOL:
         raise ProtocolError("invalid_protocol")
     base = {"protocol", "type", "event_id", "task_id", "iteration"}
@@ -164,7 +162,7 @@ def parse(text):
                 if execution["interpreter"] not in ("bash", "powershell", "python"):
                     raise ProtocolError("invalid_execution_interpreter")
                 script = execution["script"]
-                if not isinstance(script, str) or not 1 <= len(script) <= 12000 or "\0" in script:
+                if not isinstance(script, str) or not script or "\0" in script:
                     raise ProtocolError("invalid_execution_script")
             else:
                 raise ProtocolError("invalid_execution_fields")
@@ -178,7 +176,7 @@ def parse(text):
 
 def parse_connection(text):
     """Blue connection controls are consumed only by the discovery supervisor."""
-    event = read_wire(text, max_bytes=24000)
+    event = read_wire(text)
     if (not isinstance(event, dict) or not isinstance(event.get("type"), str)
             or event["type"] not in {"OPEN", "CLOSE", "FORCE_OPEN"}):
         return None
