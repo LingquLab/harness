@@ -24,7 +24,7 @@ The Bridge contacts the configured HAPI Hub and, when output review is enabled, 
 
 A local Bridge process is required; no Hooks or MCP server is bundled. The plugin is licensed under MIT.
 
-## Direct recovery after review failures (0.7.1)
+## Direct recovery after review failures
 
 After a terminal review/fallback NEEDS_HUMAN, blue sends a new EXEC with explicit
 `ai_review: false` and smaller output. Only read-only or verified repeatable
@@ -32,7 +32,18 @@ operations are rerun; operations with side effects use read-only saved-evidence
 retrieval. Changing the flag alone does not fix output limits. After two such
 failures in the current session, subsequent EXECs stay direct unless the user
 requests review again. Identical failing retries, valid negative reviews and
-unknown execution effects do not authorize replay. Direct stdout is now limited
-to 4000 UTF-8 bytes, summary to 6000 characters and RESULT to 8192 UTF-8 bytes;
-credential/content guards remain enforced. Diagnostic detail is capped at 4000
-JSON-encoded UTF-8 bytes.
+unknown execution effects do not authorize replay. Output ceilings follow the 64 KiB policy below; credential/content guards remain enforced.
+
+## 64 KiB return policy (0.7.2)
+
+Direct EXEC stdout is capped at 65536 UTF-8 bytes (64 KiB). A complete RESULT
+has a 73728-byte (72 KiB) serialized JSON ceiling to reserve transport metadata;
+summary is capped at 65664 characters to include the direct/fallback labels. JSON
+escaping or multibyte text can reach the envelope limit sooner; summarize or
+split output rather than repeatedly resending oversized results. Diagnostic
+detail stays at 4000 JSON-encoded UTF-8 bytes. Credential/content checks, local
+capture/review limits and HAPI client behavior remain unchanged.
+
+Green testing received 8 KiB and 64 KiB synthetic payloads. The 256 KiB RESULT
+was rejected with HTTP 403; its exact cause was not established. This release
+uses the observed 64 KiB level rather than continuing the unlimited experiment.

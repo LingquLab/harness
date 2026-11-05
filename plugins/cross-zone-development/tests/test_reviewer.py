@@ -304,16 +304,16 @@ class ReviewAPITests(unittest.TestCase):
     def test_failed_review_fallback_accepts_expanded_output_budget(self):
         self.status = 500
         event = exec_task(execution={"interpreter": "python", "script":
-                                    "import sys;sys.stdout.write('x'*4000)"})
+                                    "import sys;sys.stdout.write('x'*65536)"})
         result = self.run_exec(event)
         self.assertTrue(result["ai_review_fallback"])
         exported = review(result["output"], {**event, "ai_review": False}, execution=result["execution"])
         self.assertEqual(exported["error_code"], "AI_REVIEW_FALLBACK")
-        self.assertIn("x" * 4000, exported["summary"])
+        self.assertIn("x" * 65536, exported["summary"])
 
     def test_review_failure_direct_fallback_retains_output_limits_and_exit_facts(self):
         self.status = 500
-        scripts = (("print('x'*4001)", "NEEDS_HUMAN"),
+        scripts = (("print('x'*65537)", "NEEDS_HUMAN"),
                    ("import sys;sys.stderr.write('private');print('done')", "NEEDS_HUMAN"),
                    ("import sys;sys.stdout.buffer.write(bytes([255]))", "NEEDS_HUMAN"),
                    ("import sys;sys.stdout.buffer.write(bytes([1]))", "NEEDS_HUMAN"),

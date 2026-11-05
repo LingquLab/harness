@@ -434,7 +434,7 @@ wire field or model-controlled override. A successful fallback carries
 `error_code: "AI_REVIEW_FALLBACK"`, a no-AI-review summary and internal
 `egress_reviewed=false`. Blue must not describe it as AI-reviewed.
 
-The command must already have exited zero. Stdout must pass the same 4000-byte,
+The command must already have exited zero. Stdout must pass the same 65536-byte,
 UTF-8 and control-character limits; stderr must be empty. Final known-secret,
 credential-pattern and RESULT-size checks still apply. Otherwise output remains
 withheld with the corresponding direct failure/NEEDS_HUMAN status. Required
@@ -459,12 +459,12 @@ isolation, recovery, execution receipts, credential detection or RESULT limits.
 With `ai_review=false`, encode every requested check as a command assertion:
 exit zero means those assertions passed; Bridge does not interpret natural-language
 expectations. Bridge returns successful stdout directly in the RESULT summary,
-labelled as having no AI review. Stdout must be valid UTF-8, at most 4000 bytes,
+labelled as having no AI review. Stdout must be valid UTF-8, at most 65536 bytes,
 with no control characters other than newline/tab (CRLF is normalized to LF);
 stderr must be empty. It is
 never truncated. Unexpected output is withheld as NEEDS_HUMAN. Nonzero exits and
 other execution failures withhold output and retain authoritative execution status.
-Existing secret-pattern, known-secret and final 8192-byte envelope checks still
+Existing secret-pattern, known-secret and final 73728-byte envelope checks still
 apply; rejection never triggers automatic rerun or AI fallback.
 
 Bridge constructs the direct result with `egress_reviewed=false`; this is accepted
@@ -472,13 +472,13 @@ only for direct-mode EXEC with execution facts. It never claims an AI
 review occurred. Explicit true enables the AI-reviewed result contract. TASK continues to require
 green AI review. Blue must not describe direct-mode output as AI-reviewed.
 
-### Blue recovery after failed review/fallback (0.7.1+)
+### Blue recovery after failed review/fallback (0.7.2+)
 
 After a terminal review/export NEEDS_HUMAN, blue may send a new direct EXEC with
 reduced output; the original request remains immutable. Use read-only saved
 output retrieval for operations with side effects. After two such failures in
 this session, subsequent EXECs stay explicitly direct unless the user requests
-review again. Follow [blue-zone.md](blue-zone.md#blue-recovery-after-failed-reviewfallback-071)
+review again. Follow [blue-zone.md](blue-zone.md#blue-recovery-after-failed-reviewfallback-072)
 for retry identity, output shaping, unknown effects and stop conditions.
 
 ## Candidate transfer
@@ -544,7 +544,7 @@ shorter than 10 lines are allowed.
 Unsafe-to-export evidence and unknown process termination become NEEDS_HUMAN.
 
 The complete serialized RESULT JSON, including protocol and task-binding fields,
-is at most 8192 UTF-8 bytes; `summary` is at most 6000 characters. The marker line
+is at most 73728 UTF-8 bytes; `summary` is at most 65664 characters. The marker line
 and code-block fences are outside that JSON budget; JSON indentation counts. A full stack trace may use a Markdown fence and is
 not subject to the code-snippet line limit. The agent reviews snippet semantics;
 the runtime enforces schema, check completeness, known-secret rejection, and size.

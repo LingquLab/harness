@@ -145,7 +145,7 @@ service responses or uncertain output. In direct mode encode all checks as comma
 assertions. Output/credential limits and recovery rules still apply. See the protocol reference's Optional AI review
 contract for exact output limits and failure behavior.
 
-### Blue recovery after failed review/fallback (0.7.1+)
+### Blue recovery after failed review/fallback (0.7.2+)
 
 A terminal NEEDS_HUMAN caused by review/fallback or export limits is a result
 transport failure, not proof that the command failed. After such a result, blue
@@ -157,7 +157,7 @@ EXEC and return a bounded summary instead of repeating the operation; if its
 execution status or effects are unknown, establish those before any repeat.
 
 Changing the flag alone cannot fix oversized output. Have the new command select
-needed fields, counts or a short excerpt locally, keep stdout within 4000 UTF-8
+needed fields, counts or a short excerpt locally, keep stdout within 65536 UTF-8
 bytes and stderr empty, and assert required conditions. Do not export raw secrets
 or bulk service responses, weaken credential guards, or turn a valid negative
 review conclusion into success. No retry for silence or a still-running request.

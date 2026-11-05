@@ -5,13 +5,17 @@ import re
 
 from .protocol import PROTOCOL, canonical
 
+MAX_DIRECT_STDOUT_BYTES = 64 * 1024
+MAX_SUMMARY_CHARS = MAX_DIRECT_STDOUT_BYTES + 128  # Direct/fallback labels plus payload.
+MAX_RESULT_BYTES = 72 * 1024  # Reserve transport metadata around a 64 KiB payload.
+
 SCHEMA = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
         "kind": {"type": "string", "enum": ["RESULT", "QUESTION"]},
         "status": {"type": "string", "enum": ["PASS", "FAIL", "BLOCKED", "NEEDS_HUMAN"]},
-        "summary": {"type": "string", "maxLength": 6000},
+        "summary": {"type": "string", "maxLength": MAX_SUMMARY_CHARS},
         "checks": {"type": "array", "maxItems": 20, "items": {
             "type": "object", "additionalProperties": False,
             "properties": {"id": {"type": "string"}, "status": {"type": "string", "enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]}},
@@ -100,8 +104,8 @@ def review(value, request, secrets=(), execution=None):
         # Reserve the longest bridge-owned terminal status before applying execution facts.
         envelope["status"] = "NEEDS_HUMAN"
     size = len(json.dumps(envelope, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8"))
-    if size > 8192:
-        raise ValueError(f"egress_size_limit: RESULT JSON bytes={size} exceeds limit=8192; shorten summary")
+    if size > MAX_RESULT_BYTES:
+        raise ValueError(f"egress_size_limit: RESULT JSON bytes={size} exceeds limit={MAX_RESULT_BYTES}; shorten summary")
     # Reject; never partially redact a payload and accidentally change its meaning.
     patterns = [r"(?i)\b(?:bearer|password|api[_ -]?key|access[_ -]?token)\s*[:= ]\s*\S+",
                 r"\b(?:sk-|ghp_|github_pat_)[A-Za-z0-9_-]{12,}"]

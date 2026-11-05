@@ -200,7 +200,7 @@ data, request/response bodies, bulk logs, complete source files, diffs, patches,
 and code or pseudocode snippets of 10 lines or more. Relevant Markdown fences,
 URLs, internal addresses, absolute paths, full stack traces, and shorter code or
 pseudocode snippets may cross. The complete structured result is limited to
-8192 bytes and `summary` to 6000 characters.
+73728 bytes and `summary` to 65664 characters.
 
 The plugin contains original LingquLab material and is licensed under the
 repository MIT license.
@@ -261,7 +261,7 @@ replay. Review errors (including missing configuration, API errors, malformed
 model output or exceptions) and local review timeout automatically attempt
 `ai_review=false` once using the same saved stdout/stderr, while total task time
 remains. A successful direct fallback is labelled `AI_REVIEW_FALLBACK` and has
-no AI-review claim. It must pass direct-mode zero-exit, 4000-byte UTF-8 stdout,
+no AI-review claim. It must pass direct-mode zero-exit, 65536-byte UTF-8 stdout,
 empty stderr, credential and final envelope checks. Failure still withholds
 output. Assert required conditions in the command; fallback PASS is not an AI
 assessment. Valid negative reviews, total expiry and cancellation keep their outcome. A request already sent may
