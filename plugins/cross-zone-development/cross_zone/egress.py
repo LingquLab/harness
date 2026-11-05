@@ -1,9 +1,8 @@
 """Bounded structured export. Pattern checks supplement, not replace, AI review."""
 
-import json
 import re
 
-from .protocol import PROTOCOL, canonical
+from .protocol import canonical
 
 SCHEMA = {
     "type": "object",
@@ -11,7 +10,7 @@ SCHEMA = {
     "properties": {
         "kind": {"type": "string", "enum": ["RESULT", "QUESTION"]},
         "status": {"type": "string", "enum": ["PASS", "FAIL", "BLOCKED", "NEEDS_HUMAN"]},
-        "summary": {"type": "string", "maxLength": 6000},
+        "summary": {"type": "string"},
         "checks": {"type": "array", "maxItems": 20, "items": {
             "type": "object", "additionalProperties": False,
             "properties": {"id": {"type": "string"}, "status": {"type": "string", "enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]}},
@@ -41,8 +40,8 @@ def review(value, request, secrets=(), execution=None):
         if spec["type"] == "string":
             if not isinstance(item, str):
                 raise ValueError(f"result_schema: {key} expected string, got {type(item).__name__}")
-            limit = spec.get("maxLength", 100)
-            if len(item) > limit:
+            limit = spec.get("maxLength")
+            if limit is not None and len(item) > limit:
                 raise ValueError(f"result_schema: {key} length={len(item)} exceeds limit={limit}")
             if "enum" in spec and item not in spec["enum"]:
                 raise ValueError(f"result_schema: {key} must be one of {spec['enum']}")
@@ -88,20 +87,8 @@ def review(value, request, secrets=(), execution=None):
     # Scan actual text: JSON-escaped newlines can hide word boundaries.
     literal = "\n".join(item if isinstance(item, str) else canonical({key: item})
                         for key, item in value.items())
-    # Reserve the final RESULT envelope, not just the agent's structured fields.
+    # Experimental build: no summary or serialized RESULT size ceiling.
     exported = {k: v for k, v in value.items() if k not in ("kind", "egress_reviewed")}
-    envelope = {"protocol": PROTOCOL, "type": "RESULT", "event_id": "green-" + "0" * 32,
-                **{k: request[k] for k in ("task_id", "iteration")},
-                **exported, "worktree_modified": False}
-    if "revision" in request:
-        envelope["revision"] = request["revision"]
-    if execution:
-        envelope["execution"] = execution
-        # Reserve the longest bridge-owned terminal status before applying execution facts.
-        envelope["status"] = "NEEDS_HUMAN"
-    size = len(json.dumps(envelope, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8"))
-    if size > 8192:
-        raise ValueError(f"egress_size_limit: RESULT JSON bytes={size} exceeds limit=8192; shorten summary")
     # Reject; never partially redact a payload and accidentally change its meaning.
     patterns = [r"(?i)\b(?:bearer|password|api[_ -]?key|access[_ -]?token)\s*[:= ]\s*\S+",
                 r"\b(?:sk-|ghp_|github_pat_)[A-Za-z0-9_-]{12,}"]
@@ -128,6 +115,4 @@ def failure_detail(detail, secrets=()):
     detail = re.sub(r"\b(?:sk-|gh[pousr]_|github_pat_)[A-Za-z0-9_-]{12,}", "[REDACTED]", detail)
     detail = re.sub(r"(https?://)[^/\s@]+@", r"\1[REDACTED]@", detail)
     detail = "".join(c if c in "\n\t" or ord(c) >= 32 else "?" for c in detail)
-    while len(json.dumps(detail, ensure_ascii=False).encode("utf-8")) > 4000:
-        detail = detail[:len(detail) // 2] + "...[truncated]"
     return detail

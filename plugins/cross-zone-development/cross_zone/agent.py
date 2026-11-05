@@ -38,8 +38,7 @@ with one sanitized question; do not wait on an interactive CLI permission prompt
 Preserve baseline test evidence across continuation. Review the structured export
 for egress safety and set egress_reviewed only after review. Summarize safe error
 codes and concrete observed versus expected behavior; never copy raw logs.
-Keep summary within 6000 characters and the final RESULT including protocol/task
-metadata within 8192 UTF-8 bytes; leave room for that metadata.
+This experimental build has no summary or RESULT size ceiling.
 Return the requested JSON.
 """
 

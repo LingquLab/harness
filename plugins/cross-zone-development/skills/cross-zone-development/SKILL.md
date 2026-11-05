@@ -3,6 +3,13 @@ name: cross-zone-development
 description: Coordinate blue and green AI agents through HAPI for protected-environment validation. Use when green opens collaboration, blue dispatches a scoped task, green returns sanitized evidence, or either side continues or cancels a task; do not use GitHub Issues as transport.
 ---
 
+Experimental 0.7.2-dev.1: EXEC stdout/capture, summary, RESULT, diagnostics and
+review input/response length ceilings below are disabled for capacity testing.
+Credential, UTF-8, stderr and execution checks still apply; HAPI/service limits
+remain external. See the plugin README for test scope and payload guidance.
+
+
+
 # Cross-Zone Development
 
 Use HAPI messages between a blue development zone and a green protected-service

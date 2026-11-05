@@ -1,3 +1,22 @@
+# Experimental unlimited-output build: 0.7.2-dev.1
+
+This branch is for measuring green-to-HAPI EXEC return capacity, based on 0.7.1.
+It removes Bridge ceilings for direct stdout, summary, RESULT JSON, diagnostic
+length, EXEC local capture, and review evidence/HTTP response length. The review
+request no longer specifies max_tokens. HAPI, proxies, model services, memory,
+timeouts and cancellation still determine the actual transport maximum. UTF-8,
+control-character, stderr, credential and semantic result checks remain active.
+TASK agent local capture retains its existing limit; this experiment targets EXEC.
+
+For a capacity probe use ai_review=false and deterministic synthetic ASCII or
+Chinese output, increasing its UTF-8 byte count per terminal iteration. Compare
+the received payload's length/hash with the expected payload, not just PASS.
+Do not retry an uncertain in-flight request or repeat operations with side effects.
+No live green capacity result is claimed by the local test suite.
+
+The normal-release numeric ceilings in the documents below describe 0.7.1 and
+are disabled by this experimental build for the channels listed above.
+
 # Cross Zone Development
 
 [中文文档](README_CN.md)

@@ -236,13 +236,25 @@ class DirectExecutionTests(unittest.TestCase):
             result = self.run_command(event)
             self.assertEqual(result["output"]["summary"].split("\n", 1)[1], text)
             self.assertEqual(review(result["output"], event, execution=result["execution"])["status"], "PASS")
-        event = compact_exec(task_id="over-byte-budget", execution={"interpreter": "python",
-                             "script": "import sys;sys.stdout.buffer.write(('中'*1333+'xx').encode('utf-8'))"})
-        self.assertEqual(self.run_command(event)["failure"], "direct_output_rejected")
+        self.assertEqual(self.reviewer.calls, [])
+
+    def test_large_direct_payload_roundtrips_without_truncation(self):
+        self.cfg["exec_live_log"] = False
+        from cross_zone.protocol import wire, read_wire
+        import hashlib
+        text = "容量测试" * 100000
+        event = compact_exec(task_id="large-payload", execution={"interpreter": "python", "script":
+                             "import sys;sys.stdout.buffer.write(('容量测试'*100000).encode('utf-8'))"})
+        result = self.run_command(event)
+        exported = review(result["output"], event, execution=result["execution"])
+        received = read_wire(wire({"protocol": "cross-zone/v3", "type": "RESULT", **exported}))
+        payload = received["summary"].split("\n", 1)[1]
+        self.assertEqual(len(payload.encode('utf-8')), 1200000)
+        self.assertEqual(hashlib.sha256(payload.encode()).hexdigest(), hashlib.sha256(text.encode()).hexdigest())
         self.assertEqual(self.reviewer.calls, [])
 
     def test_direct_output_withholds_failures_and_unexpected_output(self):
-        scripts = ["print('x'*4001)", "import sys;sys.stderr.write('private')",
+        scripts = ["import sys;sys.stderr.write('private')",
                    "import sys;sys.stdout.buffer.write(bytes([255]))", "print(chr(1))", "print(chr(11))", "print(chr(127))",
                    "import sys;print('private');sys.exit(1)"]
         for index, script in enumerate(scripts):
@@ -307,16 +319,12 @@ class DirectExecutionTests(unittest.TestCase):
         launch.assert_not_called()
         self.assertEqual(result["execution"]["status"], "START_FAILED")
 
-    def test_timeout_and_output_limit_keep_facts_for_review(self):
-        for iteration, code, limit, expected in ((1, "import time;print('started',flush=True);time.sleep(20)", 10000, "TIMED_OUT"),
-                                                 (2, "print('x'*1000)", 64, "OUTPUT_LIMIT")):
-            event = exec_task(iteration=iteration, execution={"argv": [sys.executable, "-c", code]},
-                              execution_timeout_seconds=1)
-            with patch("cross_zone.execution.OUTPUT_LIMIT", limit):
-                result = self.run_command(event)
-            self.assertEqual(result["execution"]["status"], expected)
-            self.assertIsInstance(result["execution"]["exit_code"], int)
-        self.assertEqual(len(self.reviewer.calls), 2)
+    def test_timeout_remains_authoritative(self):
+        event = exec_task(execution={"argv": [sys.executable, "-c", "import time;time.sleep(30)"]},
+                          execution_timeout_seconds=1)
+        result = self.run_command(event)
+        self.assertEqual(result["execution"]["status"], "TIMED_OUT")
+        self.assertIsInstance(result["execution"]["exit_code"], int)
 
     def test_cancel_stops_command_and_does_not_launch_reviewer(self):
         cancel = threading.Event()
@@ -627,22 +635,7 @@ class ExecutionBridgeTests(unittest.TestCase):
         self.bridge.flush()
         self.assertEqual(self.client.sent[-1][1]["execution"]["status"], "NOT_STARTED")
 
-    def test_execution_metadata_counts_toward_egress_budget(self):
+    def test_large_execution_result_retains_authoritative_metadata(self):
         event = exec_task()
-        value = fixtures.output(summary="中" * 1000)
-        # Find a valid near-limit summary, then prove the execution envelope is included.
-        while True:
-            try:
-                review(value, event)
-                break
-            except ValueError:
-                value["summary"] = value["summary"][:-1]
-        while True:
-            larger = dict(value, summary=value["summary"] + "a")
-            try:
-                review(larger, event)
-                value = larger
-            except ValueError:
-                break
-        with self.assertRaisesRegex(ValueError, "egress_size_limit"):
-            review(value, event, execution={"status": "EXITED", "exit_code": 0})
+        value = fixtures.output(summary="中" * 100000)
+        self.assertEqual(review(value, event, execution={"status": "EXITED", "exit_code": 0})["summary"], value["summary"])

@@ -14,7 +14,7 @@ from cross_zone.config import load_config
 from cross_zone.controller import Bridge
 from cross_zone.execution import DirectExecutor
 from cross_zone.egress import review
-from cross_zone.reviewer import EVIDENCE_LIMIT, OpenAIReviewer
+from cross_zone.reviewer import OpenAIReviewer
 
 
 class ReviewAPITests(unittest.TestCase):
@@ -199,14 +199,25 @@ class ReviewAPITests(unittest.TestCase):
             self.assertEqual(result["execution"]["exit_code"], 0)
         self.assertEqual(self.calls, [])
 
+    def test_large_review_input_and_response_are_not_truncated(self):
+        self.cfg["exec_live_log"] = False
+        text = "x" * 100000
+        self.body = self.response(fixtures.output(summary=text))
+        result = self.run_exec(exec_task(execution={"interpreter": "python", "script": "print('x'*100000)"}))
+        self.assertEqual(result["output"]["summary"], text)
+        request = self.calls[0][2]
+        evidence = json.loads(request["messages"][1]["content"])["evidence"]
+        self.assertEqual(evidence["stdout"], text + "\n")
+        self.assertNotIn("max_tokens", request)
+
     def test_evidence_is_never_silently_truncated_or_repaired(self):
-        scripts = [f"print('x'*{EVIDENCE_LIMIT})", "import sys;sys.stdout.buffer.write(bytes([255]))"]
+        scripts = ["import sys;sys.stdout.buffer.write(bytes([255]))"]
         for index, script in enumerate(scripts):
             result = self.run_exec(exec_task(task_id=f"evidence-{index}", execution={"interpreter": "python", "script": script}))
             self.assertEqual(result["status"], "NEEDS_HUMAN")
         self.assertEqual(self.calls, [])
 
-    def test_oversized_model_response_falls_back_to_saved_stdout(self):
+    def test_invalid_large_model_response_falls_back_to_saved_stdout(self):
         self.body = b"x" * (64 * 1024 + 1)
         result = self.run_exec()
         self.assertEqual(result["output"]["error_code"], "AI_REVIEW_FALLBACK")
@@ -313,8 +324,7 @@ class ReviewAPITests(unittest.TestCase):
 
     def test_review_failure_direct_fallback_retains_output_limits_and_exit_facts(self):
         self.status = 500
-        scripts = (("print('x'*4001)", "NEEDS_HUMAN"),
-                   ("import sys;sys.stderr.write('private');print('done')", "NEEDS_HUMAN"),
+        scripts = (("import sys;sys.stderr.write('private');print('done')", "NEEDS_HUMAN"),
                    ("import sys;sys.stdout.buffer.write(bytes([255]))", "NEEDS_HUMAN"),
                    ("import sys;sys.stdout.buffer.write(bytes([1]))", "NEEDS_HUMAN"),
                    ("raise SystemExit(7)", "FAIL"))

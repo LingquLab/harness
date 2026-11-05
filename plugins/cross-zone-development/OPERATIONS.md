@@ -1,3 +1,8 @@
+Experimental 0.7.2-dev.1: EXEC stdout/capture, summary, RESULT, diagnostics and
+review input/response length ceilings below are disabled for capacity testing.
+Credential, UTF-8, stderr and execution checks still apply; HAPI/service limits
+remain external. See the plugin README for test scope and payload guidance.
+
 # Cross Zone Development
 
 [中文文档](./OPERATIONS_CN.md)

@@ -15,7 +15,6 @@ from .protocol import canonical
 
 LOG = logging.getLogger(__name__)
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
-OUTPUT_LIMIT = 32 * 1024 * 1024
 REVIEW_SECONDS = 60
 DISPLAY_CHUNK_BYTES = 8192
 DISPLAY_LINES = 40
@@ -75,7 +74,7 @@ class DirectExecutor:
 
     @staticmethod
     def _direct_result(request, execution, stdout, stderr):
-        # Only successful, small stdout is eligible for direct export. Never
+        # Only successful stdout is eligible for direct export. Never
         # return stderr or exception text from the command through this path.
         if execution["status"] != "EXITED" or execution["exit_code"] != 0:
             status = {"TIMED_OUT": "TIMED_OUT", "OUTPUT_LIMIT": "NEEDS_HUMAN",
@@ -85,14 +84,14 @@ class DirectExecutor:
                     "detail": "Direct command did not exit successfully; output remains green-local.",
                     "execution": execution}
         try:
-            if stdout.stat().st_size > 4000 or stderr.stat().st_size:
+            if stderr.stat().st_size:
                 raise ValueError("unexpected output")
             summary = stdout.read_bytes().decode("utf-8-sig").replace("\r\n", "\n")
             if any((ord(c) < 32 or 127 <= ord(c) <= 159) and c not in "\n\t" for c in summary):
                 raise ValueError("control characters")
         except (OSError, UnicodeError, ValueError):
             return {"failure": "direct_output_rejected", "status": "NEEDS_HUMAN",
-                    "detail": "Direct output is oversized, invalid UTF-8, contains control characters, or stderr is nonempty; output withheld.",
+                    "detail": "Direct output is invalid UTF-8, contains control characters, or stderr is nonempty; output withheld.",
                     "execution": execution}
         return {"output": {"kind": "RESULT", "status": "PASS",
                            "summary": "Direct EXEC (no AI review):\n" + summary.strip(),
@@ -176,8 +175,6 @@ class DirectExecutor:
                         exit_code = process.poll()
                         if cancel.is_set():
                             status = "CANCELLED"
-                        elif stdout.stat().st_size + stderr.stat().st_size > OUTPUT_LIMIT:
-                            status = "OUTPUT_LIMIT"
                         elif exit_code is not None:
                             status = "EXITED"
                         elif time.time() >= command_deadline:

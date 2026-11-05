@@ -115,7 +115,7 @@ class OpenTests(unittest.TestCase):
         event = open_event("sessions/19146292-52a4-4094-9cd5-6086b0c3ec05")
         self.assertEqual(event["protocol"], "cross-zone/v3")
         self.assertEqual(event["type"], "OPEN")
-        self.assertEqual(event["version"], "0.7.1")
+        self.assertEqual(event["version"], "0.7.2-dev.1")
         self.assertNotIn("target", event)
         self.assertIn(event["session_url"], event["session_url"])
         self.assertIn("green-open-", event["event_id"])
@@ -434,30 +434,13 @@ class EgressTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             review(output(summary="contains test-secret"), task(), secrets=["test-secret"])
 
-    def test_result_and_summary_limits(self):
-        self.assertEqual(len(review(output(summary="x" * 6000), task())["summary"]), 6000)
-        with self.assertRaises(ValueError):
-            review(output(summary="x" * 6001), task())
+    def test_large_summary_keeps_full_content(self):
+        text = "中" * 100000
+        self.assertEqual(review(output(summary=text), task())["summary"], text)
 
-        check_ids = [f"check-{index}-" + "x" * 60 for index in range(20)]
-        request = task(checks=[{"id": check_id, "action": "observe", "expected": "ok"}
-                               for check_id in check_ids])
-        value = output(kind="QUESTION", status="BLOCKED", summary="x" * 6000,
-                       question="q" * 800,
-                       checks=[{"id": check_id, "status": "NOT_RUN"} for check_id in check_ids])
-        with self.assertRaisesRegex(ValueError, "egress_size_limit"):
-            review(value, request)
-
-    def test_size_limit_includes_transport_envelope(self):
-        # Agent fields fit under 8K; protocol/task metadata puts the actual RESULT over.
-        from cross_zone.protocol import canonical
-        value = output(summary="x" * 6000, error_code="e" * 100)
-        value["checks"] = [{"id": "c" * 78 + str(i), "status": "PASS"} for i in range(13)]
-        request = task(task_id="t" * 80,
-                       checks=[{"id": c["id"]} for c in value["checks"]])
-        self.assertLess(len(canonical(value).encode("utf-8")), 8192)
-        with self.assertRaisesRegex(ValueError, "egress_size_limit"):
-            review(value, request)
+    def test_large_result_envelope_is_not_size_rejected(self):
+        text = "x" * 100000
+        self.assertEqual(review(output(summary=text), task(task_id="t" * 80))["summary"], text)
 
     def test_failure_detail_redacts_credentials_before_truncating(self):
         detail = ("known-secret password=abc Bearer xyz api_key: value gho_1234567890123456 "
@@ -467,8 +450,7 @@ class EgressTests(unittest.TestCase):
             self.assertNotIn(secret, result)
         self.assertIn("[REDACTED]", result)
         bounded = failure_detail("错误\n" * 5000)
-        self.assertLessEqual(len(json.dumps(bounded, ensure_ascii=False).encode("utf-8")), 4000)
-        self.assertIn("[truncated]", bounded)
+        self.assertEqual(bounded, "错误\n" * 5000)
 
     def test_failure_detail_redacts_cli_flags_and_http_basic_auth(self):
         cases = (
@@ -483,12 +465,11 @@ class EgressTests(unittest.TestCase):
                 self.assertNotIn(secret, exported)
                 self.assertIn("[REDACTED]", exported)
 
-    def test_result_size_budget_counts_json_indentation(self):
+    def test_large_formatted_result_preserves_checks(self):
         checks = [{"id": "c" * 78 + str(i), "status": "PASS"} for i in range(16)]
-        value = output(summary="x" * 6000, checks=checks)
+        value = output(summary="x" * 100000, checks=checks)
         request = task(checks=[{"id": check["id"]} for check in checks])
-        with self.assertRaisesRegex(ValueError, "egress_size_limit"):
-            review(value, request)
+        self.assertEqual(review(value, request)["checks"], checks)
 
     def test_result_question_placeholders_are_normalized_without_mutating_input(self):
         for question in ("", " \t\n", "None", " NONE ", "null", "Null", "N/A", " n/a "):
@@ -630,7 +611,6 @@ class BridgeTests(unittest.TestCase):
     def test_result_validation_failures_report_fields_and_limits(self):
         cases = (
             (output(question="Need approval"), "incomplete_result", "question must be empty"),
-            (output(summary="x" * 6001), "result_schema", "summary length=6001 exceeds limit=6000"),
             (output(local_modification_tested="false"), "result_schema", "local_modification_tested expected boolean, got str"),
             (output(checks=[]), "incomplete_result", "missing requested checks"),
             (output(egress_reviewed=False), "egress_not_reviewed", "egress_reviewed must be true"),
@@ -676,14 +656,14 @@ class BridgeTests(unittest.TestCase):
         self.assertNotIn(self.client.access_key, result["detail"])
         self.assertIn("[REDACTED]", result["detail"])
 
-    def test_failure_result_with_unicode_detail_stays_within_wire_budget(self):
+    def test_large_failure_result_retains_unicode_detail(self):
         self.agent.outputs = [{"failure": "agent_runtime_error", "status": "NEEDS_HUMAN", "detail": "错误\n" * 5000}]
         self.bridge.bind()
         self.ingest(task())
         self.settle()
         row = self.bridge.store.db.execute("SELECT text FROM outbox ORDER BY rowid DESC LIMIT 1").fetchone()
         event = read_wire(row["text"])
-        self.assertLessEqual(len(json.dumps(event, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8")), 8192)
+        self.assertEqual(event["detail"], "错误\n" * 5000)
         self.assertEqual(event["reason"], "agent_runtime_error")
 
     def test_adapter_exception_details_are_reported_and_pause_execution(self):

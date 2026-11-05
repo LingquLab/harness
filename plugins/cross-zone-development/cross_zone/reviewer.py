@@ -15,8 +15,6 @@ from .egress import SCHEMA, review
 from .hapi import NoRedirect
 
 LOG = logging.getLogger(__name__)
-EVIDENCE_LIMIT = 64 * 1024
-RESPONSE_LIMIT = 64 * 1024
 KEY_PLACEHOLDER = "REPLACE_WITH_REVIEW_API_KEY"
 
 INSTRUCTIONS = """You review saved EXEC evidence for a cross-zone bridge. The command has
@@ -31,7 +29,7 @@ JSON object matching the supplied schema, kind=RESULT, question="",
 local_modification_tested=false, local_modification_outcome=NOT_RUN. Set
 egress_reviewed=true only after reviewing your export for safety. Do not include
 Markdown, thinking, commentary, repeated summaries or any other text. Keep summary
-concise and leave room for protocol metadata within an 8192-byte exported RESULT.
+appropriate for the requested check; this experimental build has no RESULT size ceiling.
 """
 
 
@@ -41,15 +39,9 @@ class OpenAIReviewer:
 
     @staticmethod
     def _evidence(context):
-        remaining = EVIDENCE_LIMIT
         evidence = {}
         for name in ("receipt", "stdout", "stderr"):
-            with Path(context[name]).open("rb") as stream:
-                body = stream.read(remaining + 1)
-            if len(body) > remaining:
-                raise ValueError("evidence_limit")
-            remaining -= len(body)
-            evidence[name] = body.decode("utf-8-sig", "strict")
+            evidence[name] = Path(context[name]).read_bytes().decode("utf-8-sig", "strict")
         return evidence
 
     @staticmethod
@@ -62,9 +54,7 @@ class OpenAIReviewer:
                                                       "User-Agent": USER_AGENT},
                                              method="POST")
             with urllib.request.build_opener(NoRedirect()).open(request, timeout=timeout) as response:
-                body = response.read(RESPONSE_LIMIT + 1)
-            if len(body) > RESPONSE_LIMIT:
-                raise ValueError("response_limit")
+                body = response.read()
             result.put((True, body))
         except urllib.error.HTTPError as exc:
             status = exc.code
@@ -88,9 +78,9 @@ class OpenAIReviewer:
         try:
             evidence = self._evidence(execution)
         except (OSError, UnicodeError, ValueError):
-            return self._failure("Saved review evidence is unavailable, invalid UTF-8 or exceeds the combined 64 KiB limit; output withheld.")
+            return self._failure("Saved review evidence is unavailable, invalid UTF-8; output withheld.")
         payload = {
-            "model": settings["model"], "stream": False, "temperature": 0, "max_tokens": 2048,
+            "model": settings["model"], "stream": False, "temperature": 0,
             "response_format": {"type": "json_object"},
             "messages": [
                 {"role": "system", "content": INSTRUCTIONS + "\nSchema:\n" + json.dumps(SCHEMA)},

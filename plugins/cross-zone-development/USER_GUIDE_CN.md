@@ -1,3 +1,8 @@
+Experimental 0.7.2-dev.1: EXEC stdout/capture, summary, RESULT, diagnostics and
+review input/response length ceilings below are disabled for capacity testing.
+Credential, UTF-8, stderr and execution checks still apply; HAPI/service limits
+remain external. See the plugin README for test scope and payload guidance.
+
 # Crosszone 中文用户指南
 
 Crosszone 用于让蓝区 AI 通过 HAPI 向绿区派发任务，由绿区 Bridge 在本地执行并返回结果。
