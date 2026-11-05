@@ -277,7 +277,7 @@ protect shared repository metadata; candidate execution can still overlap.
 
 ## Direct commands and scripts (EXEC)
 
-The complete incoming message remains limited to 24000 UTF-8 bytes.
+Bridge imposes no size limit on incoming protocol messages or EXEC scripts.
 EXEC shares TASK's binding and total `timeout_seconds`, but forbids `revision`.
 EXEC never carries `goal`; that field belongs only to TASK. `checks` is required
 with `ai_review=true` and may be omitted for direct EXEC.
@@ -289,8 +289,8 @@ minus 60) and exactly one execution form:
   arguments are preserved. Windows batch files require an explicit interpreter
   such as cmd.exe in argv; they are not launched implicitly.
 - `"execution": {"interpreter": "bash", "script": "..."}`: interpreter is bash,
-  powershell or python; script is 1–12000 characters. Bridge writes the script
-  locally and passes it unchanged to that interpreter (Python uses Bridge's
+  powershell or python; script must be a nonempty string without NUL characters.
+  Bridge writes the script locally and passes it unchanged to that interpreter (Python uses Bridge's
   interpreter; PowerShell uses noninteractive, no-profile execution).
 
 Example (marker outside the JSON code block):
