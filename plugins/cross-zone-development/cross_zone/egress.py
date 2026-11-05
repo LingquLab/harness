@@ -11,7 +11,7 @@ SCHEMA = {
     "properties": {
         "kind": {"type": "string", "enum": ["RESULT", "QUESTION"]},
         "status": {"type": "string", "enum": ["PASS", "FAIL", "BLOCKED", "NEEDS_HUMAN"]},
-        "summary": {"type": "string", "maxLength": 3000},
+        "summary": {"type": "string", "maxLength": 6000},
         "checks": {"type": "array", "maxItems": 20, "items": {
             "type": "object", "additionalProperties": False,
             "properties": {"id": {"type": "string"}, "status": {"type": "string", "enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]}},
@@ -100,8 +100,8 @@ def review(value, request, secrets=(), execution=None):
         # Reserve the longest bridge-owned terminal status before applying execution facts.
         envelope["status"] = "NEEDS_HUMAN"
     size = len(json.dumps(envelope, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8"))
-    if size > 4096:
-        raise ValueError(f"egress_size_limit: RESULT JSON bytes={size} exceeds limit=4096; shorten summary")
+    if size > 8192:
+        raise ValueError(f"egress_size_limit: RESULT JSON bytes={size} exceeds limit=8192; shorten summary")
     # Reject; never partially redact a payload and accidentally change its meaning.
     patterns = [r"(?i)\b(?:bearer|password|api[_ -]?key|access[_ -]?token)\s*[:= ]\s*\S+",
                 r"\b(?:sk-|ghp_|github_pat_)[A-Za-z0-9_-]{12,}"]
@@ -128,6 +128,6 @@ def failure_detail(detail, secrets=()):
     detail = re.sub(r"\b(?:sk-|gh[pousr]_|github_pat_)[A-Za-z0-9_-]{12,}", "[REDACTED]", detail)
     detail = re.sub(r"(https?://)[^/\s@]+@", r"\1[REDACTED]@", detail)
     detail = "".join(c if c in "\n\t" or ord(c) >= 32 else "?" for c in detail)
-    while len(json.dumps(detail, ensure_ascii=False).encode("utf-8")) > 2000:
+    while len(json.dumps(detail, ensure_ascii=False).encode("utf-8")) > 4000:
         detail = detail[:len(detail) // 2] + "...[truncated]"
     return detail

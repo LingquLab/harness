@@ -73,8 +73,9 @@ OpenAI-compatible inference API only when ai_review=true. Prefer one EXEC per ph
 script instead of dispatching each command separately. Stop dependent steps on failure and preserve stage evidence.
 Set a bounded execution timeout. For reviewed EXEC, set the total task timeout to
 cover that command timeout plus the configured review budget (300 seconds by
-default); remaining task time still caps review. Do not resend a failed
-or interrupted EXEC to recover output. A read-only recovery TASK requires an
+default); remaining task time still caps review. For a terminal review/export
+failure, use the direct recovery procedure below. Do not replay an interrupted
+operation to recover output. A read-only recovery TASK requires an
 explicit user request; otherwise report the blocker without dispatching TASK.
 Keep EXEC blocked until recovery is resolved using evidence of prior effects.
 
@@ -105,8 +106,9 @@ From 0.6.1, omit `need_ack` by default: EXEC returns only RESULT, even when queu
 or reviewed. Set `need_ack: true` only when receipt/start notifications are needed.
 Missing ACK/PROGRESS is expected and does not justify replay or switching to TASK.
 Review errors automatically try the same saved output once without AI review;
-`AI_REVIEW_FALLBACK` identifies this result. Do not resend EXEC or change its flag
-to implement the fallback yourself. Conditions must be asserted in the command;
+`AI_REVIEW_FALLBACK` identifies a successful fallback. If fallback itself ends
+NEEDS_HUMAN, use a new direct EXEC under the recovery procedure below.
+Conditions must be asserted in the command;
 fallback PASS does not establish an AI assessment. All direct-export guards
 remain, and a valid negative reviewed conclusion is not an error to override.
 
@@ -136,8 +138,33 @@ For direct EXEC on Bridge 0.5.2+, also omit checks and the default false flag;
 keep binding, execution and both budgets. TASK still requires goal/checks.
 
 EXEC defaults to `"ai_review": false`: Bridge returns bounded stdout and exit
-status without starting green AI. Blue sets `"ai_review": true` when returned
-information may be restricted or needs filtering, especially logs, configuration,
+status without starting green AI. Outside a session switched to direct recovery,
+blue sets `"ai_review": true` when returned information may be restricted or needs
+filtering, especially logs, configuration,
 service responses or uncertain output. In direct mode encode all checks as command
 assertions. Output/credential limits and recovery rules still apply. See the protocol reference's Optional AI review
 contract for exact output limits and failure behavior.
+
+### Blue recovery after failed review/fallback (0.7.1+)
+
+A terminal NEEDS_HUMAN caused by review/fallback or export limits is a result
+transport failure, not proof that the command failed. After such a result, blue
+sends a new EXEC with explicit `ai_review: false`, a new event ID and the next
+iteration (or a distinct task ID). Never edit/reuse an accepted task/iteration.
+For a read-only or verified repeatable command, retry once with reduced output.
+For a command with side effects, read its saved receipt/output with a read-only
+EXEC and return a bounded summary instead of repeating the operation; if its
+execution status or effects are unknown, establish those before any repeat.
+
+Changing the flag alone cannot fix oversized output. Have the new command select
+needed fields, counts or a short excerpt locally, keep stdout within 4000 UTF-8
+bytes and stderr empty, and assert required conditions. Do not export raw secrets
+or bulk service responses, weaken credential guards, or turn a valid negative
+review conclusion into success. No retry for silence or a still-running request.
+
+After two terminal review/fallback failures in the current HAPI session, use
+explicit `ai_review: false` for subsequent EXECs in that session unless the user
+requests review again. Keep this decision in conversation context, not global
+configuration. If a direct retry also fails, change the output-producing command
+or report the specific blocker; do not loop the same failing command. Automatic
+Bridge fallback still uses saved output once and never reruns the operation.

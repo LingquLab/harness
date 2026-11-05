@@ -48,5 +48,6 @@ output rather than parsing formatted dumps when possible.
 Generic warnings and timeouts identify symptoms, not their root cause. Use specific
 validation or execution evidence before attributing failure to a version, field,
 permission or remote service. Distinguish receipt, launch, completion and validated
-outcome. EXEC defaults to no AI review; blue sets `ai_review=true` for possibly restricted output;
+outcome. EXEC defaults to no AI review; outside direct recovery, blue sets `ai_review=true`
+for possibly restricted output; in direct recovery, return safe selected fields locally;
 all existing egress, execution and recovery rules still apply.

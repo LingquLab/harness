@@ -23,3 +23,16 @@ The [Chinese user guide](USER_GUIDE_CN.md) covers setup and daily use. See [oper
 The Bridge contacts the configured HAPI Hub and, when output review is enabled, the configured inference endpoint. Commands run in the authorized green workspace and may contact the services selected for the task. Local configuration, execution receipts and logs remain in green. Candidate validation can create isolated checkouts; other file changes depend on the dispatched command. Commands are not automatically replayed after interruption, and uncertain effects require recovery checks.
 
 A local Bridge process is required; no Hooks or MCP server is bundled. The plugin is licensed under MIT.
+
+## Direct recovery after review failures (0.7.1)
+
+After a terminal review/fallback NEEDS_HUMAN, blue sends a new EXEC with explicit
+`ai_review: false` and smaller output. Only read-only or verified repeatable
+operations are rerun; operations with side effects use read-only saved-evidence
+retrieval. Changing the flag alone does not fix output limits. After two such
+failures in the current session, subsequent EXECs stay direct unless the user
+requests review again. Identical failing retries, valid negative reviews and
+unknown execution effects do not authorize replay. Direct stdout is now limited
+to 4000 UTF-8 bytes, summary to 6000 characters and RESULT to 8192 UTF-8 bytes;
+credential/content guards remain enforced. Diagnostic detail is capped at 4000
+JSON-encoded UTF-8 bytes.

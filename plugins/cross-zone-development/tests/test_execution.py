@@ -229,8 +229,20 @@ class DirectExecutionTests(unittest.TestCase):
             review(result["output"], event, secrets=("private-value",), execution=result["execution"])
         self.assertEqual(self.reviewer.calls, [])
 
+    def test_direct_output_accepts_doubled_utf8_byte_budget(self):
+        for index, text in enumerate(("x" * 4000, "中" * 1333 + "x")):
+            event = compact_exec(task_id=f"larger-direct-{index}", execution={"interpreter": "python",
+                                 "script": f"import sys;sys.stdout.buffer.write({text!r}.encode('utf-8'))"})
+            result = self.run_command(event)
+            self.assertEqual(result["output"]["summary"].split("\n", 1)[1], text)
+            self.assertEqual(review(result["output"], event, execution=result["execution"])["status"], "PASS")
+        event = compact_exec(task_id="over-byte-budget", execution={"interpreter": "python",
+                             "script": "import sys;sys.stdout.buffer.write(('中'*1333+'xx').encode('utf-8'))"})
+        self.assertEqual(self.run_command(event)["failure"], "direct_output_rejected")
+        self.assertEqual(self.reviewer.calls, [])
+
     def test_direct_output_withholds_failures_and_unexpected_output(self):
-        scripts = ["print('x'*2001)", "import sys;sys.stderr.write('private')",
+        scripts = ["print('x'*4001)", "import sys;sys.stderr.write('private')",
                    "import sys;sys.stdout.buffer.write(bytes([255]))", "print(chr(1))", "print(chr(11))", "print(chr(127))",
                    "import sys;print('private');sys.exit(1)"]
         for index, script in enumerate(scripts):

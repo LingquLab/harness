@@ -31,7 +31,7 @@ JSON object matching the supplied schema, kind=RESULT, question="",
 local_modification_tested=false, local_modification_outcome=NOT_RUN. Set
 egress_reviewed=true only after reviewing your export for safety. Do not include
 Markdown, thinking, commentary, repeated summaries or any other text. Keep summary
-concise and leave room for protocol metadata within a 4096-byte exported RESULT.
+concise and leave room for protocol metadata within an 8192-byte exported RESULT.
 """
 
 

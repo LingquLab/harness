@@ -1,5 +1,5 @@
 """HAPI cross-zone bridge."""
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 
 USER_AGENT = f"CrossZoneBridge/{__version__}"

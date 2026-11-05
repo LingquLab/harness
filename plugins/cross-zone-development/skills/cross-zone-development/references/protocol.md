@@ -175,8 +175,9 @@ exact bounded command or script. Use TASK only when the user explicitly requests
 TASK mode. Green-local decisions, revision-bound validation and recovery do not
 authorize an automatic switch; explain any EXEC blocker and wait for an explicit
 user request when TASK is required. EXEC also defaults
-to `ai_review=false`; blue explicitly sets true when returned information may be
-restricted or requires green AI filtering. Dispatch either mode only for authorized
+to `ai_review=false`; outside direct recovery blue explicitly sets true when
+returned information may be restricted or requires green AI filtering. In direct
+recovery, select safe bounded fields locally before returning output. Dispatch either mode only for authorized
 user work, including an existing ready request when READY or legacy green OPEN arrives.
 
 Only after an explicit user request for TASK mode, blue sends TASK as a top-level
@@ -433,7 +434,7 @@ wire field or model-controlled override. A successful fallback carries
 `error_code: "AI_REVIEW_FALLBACK"`, a no-AI-review summary and internal
 `egress_reviewed=false`. Blue must not describe it as AI-reviewed.
 
-The command must already have exited zero. Stdout must pass the same 2000-byte,
+The command must already have exited zero. Stdout must pass the same 4000-byte,
 UTF-8 and control-character limits; stderr must be empty. Final known-secret,
 credential-pattern and RESULT-size checks still apply. Otherwise output remains
 withheld with the corresponding direct failure/NEEDS_HUMAN status. Required
@@ -448,7 +449,8 @@ one EXEC, respects `need_ack`, and never selects TASK.
 
 EXEC accepts optional boolean `ai_review` (default `false`; no other message type
 accepts it). Omitted or false skips green AI and returns bounded command results.
-Blue must set true when returned information may be restricted, including logs,
+Outside a session switched to direct recovery, blue sets true when returned
+information may be restricted, including logs,
 configuration, service responses, or output whose confidentiality is uncertain.
 Decide from the command and data sources before dispatch; runtime credential
 patterns do not replace that judgment. This default skips AI only, not command
@@ -457,18 +459,27 @@ isolation, recovery, execution receipts, credential detection or RESULT limits.
 With `ai_review=false`, encode every requested check as a command assertion:
 exit zero means those assertions passed; Bridge does not interpret natural-language
 expectations. Bridge returns successful stdout directly in the RESULT summary,
-labelled as having no AI review. Stdout must be valid UTF-8, at most 2000 bytes,
+labelled as having no AI review. Stdout must be valid UTF-8, at most 4000 bytes,
 with no control characters other than newline/tab (CRLF is normalized to LF);
 stderr must be empty. It is
 never truncated. Unexpected output is withheld as NEEDS_HUMAN. Nonzero exits and
 other execution failures withhold output and retain authoritative execution status.
-Existing secret-pattern, known-secret and final 4096-byte envelope checks still
+Existing secret-pattern, known-secret and final 8192-byte envelope checks still
 apply; rejection never triggers automatic rerun or AI fallback.
 
 Bridge constructs the direct result with `egress_reviewed=false`; this is accepted
 only for direct-mode EXEC with execution facts. It never claims an AI
 review occurred. Explicit true enables the AI-reviewed result contract. TASK continues to require
 green AI review. Blue must not describe direct-mode output as AI-reviewed.
+
+### Blue recovery after failed review/fallback (0.7.1+)
+
+After a terminal review/export NEEDS_HUMAN, blue may send a new direct EXEC with
+reduced output; the original request remains immutable. Use read-only saved
+output retrieval for operations with side effects. After two such failures in
+this session, subsequent EXECs stay explicitly direct unless the user requests
+review again. Follow [blue-zone.md](blue-zone.md#blue-recovery-after-failed-reviewfallback-071)
+for retry identity, output shaping, unknown effects and stop conditions.
 
 ## Candidate transfer
 
@@ -514,7 +525,7 @@ carry `status` and `reason` instead of check evidence; they never establish PASS
 Agent failures also include optional `detail`: exception type/message, exit code,
 CLI result subtype, and up to eight stderr lines when available. The bridge
 redacts known secrets and credential patterns, limits this diagnostic field to
-2000 JSON-encoded UTF-8 bytes, and never exports stdout or bulk logs.
+4000 JSON-encoded UTF-8 bytes, and never exports stdout or bulk logs.
 Validation failures identify the failed field/condition and relevant limits,
 without rejected values. Recovery/output-limit failures include their stage and
 next action; timeout details distinguish pre-launch, running, and late results. PASS requires every check to be PASS. For
@@ -533,7 +544,7 @@ shorter than 10 lines are allowed.
 Unsafe-to-export evidence and unknown process termination become NEEDS_HUMAN.
 
 The complete serialized RESULT JSON, including protocol and task-binding fields,
-is at most 4096 UTF-8 bytes; `summary` is at most 3000 characters. The marker line
+is at most 8192 UTF-8 bytes; `summary` is at most 6000 characters. The marker line
 and code-block fences are outside that JSON budget; JSON indentation counts. A full stack trace may use a Markdown fence and is
 not subject to the code-snippet line limit. The agent reviews snippet semantics;
 the runtime enforces schema, check completeness, known-secret rejection, and size.

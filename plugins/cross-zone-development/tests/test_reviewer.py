@@ -13,6 +13,7 @@ from cross_zone import __version__
 from cross_zone.config import load_config
 from cross_zone.controller import Bridge
 from cross_zone.execution import DirectExecutor
+from cross_zone.egress import review
 from cross_zone.reviewer import EVIDENCE_LIMIT, OpenAIReviewer
 
 
@@ -300,9 +301,19 @@ class ReviewAPITests(unittest.TestCase):
         finally:
             bridge.close()
 
+    def test_failed_review_fallback_accepts_expanded_output_budget(self):
+        self.status = 500
+        event = exec_task(execution={"interpreter": "python", "script":
+                                    "import sys;sys.stdout.write('x'*4000)"})
+        result = self.run_exec(event)
+        self.assertTrue(result["ai_review_fallback"])
+        exported = review(result["output"], {**event, "ai_review": False}, execution=result["execution"])
+        self.assertEqual(exported["error_code"], "AI_REVIEW_FALLBACK")
+        self.assertIn("x" * 4000, exported["summary"])
+
     def test_review_failure_direct_fallback_retains_output_limits_and_exit_facts(self):
         self.status = 500
-        scripts = (("print('x'*2001)", "NEEDS_HUMAN"),
+        scripts = (("print('x'*4001)", "NEEDS_HUMAN"),
                    ("import sys;sys.stderr.write('private');print('done')", "NEEDS_HUMAN"),
                    ("import sys;sys.stdout.buffer.write(bytes([255]))", "NEEDS_HUMAN"),
                    ("import sys;sys.stdout.buffer.write(bytes([1]))", "NEEDS_HUMAN"),
