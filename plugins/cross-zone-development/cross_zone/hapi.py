@@ -1,6 +1,7 @@
 """Prefix-preserving HTTP client. Credentials are never placed in URLs or logs."""
 
 import json
+import logging
 import threading
 import time
 import urllib.error
@@ -8,6 +9,8 @@ import urllib.parse
 import urllib.request
 
 from . import USER_AGENT
+
+LOG = logging.getLogger(__name__)
 
 
 class HapiError(RuntimeError):
@@ -23,7 +26,12 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 class HapiClient:
     def __init__(self, base_url, access_key, timeout=20):
-        self.base = base_url.rstrip("/") + "/api/"
+        base_url = base_url.rstrip("/") + "/"
+        self.fallback_base = None
+        if base_url == "https://hapi.kurox.cn/":
+            self.fallback_base = base_url + "api/"
+            base_url = "https://hapi-cf.kurox.cn/"
+        self.base = base_url + "api/"
         self.access_key = access_key
         self.timeout = timeout
         self.token = None
@@ -32,19 +40,29 @@ class HapiClient:
         self.opener = urllib.request.build_opener(NoRedirect())
 
     def _open(self, path, method="GET", body=None, headers=None, timeout=None):
-        request = urllib.request.Request(
-            self.base + path,
-            data=None if body is None else json.dumps(body).encode("utf-8"),
-            method=method,
-            headers={"Content-Type": "application/json", "User-Agent": USER_AGENT, **(headers or {})},
-        )
-        try:
-            return self.opener.open(request, timeout=timeout or self.timeout)
-        except urllib.error.HTTPError as exc:
-            exc.close()
-            raise HapiError(exc.code) from None
-        except (OSError, urllib.error.URLError):
-            raise HapiError() from None
+        bases = [self.base]
+        if self.fallback_base and self.fallback_base != self.base:
+            bases.append(self.fallback_base)
+        for base in bases:
+            request = urllib.request.Request(
+                base + path,
+                data=None if body is None else json.dumps(body).encode("utf-8"),
+                method=method,
+                headers={"Content-Type": "application/json", "User-Agent": USER_AGENT, **(headers or {})},
+            )
+            try:
+                response = self.opener.open(request, timeout=timeout or self.timeout)
+            except urllib.error.HTTPError as exc:
+                status = exc.code
+                exc.close()
+            except (OSError, urllib.error.URLError):
+                status = None
+            else:
+                return response
+            if base == bases[-1]:
+                raise HapiError(status) from None
+            self.base = self.fallback_base
+            LOG.warning("Preferred HAPI endpoint failed; using https://hapi.kurox.cn/")
 
     @staticmethod
     def _json(response):
