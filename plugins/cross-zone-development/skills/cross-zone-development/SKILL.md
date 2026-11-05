@@ -97,6 +97,13 @@ without an AI review claim. Encode required conditions as command assertions;
 a fallback PASS establishes direct-mode conditions only. Cancellation, total
 expiry and valid negative reviewed conclusions do not become success.
 
+When reviewed EXEC/fallback ends NEEDS_HUMAN because of review or export failure,
+follow blue-zone.md's direct recovery procedure: send a new `ai_review: false`
+EXEC with smaller output for read-only/repeatable work, or read saved evidence
+without repeating side effects. After two such failures in this session, keep
+subsequent EXECs explicitly direct unless the user requests review again.
+Do not retry valid negative conclusions, active jobs or unknown side effects.
+
 Independent EXEC/TASK jobs can overlap (four slots by default). Use distinct task
 IDs, correlate every result by identity, and sequence dependent operations. Shared
 files/services still require coordination; see the protocol's concurrent scheduling
@@ -136,8 +143,8 @@ form and compatibility rules in the protocol reference. EXEC never carries goal,
 even with review; reviewed EXEC requires checks. TASK still requires goal/checks.
 
 EXEC defaults to `"ai_review": false`: Bridge returns bounded stdout and exit
-status without starting green AI. Blue sets `"ai_review": true` when returned
-information may be restricted or needs filtering, especially logs, configuration,
+status without starting green AI. Outside a session that has switched to direct recovery, blue sets
+`"ai_review": true` when returned information may be restricted or needs filtering, especially logs, configuration,
 service responses or uncertain output. In direct mode encode all checks as command
 assertions. Output/credential limits and recovery rules still apply. See the protocol reference's Optional AI review
 contract for exact output limits and failure behavior.

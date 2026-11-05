@@ -150,7 +150,7 @@ class HapiContractTest(unittest.TestCase):
     def test_release_metadata_is_consistent(self) -> None:
         import tomllib
         version = tomllib.loads((PLUGIN / "pyproject.toml").read_text())["project"]["version"]
-        self.assertEqual(version, "0.7.0")
+        self.assertEqual(version, "0.7.2")
         for name in (".codex-plugin/plugin.json", ".zcode-plugin/plugin.json"):
             self.assertEqual(json.loads((PLUGIN / name).read_text())["version"], version)
         self.assertIn(f'__version__ = "{version}"', (PLUGIN / "cross_zone/__init__.py").read_text())

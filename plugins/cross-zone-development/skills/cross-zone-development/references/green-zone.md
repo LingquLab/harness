@@ -107,8 +107,12 @@ still requires goal/checks. Reviewed EXEC requires checks but rejects goal, just
 like direct EXEC. Supplied direct checks are still validated and bound to results.
 
 EXEC defaults to `"ai_review": false`: Bridge returns bounded stdout and exit
-status without starting green AI. Blue sets `"ai_review": true` when returned
-information may be restricted or needs filtering, especially logs, configuration,
+status without starting green AI. Outside a session switched to direct recovery,
+blue sets `"ai_review": true` when returned information may be restricted or needs filtering, especially logs, configuration,
 service responses or uncertain output. In direct mode encode all checks as command
 assertions. Output/credential limits and recovery rules still apply. See the protocol reference's Optional AI review
 contract for exact output limits and failure behavior.
+
+In direct recovery (0.7.1+), blue supplies a new bounded EXEC after terminal
+review/export failure; Bridge does not repeat the original command automatically.
+See [blue-zone.md](blue-zone.md#blue-recovery-after-failed-reviewfallback-072).

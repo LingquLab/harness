@@ -11,6 +11,7 @@ import sys
 import time
 
 from .agent import terminate_tree
+from .egress import MAX_DIRECT_STDOUT_BYTES
 from .protocol import canonical
 
 LOG = logging.getLogger(__name__)
@@ -85,7 +86,7 @@ class DirectExecutor:
                     "detail": "Direct command did not exit successfully; output remains green-local.",
                     "execution": execution}
         try:
-            if stdout.stat().st_size > 2000 or stderr.stat().st_size:
+            if stdout.stat().st_size > MAX_DIRECT_STDOUT_BYTES or stderr.stat().st_size:
                 raise ValueError("unexpected output")
             summary = stdout.read_bytes().decode("utf-8-sig").replace("\r\n", "\n")
             if any((ord(c) < 32 or 127 <= ord(c) <= 159) and c not in "\n\t" for c in summary):

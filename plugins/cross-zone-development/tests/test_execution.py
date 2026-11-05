@@ -229,8 +229,24 @@ class DirectExecutionTests(unittest.TestCase):
             review(result["output"], event, secrets=("private-value",), execution=result["execution"])
         self.assertEqual(self.reviewer.calls, [])
 
+    def test_direct_output_accepts_doubled_utf8_byte_budget(self):
+        self.cfg["exec_live_log"] = False
+        cases = (("x" * 65536, "'x'*65536"), ("中" * 21845 + "x", "'中'*21845+'x'"))
+        for index, (text, expression) in enumerate(cases):
+            event = compact_exec(task_id=f"larger-direct-{index}", execution={"interpreter": "python",
+                                 "script": f"import sys;sys.stdout.buffer.write(({expression}).encode('utf-8'))"})
+            result = self.run_command(event)
+            self.assertEqual(result["output"]["summary"].split("\n", 1)[1], text)
+            exported = review(result["output"], event, execution=result["execution"])
+            self.assertEqual(exported["status"], "PASS")
+            self.assertEqual(read_wire(wire({"type": "RESULT", **exported}))["summary"], exported["summary"])
+        event = compact_exec(task_id="over-byte-budget", execution={"interpreter": "python",
+                             "script": "import sys;sys.stdout.buffer.write(('中'*21845+'xx').encode('utf-8'))"})
+        self.assertEqual(self.run_command(event)["failure"], "direct_output_rejected")
+        self.assertEqual(self.reviewer.calls, [])
+
     def test_direct_output_withholds_failures_and_unexpected_output(self):
-        scripts = ["print('x'*2001)", "import sys;sys.stderr.write('private')",
+        scripts = ["print('x'*65537)", "import sys;sys.stderr.write('private')",
                    "import sys;sys.stdout.buffer.write(bytes([255]))", "print(chr(1))", "print(chr(11))", "print(chr(127))",
                    "import sys;print('private');sys.exit(1)"]
         for index, script in enumerate(scripts):
@@ -617,20 +633,15 @@ class ExecutionBridgeTests(unittest.TestCase):
 
     def test_execution_metadata_counts_toward_egress_budget(self):
         event = exec_task()
-        value = fixtures.output(summary="中" * 1000)
-        # Find a valid near-limit summary, then prove the execution envelope is included.
-        while True:
+        low, high = 1000, 30000
+        while low < high:
+            midpoint = (low + high + 1) // 2
             try:
-                review(value, event)
-                break
+                review(fixtures.output(summary="中" * midpoint), event)
+                low = midpoint
             except ValueError:
-                value["summary"] = value["summary"][:-1]
-        while True:
-            larger = dict(value, summary=value["summary"] + "a")
-            try:
-                review(larger, event)
-                value = larger
-            except ValueError:
-                break
+                high = midpoint - 1
+        value = fixtures.output(summary="中" * low)
+        review(value, event)
         with self.assertRaisesRegex(ValueError, "egress_size_limit"):
             review(value, event, execution={"status": "EXITED", "exit_code": 0})
