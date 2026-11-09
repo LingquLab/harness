@@ -247,15 +247,26 @@ class Discovery:
             self.release()
             LOG.info("Discovery released; waiting for a new blue OPEN")
 
+    def collect_completed(self):
+        """Do not let unrelated discovery pages delay completed task results."""
+        if not self.bridge or not any(future.done() for future, _, _ in self.bridge.active.values()):
+            return
+        self.bridge.work()
+        try:
+            self.bridge.flush()
+        except HapiError as exc:
+            LOG.warning("Bound results retained for retry (%s)", exc)
+
     def scan(self, session):
         row = self.db.execute("SELECT cursor FROM sessions WHERE id=?", (session,)).fetchone()
         cursor = json.loads(row[0]) if row else {"at": None, "seq": None, "epoch": None}
-        # At most 20 pages per session per tick, so discovery cannot starve work.
+        # Service completed workers between network reads, including bootstrap pages.
         for _ in range(20):
             query = {"limit": 100}
             if cursor["seq"] is not None:
                 query.update(afterAt=cursor["at"], afterSeq=cursor["seq"], epoch=cursor["epoch"])
             response = self.client.messages(session, **query)
+            self.collect_completed()
             page = response["page"]
             if page.get("reset") or (cursor["epoch"] is not None and page["epoch"] != cursor["epoch"]):
                 with self.db:
@@ -275,6 +286,7 @@ class Discovery:
                         break
                     result = self.client.messages(session, limit=100,
                                                   beforeAt=older["nextBeforeAt"], beforeSeq=older["nextBeforeSeq"])
+                    self.collect_completed()
                     older = result["page"]
                     if older["epoch"] != page["epoch"]:
                         return
@@ -326,6 +338,7 @@ class Discovery:
             self.flush()
             return
         self.attach()
+        self.collect_completed()
         unavailable_owner = self.bridge.config["session_id"] if self.bridge and not sync else None
         # First drain commands/results of the owner so CLOSE cannot overlook an
         # accepted TASK. Connection controls themselves never enter its inbox.
@@ -343,6 +356,7 @@ class Discovery:
                 LOG.warning("Bound results retained for retry (%s)", exc)
         sessions = self.client.sessions() if discover else (
             [{"id": self.bridge.config["session_id"]}] if sync and self.bridge else [])
+        self.collect_completed()
         for session in sessions:
             if self.get("force_open"):
                 break

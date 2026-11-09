@@ -117,6 +117,39 @@ class DiscoveryFixture(unittest.TestCase):
 
 
 class DiscoveryTests(DiscoveryFixture):
+    def test_completed_result_is_sent_before_next_discovery_page(self):
+        release = threading.Event()
+        self.addCleanup(release.set)
+        original_run = self.agent.run
+        def run(*args):
+            if not release.wait(3):
+                raise RuntimeError("test worker was not released")
+            return original_run(*args)
+        self.agent.run = run
+        self.start()
+        self.send()
+        self.client.append(general_task())
+        bridge = self.discovery.bridge
+        bridge.catch_up()
+        bridge.work()
+        future = next(iter(bridge.active.values()))[0]
+        original_messages = self.client.messages
+        calls = []
+        def messages(session, **query):
+            calls.append(session)
+            if len(calls) == 2:
+                self.assertEqual(bridge.store.get_task("task-1", 1)["state"], "PASS")
+                self.assertTrue(any(event["type"] == "RESULT" for event in self.client.replies()))
+            page = original_messages(session, **query)
+            if len(calls) == 1:
+                release.set()
+                future.result(timeout=2)
+                page["page"]["hasMore"] = True
+            return page
+        with patch.object(self.client, "messages", side_effect=messages):
+            self.discovery.scan(OWNER)
+        self.assertEqual(len(calls), 2)
+
     def test_endpoint_mode_tracks_binding_release_and_restart(self):
         self.start()
         self.assertFalse(self.client.interactive)

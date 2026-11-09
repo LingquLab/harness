@@ -24,6 +24,8 @@ Request failures do not automatically switch hosts.
 
 Review failures log a safe category (HTTP status, connection/read failure, or response validation stage) before direct fallback. No API response body or credentials are logged. A successful fallback does not establish that AI review succeeded.
 
+Completed task results are collected and sent between discovery page reads, including history bootstrap pages, so a full discovery scan does not delay their delivery. A single in-flight HTTP request can still delay collection.
+
 ### Timing diagnostics
 
 Run `BRIDGE_DEBUG=1 ./start-bridge.sh` in Git Bash to enable local timing logs.
