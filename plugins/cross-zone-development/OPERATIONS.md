@@ -23,11 +23,13 @@ remain unchanged. Debug HTTP entries identify `purpose=discovery` or `purpose=in
 
 Review failures log a safe category (HTTP status, connection/read failure, or response validation stage) before direct fallback. No API response body or credentials are logged. A successful fallback does not establish that AI review succeeded.
 
-Discovery reads message histories only for Codex sessions
-(`metadata.flavor=codex`) that are not archived (`metadata.lifecycleState`).
-The bound session remains eligible for pending tasks/results even if its metadata
-changes. Transport `active` is not used as an archive flag. Filtering happens
-after listing sessions and applies to initialization and subsequent polling.
+Discovery requests `/sessions?active=true` and reads histories only for online
+(`active=true`), Codex (`metadata.flavor=codex`), non-archived sessions. The same
+conditions are checked locally even if the Hub ignores the query. Initialization
+and subsequent polling use this filter; debug logs print the selected session IDs.
+Existing bound-session work/results continue independently of discovery eligibility.
+Request counts can exceed the selected-session count because pagination and
+bound-session synchronization are separate reads.
 
 ### Timing diagnostics
 

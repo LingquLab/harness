@@ -118,13 +118,15 @@ class DiscoveryFixture(unittest.TestCase):
 
 
 class DiscoveryTests(DiscoveryFixture):
-    def test_only_unarchived_codex_sessions_are_polled(self):
+    def test_only_online_unarchived_codex_sessions_are_polled(self):
         records = [
-            {"id": OWNER, "active": False, "metadata": {"flavor": "codex", "lifecycleState": "idle"}},
+            {"id": OWNER, "active": True, "metadata": {"flavor": "codex", "lifecycleState": "idle"}},
             {"id": OTHER, "active": True, "metadata": {"flavor": "codex", "lifecycleState": "archived"}},
             {"id": "00000000-0000-0000-0000-000000000003", "active": True,
              "metadata": {"flavor": "claude", "lifecycleState": "running"}},
             {"id": "00000000-0000-0000-0000-000000000004", "active": True, "metadata": None},
+            {"id": "00000000-0000-0000-0000-000000000005", "active": False,
+             "metadata": {"flavor": "codex", "lifecycleState": "running"}},
         ]
         with patch.object(self.client, "sessions", return_value=records), patch.object(
                 self.client, "messages", wraps=self.client.messages) as reads:
@@ -137,13 +139,16 @@ class DiscoveryTests(DiscoveryFixture):
             self.assertTrue(reads.call_args_list)
             self.assertTrue(all(call.args[0] == OWNER for call in reads.call_args_list))
 
-    def test_existing_binding_survives_archived_metadata(self):
+    def test_inactive_binding_is_not_discovered_but_keeps_processing(self):
         self.start()
         self.send()
-        records = [{"id": OWNER, "metadata": {"flavor": "codex", "lifecycleState": "archived"}},
-                   {"id": OTHER, "metadata": {"flavor": "codex"}}]
+        records = [{"id": OWNER, "active": False, "metadata": {"flavor": "codex", "lifecycleState": "archived"}},
+                   {"id": OTHER, "active": True, "metadata": {"flavor": "codex"}}]
         with patch.object(self.client, "sessions", return_value=records):
-            self.assertEqual(self.discovery.discoverable_sessions(), records)
+            self.assertEqual(self.discovery.discoverable_sessions(), [records[1]])
+            bridge = self.discovery.bridge
+            self.discovery.tick()
+            self.assertIs(self.discovery.bridge, bridge)
 
     def test_endpoint_mode_tracks_binding_release_and_restart(self):
         self.start()

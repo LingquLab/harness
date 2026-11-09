@@ -21,10 +21,11 @@ HTTP debug 日志用 `purpose=discovery` 和 `purpose=interaction` 区分用途�
 
 审核失败时，会在 direct fallback 前记录安全的错误分类（HTTP 状态、连接或读取失败、响应校验阶段），不记录 API 响应正文或凭据。回退成功不代表 AI 审核成功。
 
-Discovery 只读取 Codex（`metadata.flavor=codex`）且未归档
-（`metadata.lifecycleState` 不为 `archived`）会话的消息。当前绑定会话即使状态变化，
-仍保留任务与结果处理。`active` 只表示连接在线，不作为归档标志。
-过滤在取得会话列表后执行，启动初始化和后续轮询均生效。
+Discovery 使用 `/sessions?active=true`，并在本地再次筛选在线（`active=true`）、
+Codex（`metadata.flavor=codex`）且未归档的会话，避免 Hub 忽略查询条件时读到其他会话。
+启动初始化和后续轮询均生效，debug 日志打印选中的 session ID。
+已绑定会话的任务与结果处理独立保留。分页及绑定会话同步会产生额外请求，
+因此请求次数不等于选中会话数量。
 
 ### 耗时诊断
 

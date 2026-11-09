@@ -104,7 +104,7 @@ class HubEndpointTests(unittest.TestCase):
         self.client.messages("blue", afterSeq=1)
         self.client.send("blue", "result", "event-1")
         self.assertEqual(self.urls(), ["https://hapi-cf.kurox.cn/api/auth",
-                                       "https://hapi-cf.kurox.cn/api/sessions",
+                                       "https://hapi-cf.kurox.cn/api/sessions?active=true",
                                        "https://hapi-cf.kurox.cn/api/sessions/blue/messages?afterSeq=1",
                                        "https://hapi.kurox.cn/api/sessions/blue/messages?afterSeq=1",
                                        "https://hapi.kurox.cn/api/sessions/blue/messages"])
@@ -117,7 +117,7 @@ class HubEndpointTests(unittest.TestCase):
         self.client.opener.open.side_effect = urllib.error.URLError("unavailable")
         with self.assertLogs("cross_zone.hapi", level="WARNING"), self.assertRaises(HapiError):
             self.client.sessions(discovery=True)
-        self.assertEqual(self.urls(), ["https://hapi-cf.kurox.cn/api/sessions"])
+        self.assertEqual(self.urls(), ["https://hapi-cf.kurox.cn/api/sessions?active=true"])
 
     def test_discovery_host_rule_preserves_prefixes_and_custom_hubs(self):
         for base, expected in (("https://hapi.kurox.cn/prefix/", "https://hapi-cf.kurox.cn/prefix/api/"),

@@ -75,16 +75,15 @@ class Discovery:
 
     def discoverable_sessions(self):
         sessions = self.client.sessions(discovery=True)
-        binding = self.get("binding")
-        owner = binding["session"] if binding else None
         selected = []
         for session in sessions:
             metadata = session.get("metadata") or {}
-            if (session["id"] == owner or
-                    (metadata.get("flavor") == "codex" and metadata.get("lifecycleState") != "archived")):
+            if (session.get("active") is True and metadata.get("flavor") == "codex"
+                    and metadata.get("lifecycleState") != "archived"):
                 selected.append(session)
-        LOG.debug("Discovery sessions total=%s selected=%s skipped=%s", len(sessions),
-                  len(selected), len(sessions) - len(selected))
+        LOG.debug("Discovery sessions active_only=true total=%s selected=%s skipped=%s selected_ids=%s",
+                  len(sessions), len(selected), len(sessions) - len(selected),
+                  [self.session_id(session["id"]) for session in selected])
         return selected
 
     def initialize(self):

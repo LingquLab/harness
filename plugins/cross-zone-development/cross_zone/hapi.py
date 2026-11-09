@@ -134,7 +134,7 @@ class HapiClient:
         raise HapiError()
 
     def sessions(self, *, discovery=False):
-        return self.request("sessions", discovery=discovery)["sessions"]
+        return self.request("sessions?active=true" if discovery else "sessions", discovery=discovery)["sessions"]
 
     def messages(self, session, *, discovery=False, **query):
         path = "sessions/" + urllib.parse.quote(session, safe="") + "/messages"
