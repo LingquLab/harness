@@ -21,6 +21,11 @@ Hub 地址。自定义 Hub 地址和路径前缀会保留，请求失败不会�
 
 审核失败时，会在 direct fallback 前记录安全的错误分类（HTTP 状态、连接或读取失败、响应校验阶段），不记录 API 响应正文或凭据。回退成功不代表 AI 审核成功。
 
+Discovery 只读取 Codex（`metadata.flavor=codex`）且未归档
+（`metadata.lifecycleState` 不为 `archived`）会话的消息。当前绑定会话即使状态变化，
+仍保留任务与结果处理。`active` 只表示连接在线，不作为归档标志。
+过滤在取得会话列表后执行，启动初始化和后续轮询均生效。
+
 ### 耗时诊断
 
 在 Git Bash 运行 `BRIDGE_DEBUG=1 ./start-bridge.sh` 可开启本地耗时日志，

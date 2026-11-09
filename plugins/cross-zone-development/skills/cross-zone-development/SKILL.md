@@ -38,7 +38,7 @@ Connection alone grants no work authority. On READY, dispatch an already
 authorized ready step without replaying completed or still-running work.
 
 Discovery baselines existing message heads on first start, ignoring old messages,
-and scans all visible sessions every `discovery_poll_seconds` (default 30).
+and scans visible non-archived Codex sessions every `discovery_poll_seconds` (default 30).
 Bound-session REST fallback uses `poll_seconds` (default 5); coalesced SSE hints
 accelerate only that session and never trigger extra global scans. Binding, cursors
 and reply deduplication persist; restart resumes execution state without replay. See protocol.md for exact envelopes and idle rules.

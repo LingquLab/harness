@@ -24,6 +24,12 @@ Request failures do not automatically switch hosts.
 
 Review failures log a safe category (HTTP status, connection/read failure, or response validation stage) before direct fallback. No API response body or credentials are logged. A successful fallback does not establish that AI review succeeded.
 
+Discovery reads message histories only for Codex sessions
+(`metadata.flavor=codex`) that are not archived (`metadata.lifecycleState`).
+The bound session remains eligible for pending tasks/results even if its metadata
+changes. Transport `active` is not used as an archive flag. Filtering happens
+after listing sessions and applies to initialization and subsequent polling.
+
 ### Timing diagnostics
 
 Run `BRIDGE_DEBUG=1 ./start-bridge.sh` in Git Bash to enable local timing logs.

@@ -73,12 +73,26 @@ class Discovery:
     def save_cursor(self, session, cursor):
         self.db.execute("INSERT OR REPLACE INTO sessions VALUES (?,?)", (session, json.dumps(cursor)))
 
+    def discoverable_sessions(self):
+        sessions = self.client.sessions()
+        binding = self.get("binding")
+        owner = binding["session"] if binding else None
+        selected = []
+        for session in sessions:
+            metadata = session.get("metadata") or {}
+            if (session["id"] == owner or
+                    (metadata.get("flavor") == "codex" and metadata.get("lifecycleState") != "archived")):
+                selected.append(session)
+        LOG.debug("Discovery sessions total=%s selected=%s skipped=%s", len(sessions),
+                  len(selected), len(sessions) - len(selected))
+        return selected
+
     def initialize(self):
         if self.get("initialized"):
             return
         # Establish all existing heads before advertising readiness. Failures roll
         # back the whole baseline; old OPENs can never be claimed on partial init.
-        sessions = self.client.sessions()
+        sessions = self.discoverable_sessions()
         with self.db:
             self.set("started_at", int(time.time() * 1000))
             for session in sessions:
@@ -341,7 +355,7 @@ class Discovery:
                 self.bridge.flush()
             except HapiError as exc:
                 LOG.warning("Bound results retained for retry (%s)", exc)
-        sessions = self.client.sessions() if discover else (
+        sessions = self.discoverable_sessions() if discover else (
             [{"id": self.bridge.config["session_id"]}] if sync and self.bridge else [])
         for session in sessions:
             if self.get("force_open"):
