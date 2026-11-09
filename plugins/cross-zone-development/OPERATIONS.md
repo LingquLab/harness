@@ -14,15 +14,38 @@ Bridge HTTP requests (HAPI REST/SSE and the EXEC review API) use
 Match the `CrossZoneBridge/` prefix in ESA/access logs to count Bridge traffic
 across releases. The version follows the installed plugin automatically.
 
-With `hub_url=https://hapi.kurox.cn/`, the default discovery worker uses
-`https://hapi-cf.kurox.cn/` while unbound to reduce polling traffic on the
-interactive endpoint. Attaching a session switches authentication, REST and SSE
-to `https://hapi.kurox.cn/` before preparing the binding and sending READY.
-Releasing the session switches back to CDN polling. Explicit session workers
-use the configured Hub directly; custom Hub URLs and path prefixes are preserved.
-Request failures do not automatically switch hosts.
+All HAPI requests use the configured `hub_url`, including discovery polling,
+bound-session task I/O and SSE. Connection mode does not rewrite the hostname;
+failed requests do not switch to another domain. Debug HTTP entries identify
+`purpose=discovery` or `purpose=interaction`.
 
 Review failures log a safe category (HTTP status, connection/read failure, or response validation stage) before direct fallback. No API response body or credentials are logged. A successful fallback does not establish that AI review succeeded.
+
+Discovery requests `/sessions?active=true` and reads histories only for online
+(`active=true`), Codex (`metadata.flavor=codex`), non-archived sessions. The same
+conditions are checked locally even if the Hub ignores the query. Initialization
+and subsequent polling use this filter; debug logs print the selected session IDs.
+Existing bound-session work/results continue independently of discovery eligibility.
+Request counts can exceed the selected-session count because pagination and
+bound-session synchronization are separate reads.
+
+### Timing diagnostics
+
+Run `BRIDGE_DEBUG=1 ./start-bridge.sh` in Git Bash to enable local timing logs.
+Endpoint startup/switch logs and request failures include the actual Hub hostname
+even without debug mode. The debug branch version is 0.7.5. Compare `Worker finished` with `Worker collect` to
+measure main-loop collection delay. `HTTP begin` / `HTTP headers` and
+`HTTP body begin` / `HTTP body end` isolate header wait and response-body reads;
+`Discovery tick` and `Outbox send` identify scanning and delivery delays.
+Requests are correlated by numeric trace/response IDs. Diagnostic entries include
+only routing/session identifiers, phase, method, timeout and elapsed time, never
+query strings, headers or bodies. Existing EXEC live-output logs are unchanged;
+share only the timing entries needed for diagnosis.
+
+Message-request timing entries include `session=<UUID>` and page direction
+(`latest`, `after`, `before`). Discovery logs label each initial `baseline`
+and subsequent `scan`, including whether the scanned session is the current binding.
+No session titles or raw query values are logged.
 
 ## Green runtime setup
 
@@ -34,7 +57,7 @@ location. No third-party Python package is required.
 
 Copy [config.windows.json](config.windows.json) to the ignored
 `config.local.json` and set `access_key`. The templates default to
-`hub_url=https://hapi.kurox.cn/`; change it locally for another Hub. The Windows
+`hub_url=https://sub.kurox.cn/`; change it locally for another Hub. The Windows
 template starts CodeAgent with `--effort low`. Start it from the
 directory green authorizes as the task workspace:
 
@@ -110,7 +133,7 @@ session only. BUSY never discloses the bound session. Connection grants no new
 work authority. See the [exact protocol](skills/cross-zone-development/references/protocol.md).
 
 First startup baselines existing heads and ignores old messages. REST scans run
-every `discovery_poll_seconds` (default 30), independently of bound-session events.
+every `discovery_poll_seconds` (default 60), independently of bound-session events.
 Bound-session REST fallback uses `poll_seconds` (default 5); SSE hints are
 coalesced to at most one sync per second with default settings and never trigger
 a global scan. Worker completion collects results without forcing a message fetch.

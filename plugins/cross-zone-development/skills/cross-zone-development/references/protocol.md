@@ -81,7 +81,7 @@ only when no queued, running, waiting, pending-result or unresolved-recovery wor
 remains, then returns CLOSED.
 
 First startup baselines existing message heads and ignores old messages. REST
-scans visible sessions every `discovery_poll_seconds` (default 30), independently
+scans visible active non-archived Codex sessions every `discovery_poll_seconds` (default 60), independently
 of bound-session SSE. Bound-session REST fallback uses `poll_seconds` (default 5);
 SSE hints coalesce to at most one sync per second under default settings. Binding,
 per-session cursors and reply deduplication persist, including pending replies. Restart resumes saved execution state without

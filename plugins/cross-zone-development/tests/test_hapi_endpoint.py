@@ -46,12 +46,13 @@ class HubEndpointTests(unittest.TestCase):
             with self.subTest(status=status):
                 self.client.opener.open.reset_mock()
                 self.client.opener.open.side_effect = error
-                with self.assertRaises(HapiError) as raised:
+                with self.assertLogs("cross_zone.hapi", level="WARNING") as captured, self.assertRaises(HapiError) as raised:
                     self.client.authenticate()
+                self.assertIn("host=hapi.kurox.cn", "\n".join(captured.output))
                 self.assertEqual(raised.exception.status, status)
                 self.assertEqual(self.urls(), ["https://hapi.kurox.cn/api/auth"])
 
-    def test_idle_polling_and_interaction_switch_hosts(self):
+    def test_idle_polling_and_interaction_use_configured_host(self):
         self.client.opener.open.side_effect = [response({"token": "jwt"}),
                                                response({"sessions": []}),
                                                response({"ok": True}),
@@ -62,10 +63,76 @@ class HubEndpointTests(unittest.TestCase):
         self.client.send("blue", "ready", "ready-id")
         self.client.set_interactive(False)
         self.client.sessions()
-        self.assertEqual(self.urls(), ["https://hapi-cf.kurox.cn/api/auth",
-                                       "https://hapi-cf.kurox.cn/api/sessions",
+        self.assertEqual(self.urls(), ["https://hapi.kurox.cn/api/auth",
+                                       "https://hapi.kurox.cn/api/sessions",
                                        "https://hapi.kurox.cn/api/sessions/blue/messages",
-                                       "https://hapi-cf.kurox.cn/api/sessions"])
+                                       "https://hapi.kurox.cn/api/sessions"])
+
+    def test_debug_timings_do_not_log_credentials_or_bodies(self):
+        self.client.opener.open.side_effect = [response({"token": "private-response-token"}),
+                                               response({"ok": "private-response-body"})]
+        with self.assertLogs("cross_zone.hapi", level="DEBUG") as captured:
+            self.client.send("blue", "private-request-body", "event-1")
+        logs = "\n".join(captured.output)
+        self.assertIn("HTTP begin", logs)
+        self.assertIn("HTTP headers", logs)
+        self.assertIn("HTTP body end", logs)
+        self.assertIn("route=messages", logs)
+        self.assertIn("elapsed_ms=", logs)
+        for secret in ("test-key", "private-response-token", "private-response-body", "private-request-body"):
+            self.assertNotIn(secret, logs)
+
+    def test_message_logs_identify_session_and_page_direction_without_query_values(self):
+        session = "19146292-52a4-4094-9cd5-6086b0c3ec05"
+        for query, direction in (({}, "latest"), ({"afterSeq": 1}, "after"), ({"beforeSeq": 2}, "before")):
+            with self.subTest(direction=direction):
+                self.client.opener.open.side_effect = [response({"token": "jwt"}), response({"messages": []})]
+                self.client.token = None
+                with self.assertLogs("cross_zone.hapi", level="DEBUG") as captured:
+                    self.client.messages(session, **query, private="private-query-value")
+                logs = "\n".join(captured.output)
+                self.assertIn("route=messages session=" + session + " direction=" + direction, logs)
+                self.assertNotIn("private-query-value", logs)
+
+    def test_discovery_and_interaction_use_configured_host(self):
+        self.client.set_interactive(True)
+        self.client.opener.open.side_effect = [response({"token": "jwt"}), response({"sessions": []}),
+                                               response({"messages": []}), response({"messages": []}),
+                                               response({"ok": True})]
+        self.client.sessions(discovery=True)
+        self.client.messages("blue", discovery=True, afterSeq=1)
+        self.client.messages("blue", afterSeq=1)
+        self.client.send("blue", "result", "event-1")
+        self.assertEqual(self.urls(), ["https://hapi.kurox.cn/api/auth",
+                                       "https://hapi.kurox.cn/api/sessions?active=true",
+                                       "https://hapi.kurox.cn/api/sessions/blue/messages?afterSeq=1",
+                                       "https://hapi.kurox.cn/api/sessions/blue/messages?afterSeq=1",
+                                       "https://hapi.kurox.cn/api/sessions/blue/messages"])
+        self.assertEqual(self.client.base, "https://hapi.kurox.cn/api/")
+
+    def test_failed_discovery_request_does_not_switch_hosts(self):
+        self.client.set_interactive(True)
+        self.client.token = "jwt"
+        self.client.expires = float("inf")
+        self.client.opener.open.side_effect = urllib.error.URLError("unavailable")
+        with self.assertLogs("cross_zone.hapi", level="WARNING"), self.assertRaises(HapiError):
+            self.client.sessions(discovery=True)
+        self.assertEqual(self.urls(), ["https://hapi.kurox.cn/api/sessions?active=true"])
+
+    def test_discovery_preserves_configured_urls(self):
+        for base, expected in (("https://hapi-cf.kurox.cn/", "https://hapi-cf.kurox.cn/api/"),
+                               ("https://hapi.kurox.cn/prefix/", "https://hapi.kurox.cn/prefix/api/"),
+                               ("https://hapi.kurox.cn:443/", "https://hapi.kurox.cn:443/api/"),
+                               ("https://example.test/prefix/", "https://example.test/prefix/api/")):
+            with self.subTest(base=base):
+                client = HapiClient(base, "test-key")
+                client.opener = Mock()
+                client.opener.open.return_value = response({"sessions": []})
+                client.token = "jwt"
+                client.expires = float("inf")
+                client.sessions(discovery=True)
+                self.assertEqual(client.opener.open.call_args.args[0].full_url, expected + "sessions?active=true")
+                self.assertEqual(client.base, base + "api/")
 
     def test_custom_hubs_and_path_prefixes_are_preserved(self):
         for base in ("https://example.test/prefix/", "https://hapi.kurox.cn/prefix/",

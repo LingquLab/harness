@@ -73,17 +73,31 @@ class Discovery:
     def save_cursor(self, session, cursor):
         self.db.execute("INSERT OR REPLACE INTO sessions VALUES (?,?)", (session, json.dumps(cursor)))
 
+    def discoverable_sessions(self):
+        sessions = self.client.sessions(discovery=True)
+        selected = []
+        for session in sessions:
+            metadata = session.get("metadata") or {}
+            if (session.get("active") is True and metadata.get("flavor") == "codex"
+                    and metadata.get("lifecycleState") != "archived"):
+                selected.append(session)
+        LOG.debug("Discovery sessions active_only=true total=%s selected=%s skipped=%s selected_ids=%s",
+                  len(sessions), len(selected), len(sessions) - len(selected),
+                  [self.session_id(session["id"]) for session in selected])
+        return selected
+
     def initialize(self):
         if self.get("initialized"):
             return
         # Establish all existing heads before advertising readiness. Failures roll
         # back the whole baseline; old OPENs can never be claimed on partial init.
-        sessions = self.client.sessions()
+        sessions = self.discoverable_sessions()
         with self.db:
             self.set("started_at", int(time.time() * 1000))
             for session in sessions:
                 sid = self.session_id(session["id"])
-                self.save_cursor(sid, self.head(self.client.messages(sid, limit=1)["page"]))
+                LOG.debug("Discovery baseline session=%s", sid)
+                self.save_cursor(sid, self.head(self.client.messages(sid, discovery=True, limit=1)["page"]))
             self.set("initialized", True)
         LOG.info("Discovery ready; waiting for a new blue OPEN")
 
@@ -248,6 +262,9 @@ class Discovery:
             LOG.info("Discovery released; waiting for a new blue OPEN")
 
     def scan(self, session):
+        binding = self.get("binding")
+        LOG.debug("Discovery scan session=%s bound=%s", session,
+                  bool(binding and binding["session"] == session))
         row = self.db.execute("SELECT cursor FROM sessions WHERE id=?", (session,)).fetchone()
         cursor = json.loads(row[0]) if row else {"at": None, "seq": None, "epoch": None}
         # At most 20 pages per session per tick, so discovery cannot starve work.
@@ -255,7 +272,7 @@ class Discovery:
             query = {"limit": 100}
             if cursor["seq"] is not None:
                 query.update(afterAt=cursor["at"], afterSeq=cursor["seq"], epoch=cursor["epoch"])
-            response = self.client.messages(session, **query)
+            response = self.client.messages(session, discovery=True, **query)
             page = response["page"]
             if page.get("reset") or (cursor["epoch"] is not None and page["epoch"] != cursor["epoch"]):
                 with self.db:
@@ -273,7 +290,7 @@ class Discovery:
                 for _ in range(1000):
                     if not older["hasMore"]:
                         break
-                    result = self.client.messages(session, limit=100,
+                    result = self.client.messages(session, discovery=True, limit=100,
                                                   beforeAt=older["nextBeforeAt"], beforeSeq=older["nextBeforeSeq"])
                     older = result["page"]
                     if older["epoch"] != page["epoch"]:
@@ -341,7 +358,7 @@ class Discovery:
                 self.bridge.flush()
             except HapiError as exc:
                 LOG.warning("Bound results retained for retry (%s)", exc)
-        sessions = self.client.sessions() if discover else (
+        sessions = self.discoverable_sessions() if discover else (
             [{"id": self.bridge.config["session_id"]}] if sync and self.bridge else [])
         for session in sessions:
             if self.get("force_open"):
@@ -363,12 +380,16 @@ class Discovery:
                 discover = now >= next_discovery
                 if discover:
                     # Advance before I/O so failed requests also respect cadence.
-                    next_discovery = now + self.config.get("discovery_poll_seconds", 30)
+                    next_discovery = now + self.config.get("discovery_poll_seconds", 60)
                 sync = self.sync.due(now)
+                started = time.monotonic()
+                LOG.debug("Discovery tick begin discover=%s sync=%s bound=%s", discover, sync, self.bridge is not None)
                 try:
                     self.tick(discover=discover, sync=sync)
                 except HapiError as exc:
                     LOG.warning("Discovery Hub unavailable; retrying (%s)", exc)
+                finally:
+                    LOG.debug("Discovery tick end elapsed_ms=%.1f", (time.monotonic() - started) * 1000)
                 now = time.monotonic()
                 self.wake.wait(min(self.sync.wait_seconds(now), max(0, next_discovery - now)))
         finally:

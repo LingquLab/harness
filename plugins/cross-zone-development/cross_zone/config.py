@@ -26,7 +26,7 @@ def load_config(path):
     for field in ignored:
         config.pop(field, None)
     config.setdefault("poll_seconds", 5)
-    config.setdefault("discovery_poll_seconds", 30)
+    config.setdefault("discovery_poll_seconds", 60)
     config.setdefault("sse", True)
     config.setdefault("max_questions", 3)
     config.setdefault("max_task_seconds", 1800)

@@ -111,7 +111,7 @@ bash /c/tools/cross-zone-development/start-bridge.sh discover /c/config/green.js
 蓝区 AI 会在当前会话发送协议 OPEN。绿区发现请求后绑定该会话，回复 READY，
 蓝区再派发已授权的任务。用户不需要手写协议，也不要将协议冒充为绿区 user 消息。
 
-发现阶段默认每隔约 30 秒扫描可见会话，实际等待还包括网络与处理耗时。
+发现阶段默认每隔约 60 秒扫描在线且未归档的 Codex 可见会话，实际等待还包括网络与处理耗时。
 绑定后 SSE 只加速当前会话，默认每秒最多同步一次，并保留 5 秒 REST 轮询兜底。
 SSE 通知和任务完成不会额外触发全会话扫描。正常 SSE 是长连接；
 短连接按 1–30 秒指数退避，连接持续至少 30 秒才重置。
@@ -364,10 +364,10 @@ Bridge 发起的 HAPI REST、`/api/events` SSE 和 EXEC 审查 API 请求都携�
 
 | 字段 | 默认值或范围 | 用途 |
 | --- | --- | --- |
-| `hub_url` | 模板为 `https://hapi.kurox.cn/` | HAPI Hub 地址 |
+| `hub_url` | 模板为 `https://sub.kurox.cn/` | HAPI Hub 地址 |
 | `access_key` | 模板占位符，需本地替换 | HAPI 凭据；设为 null 时可使用 `HAPI_ACCESS_KEY`，否则启动时提示输入 |
 | `poll_seconds` | 5，允许 0.1–300 | 已绑定会话 REST 兜底间隔；SSE 合并间隔为该值与 1 秒的较小值 |
-| `discovery_poll_seconds` | 30，允许 1–3600 | 全会话发现扫描间隔，独立于 SSE 和任务完成通知 |
+| `discovery_poll_seconds` | 60，允许 1–3600 | 全会话发现扫描间隔，独立于 SSE 和任务完成通知 |
 | `sse` | true | 开启服务器事件通知，加速已绑定会话消息获取 |
 | `max_task_seconds` | 1800，允许 600–86400 | 本机总任务时限上限 |
 | `max_concurrent_tasks` | 4，整数 1–16 | 并发任务槽位 |

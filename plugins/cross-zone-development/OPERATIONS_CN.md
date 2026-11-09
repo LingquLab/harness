@@ -13,13 +13,33 @@ Bridge 的 HTTP 请求（HAPI REST/SSE 和 EXEC 审查 API）统一携带
 在 ESA 或访问日志中匹配 `CrossZoneBridge/` 前缀即可跨版本统计 Bridge 流量，
 版本号会随已安装插件自动更新。
 
-当 `hub_url=https://hapi.kurox.cn/` 时，默认 discovery worker 未绑定会话期间
-使用 `https://hapi-cf.kurox.cn/`，降低交互端点的轮询流量。绑定会话时，
-在准备绑定和发送 READY 前切换到 `https://hapi.kurox.cn/`，认证、REST 和 SSE
-均使用该地址；释放会话后切回 CDN 轮询。显式指定会话的 worker 直接使用配置的
-Hub 地址。自定义 Hub 地址和路径前缀会保留，请求失败不会自动切换域名。
+所有 HAPI 请求均使用配置的 `hub_url`，包括 discover 轮询、绑定会话的任务收发和 SSE。
+连接状态不会改写域名，请求失败也不切换到其他域名。
+HTTP debug 日志用 `purpose=discovery` 和 `purpose=interaction` 区分用途。
 
 审核失败时，会在 direct fallback 前记录安全的错误分类（HTTP 状态、连接或读取失败、响应校验阶段），不记录 API 响应正文或凭据。回退成功不代表 AI 审核成功。
+
+Discovery 使用 `/sessions?active=true`，并在本地再次筛选在线（`active=true`）、
+Codex（`metadata.flavor=codex`）且未归档的会话，避免 Hub 忽略查询条件时读到其他会话。
+启动初始化和后续轮询均生效，debug 日志打印选中的 session ID。
+已绑定会话的任务与结果处理独立保留。分页及绑定会话同步会产生额外请求，
+因此请求次数不等于选中会话数量。
+
+### 耗时诊断
+
+在 Git Bash 运行 `BRIDGE_DEBUG=1 ./start-bridge.sh` 可开启本地耗时日志，
+启动、切换端点和请求失败时，即使未开启 debug，也会打印实际访问的 Hub 域名。
+当前 debug 分支版本号为 0.7.5。对比 `Worker finished` 与 `Worker collect` 的时间，
+可以判断主循环收集结果的延迟。`HTTP begin` / `HTTP headers` 和
+`HTTP body begin` / `HTTP body end` 分别定位等待响应头和读取正文的耗时；
+`Discovery tick` 与 `Outbox send` 用于定位扫描及结果发送延迟。
+通过数字 trace/response ID 关联请求。新增诊断只记录 Hub 域名、会话 ID、阶段、路由类别、
+方法、超时和耗时，不记录查询参数、请求头或正文。现有 EXEC 实时输出日志
+保持原样，分享时只摘取排查需要的耗时记录。
+
+消息请求耗时日志增加 `session=<UUID>` 和分页方向（`latest`、`after`、`before`）。
+发现日志标明首次 `baseline` 或后续 `scan`，并打印是否为当前绑定会话。
+不打印会话标题或原始查询参数值。
 
 ## 绿区运行时安装
 
@@ -29,7 +49,7 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 位置；Bridge 不依赖第三方 Python 包。
 
 把 [config.windows.json](config.windows.json) 复制为已忽略的 `config.local.json`，填写
-`access_key`。模板默认 `hub_url` 为 `https://hapi.kurox.cn/`，使用其他 Hub 时
+`access_key`。模板默认 `hub_url` 为 `https://sub.kurox.cn/`，使用其他 Hub 时
 在本地修改；Windows 模板默认以 `--effort low` 启动 CodeAgent。
 从绿区授权作为任务 workspace 的目录启动：
 
@@ -91,7 +111,7 @@ READY 不代表未知远端影响已消除，冲突操作前仍须检查恢复�
 绝不透露已绑定会话。连接本身不增加工作授权。详见[协议](skills/cross-zone-development/references/protocol.md)。
 
 首次启动以现有消息末尾建立基线，忽略旧消息。全会话发现使用独立的
-`discovery_poll_seconds`（默认 30 秒）；已绑定会话以 `poll_seconds`（默认 5 秒）
+`discovery_poll_seconds`（默认 60 秒）；已绑定会话以 `poll_seconds`（默认 5 秒）
 轮询兜底，SSE 通知合并处理，默认最多每秒同步一次，不触发全会话扫描。
 任务完成只唤醒结果收集。短连接按 1–30 秒指数退避，
 只有连接持续至少 30 秒后才重置退避。绑定、游标、回复去重持久化，

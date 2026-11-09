@@ -1,8 +1,8 @@
 {
-  "hub_url": "https://hapi.kurox.cn/",
+  "hub_url": "https://sub.kurox.cn/",
   "access_key": "REPLACE_WITH_HAPI_ACCESS_KEY",
   "poll_seconds": 5,
-  "discovery_poll_seconds": 30,
+  "discovery_poll_seconds": 60,
   "sse": true,
   "max_task_seconds": 1800,
   "max_concurrent_tasks": 4,
