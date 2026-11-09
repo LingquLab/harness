@@ -40,7 +40,7 @@ class MultiSessionHapi:
     def set_interactive(self, active):
         self.interactive = active
 
-    def sessions(self):
+    def sessions(self, *, discovery=False):
         return [{"id": sid, "active": True, "metadata": {"flavor": "codex", "lifecycleState": "running"}}
                 for sid in self.backends]
 
@@ -467,10 +467,10 @@ class DiscoveryTests(DiscoveryFixture):
         self.discovery.bridge.max_concurrent_tasks = 0
         original_sessions = self.client.sessions
 
-        def arrivals():
+        def arrivals(**kwargs):
             self.client.append(general_task())
             self.client.append(connection("CLOSE", "close-racing-task"))
-            return original_sessions()
+            return original_sessions(**kwargs)
 
         with patch.object(self.client, "sessions", side_effect=arrivals):
             self.discovery.tick()

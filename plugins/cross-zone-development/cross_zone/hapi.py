@@ -29,6 +29,12 @@ class HapiClient:
     def __init__(self, base_url, access_key, timeout=20):
         self.interactive_base = base_url.rstrip("/") + "/api/"
         self.base = self.interactive_base
+        endpoint = urllib.parse.urlsplit(self.interactive_base)
+        if endpoint.hostname in {"hapi.kurox.cn", "hapi-cf.kurox.cn"}:
+            host = "hapi-cf.kurox.cn" + (f":{endpoint.port}" if endpoint.port is not None else "")
+            self.discovery_base = endpoint._replace(netloc=host).geturl()
+        else:
+            self.discovery_base = self.interactive_base
         self.access_key = access_key
         self.timeout = timeout
         self.token = None
@@ -38,7 +44,7 @@ class HapiClient:
         LOG.info("Hub endpoint: mode=interactive host=%s", urllib.parse.urlsplit(self.base).hostname)
 
     def set_interactive(self, active):
-        """Use CDN polling only while the default discovery worker is idle."""
+        """Select interaction routing; discovery requests use their own endpoint."""
         previous = self.base
         self.base = ("https://hapi-cf.kurox.cn/api/"
                      if not active and self.interactive_base == "https://hapi.kurox.cn/api/"
@@ -47,9 +53,9 @@ class HapiClient:
             LOG.info("Hub endpoint: mode=%s host=%s", "interactive" if active else "discovery-idle",
                      urllib.parse.urlsplit(self.base).hostname)
 
-    def _open(self, path, method="GET", body=None, headers=None, timeout=None):
+    def _open(self, path, method="GET", body=None, headers=None, timeout=None, *, discovery=False):
         request = urllib.request.Request(
-            self.base + path,
+            (self.discovery_base if discovery else self.base) + path,
             data=None if body is None else json.dumps(body).encode("utf-8"),
             method=method,
             headers={"Content-Type": "application/json", "User-Agent": USER_AGENT, **(headers or {})},
@@ -65,9 +71,9 @@ class HapiClient:
         direction = "after" if "afterSeq" in query else "before" if "beforeSeq" in query else "latest"
         host = urllib.parse.urlsplit(request.full_url).hostname
         trace = id(request)
-        LOG.debug("HTTP begin trace=%s method=%s host=%s route=%s session=%s direction=%s timeout=%s thread=%s",
+        LOG.debug("HTTP begin trace=%s method=%s host=%s route=%s session=%s direction=%s timeout=%s thread=%s purpose=%s",
                   trace, method, host, route, session, direction,
-                  timeout or self.timeout, threading.current_thread().name)
+                  timeout or self.timeout, threading.current_thread().name, "discovery" if discovery else "interaction")
         try:
             response = self.opener.open(request, timeout=timeout or self.timeout)
             LOG.debug("HTTP headers trace=%s response=%s elapsed_ms=%.1f", trace, id(response),
@@ -106,33 +112,33 @@ class HapiClient:
         except (ValueError, UnicodeError):
             raise HapiError() from None
 
-    def authenticate(self, force=False):
+    def authenticate(self, force=False, *, discovery=False):
         with self.auth_lock:
             if self.token and time.monotonic() < self.expires and not force:
                 return self.token
-            result = self._json(self._open("auth", "POST", {"accessToken": self.access_key}))
+            result = self._json(self._open("auth", "POST", {"accessToken": self.access_key}, discovery=discovery))
             if not isinstance(result.get("token"), str) or not result["token"]:
                 raise HapiError()
             self.token = result["token"]
             self.expires = time.monotonic() + 3 * 3600
             return self.token
 
-    def request(self, path, method="GET", body=None):
+    def request(self, path, method="GET", body=None, *, discovery=False):
         for attempt in range(2):
-            token = self.authenticate(force=attempt == 1)
+            token = self.authenticate(force=attempt == 1, discovery=discovery)
             try:
-                return self._json(self._open(path, method, body, {"Authorization": "Bearer " + token}))
+                return self._json(self._open(path, method, body, {"Authorization": "Bearer " + token}, discovery=discovery))
             except HapiError as exc:
                 if exc.status != 401 or attempt:
                     raise
         raise HapiError()
 
-    def sessions(self):
-        return self.request("sessions")["sessions"]
+    def sessions(self, *, discovery=False):
+        return self.request("sessions", discovery=discovery)["sessions"]
 
-    def messages(self, session, **query):
+    def messages(self, session, *, discovery=False, **query):
         path = "sessions/" + urllib.parse.quote(session, safe="") + "/messages"
-        return self.request(path + "?" + urllib.parse.urlencode(query))
+        return self.request(path + "?" + urllib.parse.urlencode(query), discovery=discovery)
 
     def send(self, session, text, event_id):
         path = "sessions/" + urllib.parse.quote(session, safe="") + "/messages"

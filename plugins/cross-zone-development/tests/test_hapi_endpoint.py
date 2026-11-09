@@ -94,6 +94,40 @@ class HubEndpointTests(unittest.TestCase):
                 self.assertIn("route=messages session=" + session + " direction=" + direction, logs)
                 self.assertNotIn("private-query-value", logs)
 
+    def test_bound_discovery_requests_stay_on_cf_while_interaction_uses_hapi(self):
+        self.client.set_interactive(True)
+        self.client.opener.open.side_effect = [response({"token": "jwt"}), response({"sessions": []}),
+                                               response({"messages": []}), response({"messages": []}),
+                                               response({"ok": True})]
+        self.client.sessions(discovery=True)
+        self.client.messages("blue", discovery=True, afterSeq=1)
+        self.client.messages("blue", afterSeq=1)
+        self.client.send("blue", "result", "event-1")
+        self.assertEqual(self.urls(), ["https://hapi-cf.kurox.cn/api/auth",
+                                       "https://hapi-cf.kurox.cn/api/sessions",
+                                       "https://hapi-cf.kurox.cn/api/sessions/blue/messages?afterSeq=1",
+                                       "https://hapi.kurox.cn/api/sessions/blue/messages?afterSeq=1",
+                                       "https://hapi.kurox.cn/api/sessions/blue/messages"])
+        self.assertEqual(self.client.base, "https://hapi.kurox.cn/api/")
+
+    def test_failed_discovery_request_never_falls_back_to_hapi(self):
+        self.client.set_interactive(True)
+        self.client.token = "jwt"
+        self.client.expires = float("inf")
+        self.client.opener.open.side_effect = urllib.error.URLError("unavailable")
+        with self.assertLogs("cross_zone.hapi", level="WARNING"), self.assertRaises(HapiError):
+            self.client.sessions(discovery=True)
+        self.assertEqual(self.urls(), ["https://hapi-cf.kurox.cn/api/sessions"])
+
+    def test_discovery_host_rule_preserves_prefixes_and_custom_hubs(self):
+        for base, expected in (("https://hapi.kurox.cn/prefix/", "https://hapi-cf.kurox.cn/prefix/api/"),
+                               ("https://hapi.kurox.cn:443/", "https://hapi-cf.kurox.cn:443/api/"),
+                               ("https://example.test/prefix/", "https://example.test/prefix/api/")):
+            with self.subTest(base=base):
+                client = HapiClient(base, "test-key")
+                self.assertEqual(client.discovery_base, expected)
+                self.assertEqual(client.base, base + "api/")
+
     def test_custom_hubs_and_path_prefixes_are_preserved(self):
         for base in ("https://example.test/prefix/", "https://hapi.kurox.cn/prefix/",
                      "http://hapi.kurox.cn/", "https://hapi-cf.kurox.cn/"):

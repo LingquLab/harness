@@ -74,7 +74,7 @@ class Discovery:
         self.db.execute("INSERT OR REPLACE INTO sessions VALUES (?,?)", (session, json.dumps(cursor)))
 
     def discoverable_sessions(self):
-        sessions = self.client.sessions()
+        sessions = self.client.sessions(discovery=True)
         binding = self.get("binding")
         owner = binding["session"] if binding else None
         selected = []
@@ -98,7 +98,7 @@ class Discovery:
             for session in sessions:
                 sid = self.session_id(session["id"])
                 LOG.debug("Discovery baseline session=%s", sid)
-                self.save_cursor(sid, self.head(self.client.messages(sid, limit=1)["page"]))
+                self.save_cursor(sid, self.head(self.client.messages(sid, discovery=True, limit=1)["page"]))
             self.set("initialized", True)
         LOG.info("Discovery ready; waiting for a new blue OPEN")
 
@@ -273,7 +273,7 @@ class Discovery:
             query = {"limit": 100}
             if cursor["seq"] is not None:
                 query.update(afterAt=cursor["at"], afterSeq=cursor["seq"], epoch=cursor["epoch"])
-            response = self.client.messages(session, **query)
+            response = self.client.messages(session, discovery=True, **query)
             page = response["page"]
             if page.get("reset") or (cursor["epoch"] is not None and page["epoch"] != cursor["epoch"]):
                 with self.db:
@@ -291,7 +291,7 @@ class Discovery:
                 for _ in range(1000):
                     if not older["hasMore"]:
                         break
-                    result = self.client.messages(session, limit=100,
+                    result = self.client.messages(session, discovery=True, limit=100,
                                                   beforeAt=older["nextBeforeAt"], beforeSeq=older["nextBeforeSeq"])
                     older = result["page"]
                     if older["epoch"] != page["epoch"]:
