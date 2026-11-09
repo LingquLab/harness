@@ -70,9 +70,13 @@ class OpenAIReviewer:
             status = exc.code
             exc.close()
             result.put((False, f"HTTP {status}"))
+        except (TimeoutError, OSError, urllib.error.URLError):
+            result.put((False, "connection or read failure"))
+        except ValueError:
+            result.put((False, "response exceeds size limit or is invalid"))
         except Exception:
             # Never retain or log exception text, response bodies, URLs or keys.
-            result.put((False, "connection or response failure"))
+            result.put((False, "unexpected client failure"))
 
     def run(self, request, session_id, answer, deadline, cancel, recovery, execution):
         started = time.monotonic()
@@ -129,21 +133,28 @@ class OpenAIReviewer:
             return self._stopped("TIMED_OUT")
         if not ok:
             return self._failure("Review API " + body + "; saved output withheld, command will not be repeated.")
+        stage = "response_json"
         try:
             response = json.loads(body)
+            stage = "response_choices"
             choice = response["choices"][0]
+            stage = "incomplete_response"
             if choice.get("finish_reason") != "stop":
                 raise ValueError("incomplete_response")
+            stage = "response_message"
             message = choice["message"]
             if message.get("tool_calls") or message.get("function_call") or message.get("refusal"):
                 raise ValueError("unexpected_action")
+            stage = "result_json"
             output = json.loads(message["content"])
+            stage = "result_contract"
             if (output.get("kind") != "RESULT" or output.get("local_modification_tested") is not False
                     or output.get("local_modification_outcome") != "NOT_RUN"):
                 raise ValueError("invalid_review_result")
+            stage = "result_validation"
             review(output, request, secrets=(key, self.config.get("access_key")), execution=execution["execution"])
         except (ValueError, TypeError, KeyError, IndexError, AttributeError, UnicodeError):
-            return self._failure("Review API returned an invalid or unsafe structured result; output withheld, command will not be repeated.")
+            return self._failure("Review API result rejected at " + stage + "; output withheld, command will not be repeated.")
         if cancel.is_set():
             return self._stopped("CANCELLED")
         if time.time() >= stop_at:
@@ -161,6 +172,7 @@ class OpenAIReviewer:
 
     @staticmethod
     def _failure(detail):
+        LOG.warning("EXEC review failure: %s", detail)
         return {"failure": "execution_review_failed", "status": "NEEDS_HUMAN", "detail": detail}
 
     @staticmethod

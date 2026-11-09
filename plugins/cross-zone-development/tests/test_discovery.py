@@ -35,6 +35,10 @@ class MultiSessionHapi:
     def __init__(self):
         self.backends = {sid: FakeClient() for sid in (OWNER, OTHER)}
         self.attempts = []
+        self.interactive = True
+
+    def set_interactive(self, active):
+        self.interactive = active
 
     def sessions(self):
         return [{"id": sid, "active": True} for sid in self.backends]
@@ -113,6 +117,20 @@ class DiscoveryFixture(unittest.TestCase):
 
 
 class DiscoveryTests(DiscoveryFixture):
+    def test_endpoint_mode_tracks_binding_release_and_restart(self):
+        self.start()
+        self.assertFalse(self.client.interactive)
+        self.send()
+        self.assertTrue(self.client.interactive)
+        self.restart()
+        self.start()
+        self.assertTrue(self.client.interactive)
+        self.send("CLOSE", "close-idle")
+        self.assert_reply("CLOSED", "close-idle")
+        self.assertFalse(self.client.interactive)
+        self.send(event_id="next-open")
+        self.assertTrue(self.client.interactive)
+
     def test_baseline_skips_historical_open_then_new_open_is_ready(self):
         self.client.append(connection(event_id="historical"), historical=True)
         self.start()
