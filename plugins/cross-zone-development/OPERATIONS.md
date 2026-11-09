@@ -57,7 +57,7 @@ location. No third-party Python package is required.
 
 Copy [config.windows.json](config.windows.json) to the ignored
 `config.local.json` and set `access_key`. The templates default to
-`hub_url=https://hapi.kurox.cn/`; change it locally for another Hub. The Windows
+`hub_url=https://sub.kurox.cn/`; change it locally for another Hub. The Windows
 template starts CodeAgent with `--effort low`. Start it from the
 directory green authorizes as the task workspace:
 
