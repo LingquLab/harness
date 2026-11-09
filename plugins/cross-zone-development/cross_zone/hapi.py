@@ -27,14 +27,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 class HapiClient:
     def __init__(self, base_url, access_key, timeout=20):
-        self.interactive_base = base_url.rstrip("/") + "/api/"
-        self.base = self.interactive_base
-        endpoint = urllib.parse.urlsplit(self.interactive_base)
-        if endpoint.hostname in {"hapi.kurox.cn", "hapi-cf.kurox.cn"}:
-            host = "hapi-cf.kurox.cn" + (f":{endpoint.port}" if endpoint.port is not None else "")
-            self.discovery_base = endpoint._replace(netloc=host).geturl()
-        else:
-            self.discovery_base = self.interactive_base
+        self.base = base_url.rstrip("/") + "/api/"
         self.access_key = access_key
         self.timeout = timeout
         self.token = None
@@ -44,18 +37,13 @@ class HapiClient:
         LOG.info("Hub endpoint: mode=interactive host=%s", urllib.parse.urlsplit(self.base).hostname)
 
     def set_interactive(self, active):
-        """Select interaction routing; discovery requests use their own endpoint."""
-        previous = self.base
-        self.base = ("https://hapi-cf.kurox.cn/api/"
-                     if not active and self.interactive_base == "https://hapi.kurox.cn/api/"
-                     else self.interactive_base)
-        if self.base != previous:
-            LOG.info("Hub endpoint: mode=%s host=%s", "interactive" if active else "discovery-idle",
-                     urllib.parse.urlsplit(self.base).hostname)
+        """Log the connection mode without changing the configured endpoint."""
+        LOG.info("Hub endpoint: mode=%s host=%s", "interactive" if active else "discovery-idle",
+                 urllib.parse.urlsplit(self.base).hostname)
 
     def _open(self, path, method="GET", body=None, headers=None, timeout=None, *, discovery=False):
         request = urllib.request.Request(
-            (self.discovery_base if discovery else self.base) + path,
+            self.base + path,
             data=None if body is None else json.dumps(body).encode("utf-8"),
             method=method,
             headers={"Content-Type": "application/json", "User-Agent": USER_AGENT, **(headers or {})},
