@@ -1,6 +1,7 @@
 """Prefix-preserving HTTP client. Credentials are never placed in URLs or logs."""
 
 import json
+import logging
 import threading
 import time
 import urllib.error
@@ -8,6 +9,8 @@ import urllib.parse
 import urllib.request
 
 from . import USER_AGENT
+
+LOG = logging.getLogger(__name__)
 
 
 class HapiError(RuntimeError):
@@ -31,12 +34,17 @@ class HapiClient:
         self.expires = 0
         self.auth_lock = threading.Lock()
         self.opener = urllib.request.build_opener(NoRedirect())
+        LOG.info("Hub endpoint: mode=interactive host=%s", urllib.parse.urlsplit(self.base).hostname)
 
     def set_interactive(self, active):
         """Use CDN polling only while the default discovery worker is idle."""
+        previous = self.base
         self.base = ("https://hapi-cf.kurox.cn/api/"
                      if not active and self.interactive_base == "https://hapi.kurox.cn/api/"
                      else self.interactive_base)
+        if self.base != previous:
+            LOG.info("Hub endpoint: mode=%s host=%s", "interactive" if active else "discovery-idle",
+                     urllib.parse.urlsplit(self.base).hostname)
 
     def _open(self, path, method="GET", body=None, headers=None, timeout=None):
         request = urllib.request.Request(
@@ -45,19 +53,44 @@ class HapiClient:
             method=method,
             headers={"Content-Type": "application/json", "User-Agent": USER_AGENT, **(headers or {})},
         )
+        started = time.monotonic()
+        route_path = path.split("?")[0]
+        route = "messages" if route_path.endswith("/messages") else route_path
+        if route not in {"auth", "sessions", "events", "messages"}:
+            route = "other"
+        host = urllib.parse.urlsplit(request.full_url).hostname
+        trace = id(request)
+        LOG.debug("HTTP begin trace=%s method=%s host=%s route=%s timeout=%s thread=%s",
+                  trace, method, host, route,
+                  timeout or self.timeout, threading.current_thread().name)
         try:
-            return self.opener.open(request, timeout=timeout or self.timeout)
+            response = self.opener.open(request, timeout=timeout or self.timeout)
+            LOG.debug("HTTP headers trace=%s response=%s elapsed_ms=%.1f", trace, id(response),
+                      (time.monotonic() - started) * 1000)
+            return response
         except urllib.error.HTTPError as exc:
+            LOG.warning("HTTP failed trace=%s host=%s method=%s route=%s status=%s elapsed_ms=%.1f",
+                        trace, host, method, route, exc.code,
+                      (time.monotonic() - started) * 1000)
             status = exc.code
             exc.close()
             raise HapiError(status) from None
-        except (OSError, urllib.error.URLError):
+        except (OSError, urllib.error.URLError) as exc:
+            LOG.warning("HTTP failed trace=%s host=%s method=%s route=%s error=%s elapsed_ms=%.1f",
+                        trace, host, method, route, type(exc).__name__,
+                      (time.monotonic() - started) * 1000)
             raise HapiError() from None
 
     @staticmethod
     def _json(response):
-        with response:
-            body = response.read(16 * 1024 * 1024 + 1)
+        started = time.monotonic()
+        LOG.debug("HTTP body begin response=%s thread=%s", id(response), threading.current_thread().name)
+        try:
+            with response:
+                body = response.read(16 * 1024 * 1024 + 1)
+        finally:
+            LOG.debug("HTTP body end response=%s elapsed_ms=%.1f", id(response),
+                      (time.monotonic() - started) * 1000)
         if len(body) > 16 * 1024 * 1024:
             raise HapiError()
         try:

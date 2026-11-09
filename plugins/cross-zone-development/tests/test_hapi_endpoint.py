@@ -46,8 +46,9 @@ class HubEndpointTests(unittest.TestCase):
             with self.subTest(status=status):
                 self.client.opener.open.reset_mock()
                 self.client.opener.open.side_effect = error
-                with self.assertRaises(HapiError) as raised:
+                with self.assertLogs("cross_zone.hapi", level="WARNING") as captured, self.assertRaises(HapiError) as raised:
                     self.client.authenticate()
+                self.assertIn("host=hapi.kurox.cn", "\n".join(captured.output))
                 self.assertEqual(raised.exception.status, status)
                 self.assertEqual(self.urls(), ["https://hapi.kurox.cn/api/auth"])
 
@@ -66,6 +67,20 @@ class HubEndpointTests(unittest.TestCase):
                                        "https://hapi-cf.kurox.cn/api/sessions",
                                        "https://hapi.kurox.cn/api/sessions/blue/messages",
                                        "https://hapi-cf.kurox.cn/api/sessions"])
+
+    def test_debug_timings_do_not_log_credentials_or_bodies(self):
+        self.client.opener.open.side_effect = [response({"token": "private-response-token"}),
+                                               response({"ok": "private-response-body"})]
+        with self.assertLogs("cross_zone.hapi", level="DEBUG") as captured:
+            self.client.send("blue", "private-request-body", "event-1")
+        logs = "\n".join(captured.output)
+        self.assertIn("HTTP begin", logs)
+        self.assertIn("HTTP headers", logs)
+        self.assertIn("HTTP body end", logs)
+        self.assertIn("route=messages", logs)
+        self.assertIn("elapsed_ms=", logs)
+        for secret in ("test-key", "private-response-token", "private-response-body", "private-request-body"):
+            self.assertNotIn(secret, logs)
 
     def test_custom_hubs_and_path_prefixes_are_preserved(self):
         for base in ("https://example.test/prefix/", "https://hapi.kurox.cn/prefix/",
