@@ -26,6 +26,12 @@ Review failures log a safe category (HTTP status, connection/read failure, or re
 
 Completed task results are collected and sent between discovery page reads, including history bootstrap pages, so a full discovery scan does not delay their delivery. A single in-flight HTTP request can still delay collection.
 
+Discovery skips message reads for sessions whose `metadata.lifecycleState` is
+`archived`. Offline unarchived sessions and older Hubs without the field remain
+eligible. The bound session is retained for task/result processing even if archived.
+Filtering happens after listing sessions; it does not use the transport-only
+`active=true` filter.
+
 ### Timing diagnostics
 
 Run `BRIDGE_DEBUG=1 ./start-bridge.sh` in Git Bash to enable local timing logs.

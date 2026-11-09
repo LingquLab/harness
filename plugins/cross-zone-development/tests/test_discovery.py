@@ -117,6 +117,29 @@ class DiscoveryFixture(unittest.TestCase):
 
 
 class DiscoveryTests(DiscoveryFixture):
+    def test_archived_sessions_are_not_read_but_offline_unarchived_are(self):
+        records = [
+            {"id": OWNER, "active": False, "metadata": {"lifecycleState": "idle"}},
+            {"id": OTHER, "active": True, "metadata": {"lifecycleState": "archived"}},
+        ]
+        with patch.object(self.client, "sessions", return_value=records), patch.object(
+                self.client, "messages", wraps=self.client.messages) as reads:
+            self.start()
+            self.client.append(connection(event_id="archived-open"), OTHER)
+            self.send()
+            self.assert_reply("READY", "open-1")
+            self.assertEqual(self.client.replies(OTHER), [])
+            self.assertTrue(reads.call_args_list)
+            self.assertTrue(all(call.args[0] == OWNER for call in reads.call_args_list))
+
+    def test_bound_session_remains_discoverable_after_archive(self):
+        self.start()
+        self.send()
+        records = [{"id": OWNER, "active": False, "metadata": {"lifecycleState": "archived"}},
+                   {"id": OTHER, "active": True}]
+        with patch.object(self.client, "sessions", return_value=records):
+            self.assertEqual(self.discovery.discoverable_sessions(), records)
+
     def test_completed_result_is_sent_before_next_discovery_page(self):
         release = threading.Event()
         self.addCleanup(release.set)
