@@ -39,9 +39,14 @@ measure main-loop collection delay. `HTTP begin` / `HTTP headers` and
 `HTTP body begin` / `HTTP body end` isolate header wait and response-body reads;
 `Discovery tick` and `Outbox send` identify scanning and delivery delays.
 Requests are correlated by numeric trace/response IDs. Diagnostic entries include
-only the Hub hostname, route category, method, timeout and elapsed time, never
+only routing/session identifiers, phase, method, timeout and elapsed time, never
 query strings, headers or bodies. Existing EXEC live-output logs are unchanged;
 share only the timing entries needed for diagnosis.
+
+Message-request timing entries include `session=<UUID>` and page direction
+(`latest`, `after`, `before`). Discovery logs label each initial `baseline`
+and subsequent `scan`, including whether the scanned session is the current binding.
+No session titles or raw query values are logged.
 
 ## Green runtime setup
 

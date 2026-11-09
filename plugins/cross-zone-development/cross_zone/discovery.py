@@ -97,6 +97,7 @@ class Discovery:
             self.set("started_at", int(time.time() * 1000))
             for session in sessions:
                 sid = self.session_id(session["id"])
+                LOG.debug("Discovery baseline session=%s", sid)
                 self.save_cursor(sid, self.head(self.client.messages(sid, limit=1)["page"]))
             self.set("initialized", True)
         LOG.info("Discovery ready; waiting for a new blue OPEN")
@@ -262,6 +263,9 @@ class Discovery:
             LOG.info("Discovery released; waiting for a new blue OPEN")
 
     def scan(self, session):
+        binding = self.get("binding")
+        LOG.debug("Discovery scan session=%s bound=%s", session,
+                  bool(binding and binding["session"] == session))
         row = self.db.execute("SELECT cursor FROM sessions WHERE id=?", (session,)).fetchone()
         cursor = json.loads(row[0]) if row else {"at": None, "seq": None, "epoch": None}
         # At most 20 pages per session per tick, so discovery cannot starve work.

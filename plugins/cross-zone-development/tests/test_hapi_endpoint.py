@@ -82,6 +82,18 @@ class HubEndpointTests(unittest.TestCase):
         for secret in ("test-key", "private-response-token", "private-response-body", "private-request-body"):
             self.assertNotIn(secret, logs)
 
+    def test_message_logs_identify_session_and_page_direction_without_query_values(self):
+        session = "19146292-52a4-4094-9cd5-6086b0c3ec05"
+        for query, direction in (({}, "latest"), ({"afterSeq": 1}, "after"), ({"beforeSeq": 2}, "before")):
+            with self.subTest(direction=direction):
+                self.client.opener.open.side_effect = [response({"token": "jwt"}), response({"messages": []})]
+                self.client.token = None
+                with self.assertLogs("cross_zone.hapi", level="DEBUG") as captured:
+                    self.client.messages(session, **query, private="private-query-value")
+                logs = "\n".join(captured.output)
+                self.assertIn("route=messages session=" + session + " direction=" + direction, logs)
+                self.assertNotIn("private-query-value", logs)
+
     def test_custom_hubs_and_path_prefixes_are_preserved(self):
         for base in ("https://example.test/prefix/", "https://hapi.kurox.cn/prefix/",
                      "http://hapi.kurox.cn/", "https://hapi-cf.kurox.cn/"):

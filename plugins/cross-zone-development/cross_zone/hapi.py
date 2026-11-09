@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 import threading
 import time
 import urllib.error
@@ -58,10 +59,14 @@ class HapiClient:
         route = "messages" if route_path.endswith("/messages") else route_path
         if route not in {"auth", "sessions", "events", "messages"}:
             route = "other"
+        match = re.fullmatch(r"sessions/([0-9a-fA-F-]{36})/messages", route_path)
+        session = match.group(1) if match else "-"
+        query = urllib.parse.parse_qs(path.partition("?")[2])
+        direction = "after" if "afterSeq" in query else "before" if "beforeSeq" in query else "latest"
         host = urllib.parse.urlsplit(request.full_url).hostname
         trace = id(request)
-        LOG.debug("HTTP begin trace=%s method=%s host=%s route=%s timeout=%s thread=%s",
-                  trace, method, host, route,
+        LOG.debug("HTTP begin trace=%s method=%s host=%s route=%s session=%s direction=%s timeout=%s thread=%s",
+                  trace, method, host, route, session, direction,
                   timeout or self.timeout, threading.current_thread().name)
         try:
             response = self.opener.open(request, timeout=timeout or self.timeout)

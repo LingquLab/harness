@@ -34,9 +34,13 @@ Discovery 只读取 Codex（`metadata.flavor=codex`）且未归档
 可以判断主循环收集结果的延迟。`HTTP begin` / `HTTP headers` 和
 `HTTP body begin` / `HTTP body end` 分别定位等待响应头和读取正文的耗时；
 `Discovery tick` 与 `Outbox send` 用于定位扫描及结果发送延迟。
-通过数字 trace/response ID 关联请求。新增诊断只记录 Hub 域名、路由类别、
+通过数字 trace/response ID 关联请求。新增诊断只记录 Hub 域名、会话 ID、阶段、路由类别、
 方法、超时和耗时，不记录查询参数、请求头或正文。现有 EXEC 实时输出日志
 保持原样，分享时只摘取排查需要的耗时记录。
+
+消息请求耗时日志增加 `session=<UUID>` 和分页方向（`latest`、`after`、`before`）。
+发现日志标明首次 `baseline` 或后续 `scan`，并打印是否为当前绑定会话。
+不打印会话标题或原始查询参数值。
 
 ## 绿区运行时安装
 
