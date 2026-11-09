@@ -29,7 +29,7 @@ Codex（`metadata.flavor=codex`）且未归档的会话，避免 Hub 忽略查�
 
 在 Git Bash 运行 `BRIDGE_DEBUG=1 ./start-bridge.sh` 可开启本地耗时日志，
 启动、切换端点和请求失败时，即使未开启 debug，也会打印实际访问的 Hub 域名。
-版本号保持 0.7.4。对比 `Worker finished` 与 `Worker collect` 的时间，
+当前 debug 分支版本号为 0.7.5。对比 `Worker finished` 与 `Worker collect` 的时间，
 可以判断主循环收集结果的延迟。`HTTP begin` / `HTTP headers` 和
 `HTTP body begin` / `HTTP body end` 分别定位等待响应头和读取正文的耗时；
 `Discovery tick` 与 `Outbox send` 用于定位扫描及结果发送延迟。
