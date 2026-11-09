@@ -3,16 +3,16 @@ set -u
 
 usage() {
     echo "Usage:" >&2
-    echo "  ./start-bridge.sh [discover [config-file]]" >&2
     echo "  ./start-bridge.sh sessions [config-file]" >&2
     echo "  ./start-bridge.sh <doctor|bind|run|open|status|acknowledge-recovery> <session-id> [config-file]" >&2
 }
 
-command_name="${1:-discover}"
+[[ $# -ge 1 ]] || { usage; exit 2; }
+command_name="$1"
 session_id=""
 config_file="config.local.json"
 case "$command_name" in
-    sessions|discover)
+    sessions)
         [[ $# -le 2 ]] || { usage; exit 2; }
         config_file="${2:-config.local.json}"
         ;;

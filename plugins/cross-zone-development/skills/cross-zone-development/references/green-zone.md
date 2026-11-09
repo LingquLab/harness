@@ -1,27 +1,6 @@
 # Green role
 
-## Default discovery
-
-Run `<plugin-dir>/start-bridge.sh` or `<plugin-dir>/start-bridge.sh discover
-[config-file]` from the authorized workspace, without a session ID. One default
-instance waits for blue OPEN in blue's current HAPI session and returns READY.
-Competing sessions receive BUSY referring only to their receiving session.
-Bridge 0.7.0+ also accepts FORCE_OPEN after blue obtains explicit user confirmation:
-it cancels the old binding's tasks, waits for workers to return, retains results
-and recovery under the old session, then returns READY in the requesting session.
-It does not take over independently locked explicit workers or undo remote effects.
-CLOSE releases only an idle binding and returns CLOSED: queued, running, waiting,
-pending-result or unresolved-recovery work prevents release.
-
-First startup baselines existing heads and ignores old messages. REST scans run
-every `discovery_poll_seconds` (default 30), independently of SSE or task completion.
-Bound-session REST fallback uses `poll_seconds` (default 5); SSE hints are
-coalesced with a minimum interval of `min(1, poll_seconds)` seconds. Short-lived
-SSE streams back off from 1 to 30 seconds; healthy streams remain connected.
-Persisted binding, cursors and reply deduplication let restart resume execution state without
-replay. Do not delete state to reconnect. See protocol.md for exact schemas.
-
-## Legacy explicit collaboration
+## Green-initiated collaboration
 
 The operator changes to the authorized task workspace and runs
 `<plugin-dir>/start-bridge.sh open <session-id>` from Git

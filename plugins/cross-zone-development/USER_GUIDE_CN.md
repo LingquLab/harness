@@ -1,11 +1,10 @@
 # Crosszone 中文用户指南
 
 Crosszone 用于让蓝区 AI 通过 HAPI 向绿区派发任务，由绿区 Bridge 在本地执行并返回结果。
-本文覆盖安装配置、两种连接方式、命令执行、AI 任务、候选代码验证、并发调度、
+本文覆盖安装配置、指定会话连接、命令执行、AI 任务、候选代码验证、并发调度、
 提问与取消、结果审查，以及日志、恢复和升级。
 
-日常使用只需在绿区启动 Bridge，再在蓝区会话中说明任务。0.6.0 起支持 `discover`，默认不需要
-复制或填写 session ID；旧式显式会话启动方式也保留。蓝区 skill 和绿区插件目录需要同步更新。
+日常使用由绿区指定 session ID 主动连接，蓝区收到 OPEN 后派发任务。两区的 skill 和 Bridge 应同步更新。
 
 ## 蓝绿区分别负责什么
 
@@ -25,13 +24,13 @@ HAPI 传递任务和结果，候选仓库代码通过 Git 仓库传递。代码�
 
 ## 选择启动方式
 
-| 使用场景 | 绿区启动方式 | 如何连接 |
-| --- | --- | --- |
-| 平时只服务一个蓝区会话 | `bash start-bridge.sh` | 蓝区发送 OPEN，绿区自动绑定 |
-| 同时服务多个蓝区会话 | 每个会话单独运行 `bash start-bridge.sh open <session-id>` | 每个 Bridge 固定监听指定会话 |
+| 使用场景 | 绿区命令 |
+| --- | --- |
+| 开始新的交互 | `bash start-bridge.sh open <session-id>` |
+| 继续已有监听与队列 | `bash start-bridge.sh run <session-id>` |
+| 多个会话 | 每个会话独立启动一个 worker |
 
-默认模式同一时间只绑定一个会话，但该会话内部仍可并发执行多个任务。
-任务并发数默认是 4，由 `max_concurrent_tasks` 控制；这不代表能同时绑定 4 个会话。
+每个 worker 只处理指定会话，任务并发数默认为 4，由 `max_concurrent_tasks` 控制。
 
 ## 绿区首次准备
 
@@ -77,75 +76,32 @@ Bridge 启动前仍会检查配置的 CLI 是否可用。普通 TASK 使用该 C
 只有 `ai_review=true` 的 EXEC 才调用 `exec_review` 接口，接口必须获准接收绿区原始执行证据。
 
 `config.local.json` 只保存在绿区本机，不提交到仓库，也不粘贴到蓝区会话。
-session ID、workspace 和 state directory 不写入配置：默认模式自动发现会话，
-workspace 由启动时所在的目录决定。
+session ID 和 workspace 由启动命令决定，不写入配置。
 
-## 默认模式的完整使用流程
+## 绿区主动连接
 
-### 1 在绿区启动
-
-先切换到授权工作目录，再用插件脚本的完整路径启动：
+在授权工作目录运行，session ID 使用目标 HAPI 会话地址中的完整 UUID：
 
 ```bash
 cd /c/work/my-project
-bash /c/tools/cross-zone-development/start-bridge.sh
+bash /c/tools/cross-zone-development/start-bridge.sh open <session-id>
+# 指定另一份本地配置：
+bash /c/tools/cross-zone-development/start-bridge.sh open <session-id> /c/config/green.json
 ```
 
-看到 `Discovery ready; waiting for a new blue OPEN` 后，保持终端运行。
-首次启动会跳过已有消息，因此应先启动绿区，再让蓝区发起连接。
+绿区预检通过后向目标会话发送 OPEN，蓝区收到后即可派发已授权的工作。
+连接本身不授权新任务。Bridge 只读取指定会话，不扫描其他会话。
+蓝区不再发送 OPEN/CLOSE/FORCE_OPEN；结束监听时在绿区终端按 `Ctrl+C`。
+EXEC 默认只返回最终 RESULT，不发送 ACK/PROGRESS；需要接收通知时设置 `need_ack: true`。
+已完成任务不因重启而重跑，未知影响仍须按恢复规则检查。
 
-需要使用另一份本地配置时：
-
-```bash
-bash /c/tools/cross-zone-development/start-bridge.sh discover /c/config/green.json
-```
-
-相对配置路径按插件目录解析，使用绝对路径更清楚。启动时所在的 workspace 不受脚本位置影响。
-
-### 2 在蓝区发起连接并说明任务
-
-在希望使用的 HAPI 会话中对蓝区 AI 说：
-
-> 请使用 cross-zone-development skill，以蓝区身份连接默认绿区 Bridge，等待 READY 后检查绿区 Python 版本，并返回检查结果。
-
-蓝区 AI 会在当前会话发送协议 OPEN。绿区发现请求后绑定该会话，回复 READY，
-蓝区再派发已授权的任务。用户不需要手写协议，也不要将协议冒充为绿区 user 消息。
-
-发现阶段默认每隔约 30 秒扫描未归档的可见会话，实际等待还包括网络与处理耗时。
-绑定后 SSE 只加速当前会话，默认每秒最多同步一次，并保留 5 秒 REST 轮询兜底。
-SSE 通知和任务完成不会额外触发全会话扫描。正常 SSE 是长连接；
-短连接按 1–30 秒指数退避，连接持续至少 30 秒才重置。
-
-READY 只表示连接就绪，任务是否完成要看后续 RESULT。
-EXEC 默认不发送 ACK/PROGRESS；设置 `need_ack: true` 才启用。PROGRESS 表示已开始，
-用户明确选择 TASK 后可能收到 QUESTION，将答案交给蓝区 AI 继续处理即可。
-
-### 3 继续使用同一个会话
-
-连接保持期间，直接在当前蓝区会话追加任务即可，无需反复 OPEN。
-同一会话再次发送 OPEN 不会重置正在执行或等待回答的任务。
-
-简单、输出可直接返回的命令通常使用 EXEC，默认不调用绿区 AI 审查。
-通常，日志、配置、服务响应等需要过滤的输出，应让蓝区设置 `ai_review=true`；
-若已因多次失败切换 direct 恢复模式，应由命令在绿区选取有界、安全字段后再回传；
-只有用户明确指定 TASK 模式时才使用 TASK，包括绿区判断、候选代码验证或恢复。
-蓝区不得因 EXEC 受阻而自动切换 TASK。
-
-### 4 完成后释放连接
-
-在蓝区原会话中说：
-
-> 当前工作已经结束，请发送 CLOSE 释放默认绿区连接，并等待 CLOSED。
-
-收到 CLOSED 后，绿区恢复待连接状态，其他蓝区会话就可以发送新的 OPEN。
-任务执行完不会自动释放连接。
-
-CLOSE 返回 BUSY 时，先完成或取消未结束的任务、回答待处理问题，并解决待发送结果或恢复事项，
-再让蓝区使用新的请求 ID 发送 CLOSE。CLOSE 本身不会取消任务。
+0.8.0 将已有 `hapi-cf.kurox.cn` 配置映射到不带 `-cf` 的交互域名，
+不改配置或持久化身份，无需删除状态目录。升级后停止旧 discover 进程，
+再用上面的指定会话命令启动。旧 discovery 状态留在磁盘，不再恢复。
 
 ## 多个会话同时使用
 
-需要同时服务多个会话时，使用旧式显式启动方式，每个会话一个 Git Bash 终端。
+需要同时服务多个会话时，使用指定会话启动方式，每个会话一个 Git Bash 终端。
 session ID 是 HAPI 会话地址 `/sessions/<session-id>` 中的完整 UUID。
 
 在第一个终端启动会话 A：
@@ -162,7 +118,7 @@ cd /c/work/project-b
 bash /c/tools/cross-zone-development/start-bridge.sh open <session-B-id>
 ```
 
-请将尖括号占位符替换成真实 UUID，不要原样执行。显式模式由绿区发送旧式 OPEN，
+请将尖括号占位符替换成真实 UUID，不要原样执行。显式模式由绿区发送 OPEN，
 蓝区接收后按 skill 开始协作；此模式不使用蓝区自动 OPEN/CLOSE 握手。
 每个显式 Bridge 固定监听指定会话，结束监听时在对应终端按 `Ctrl+C`。
 
@@ -173,8 +129,7 @@ bash /c/tools/cross-zone-development/start-bridge.sh open <session-B-id>
 bash /c/tools/cross-zone-development/start-bridge.sh run <session-id>
 ```
 
-默认自动模式重启则会恢复原绑定及执行状态，不需要改用 `run`。
-不要为同一个会话同时启动多个 Bridge；默认 Bridge 绑定会话时也会持有该会话的实例锁。
+不要为同一个会话同时启动多个 Bridge；每个会话都持有独立实例锁。
 
 ## 任务派发与执行方式
 
@@ -298,7 +253,7 @@ EXEC 不支持 QUESTION/ANSWER。等待回答期间 TASK 会释放并发槽位�
 排队或等待回答的任务可以直接取消，运行中的任务会收到终止请求。
 取消不会撤销已经发生的操作；无法确认进程终止或远端效果时，需要后续检查。
 
-取消任务与关闭连接不同。自动模式只有满足空闲条件后，CLOSE 才能成功释放连接。
+CANCEL 只影响指定任务；停止监听需在绿区终端操作。
 
 ### 设置合理时限
 
@@ -367,7 +322,6 @@ Bridge 发起的 HAPI REST、`/api/events` SSE 和 EXEC 审查 API 请求都携�
 | `hub_url` | 模板为 `https://hapi.kurox.cn/` | HAPI Hub 地址 |
 | `access_key` | 模板占位符，需本地替换 | HAPI 凭据；设为 null 时可使用 `HAPI_ACCESS_KEY`，否则启动时提示输入 |
 | `poll_seconds` | 5，允许 0.1–300 | 已绑定会话 REST 兜底间隔；SSE 合并间隔为该值与 1 秒的较小值 |
-| `discovery_poll_seconds` | 30，允许 1–3600 | 全会话发现扫描间隔，独立于 SSE 和任务完成通知 |
 | `sse` | true | 开启服务器事件通知，加速已绑定会话消息获取 |
 | `max_task_seconds` | 1800，允许 600–86400 | 本机总任务时限上限 |
 | `max_concurrent_tasks` | 4，整数 1–16 | 并发任务槽位 |
@@ -397,15 +351,15 @@ Bridge 发起的 HAPI REST、`/api/events` SSE 和 EXEC 审查 API 请求都携�
 需要退出后自动重启，可从同一授权工作目录使用守护脚本：
 
 ```bash
-bash /c/tools/cross-zone-development/watch-bridge.sh
+bash /c/tools/cross-zone-development/watch-bridge.sh <session-id>
 ```
 
-守护脚本默认在 Bridge 退出 3 秒后重新启动自动发现模式。
+守护脚本默认在 Bridge 退出 3 秒后重新启动指定会话的 open worker。
 显式多会话模式也可各自运行 `watch-bridge.sh <session-id>`。
 不要同时为同一模式启动普通脚本和守护脚本。停止守护循环时按 `Ctrl+C`。
 
 修改配置或更新代码后需要重启生效。继续使用相同配置文件、workspace 和本地状态目录；
-自动模式会恢复之前的绑定，而不是自动释放会话。正常换会话应先在原会话完成 CLOSE。
+换会话时停止原 worker，再为新会话启动独立 worker。
 
 ### 中断后的恢复检查
 
@@ -452,7 +406,6 @@ HAPI 消息历史代次或游标重置时，会从新的消息末尾重新绑定
 
 | 参数 | 功能 |
 | --- | --- |
-| 不传参数，或 `discover [config-file]` | 自动发现并服务一个蓝区会话 |
 | `sessions [config-file]` | 列出可访问会话 |
 | `doctor <session-id> [config-file]` | 检查认证、会话、消息分页、CLI 和目录 |
 | `open <session-id> [config-file]` | 从当前消息末尾开始新交互，发送绿区 OPEN 并持续监听 |
@@ -461,8 +414,7 @@ HAPI 消息历史代次或游标重置时，会从新的消息末尾重新绑定
 | `status <session-id> [config-file]` | 读取任务状态、恢复标记和待发结果数，需获得会话实例锁 |
 | `acknowledge-recovery <session-id> [config-file]` | 高级人工恢复确认，需先自行核实先前效果且获得会话实例锁 |
 
-`watch-bridge.sh [<session-id>|discover] [config-file]` 提供退出后重启；
-无 session 时恢复自动模式，有 session 时每次以显式 open 启动。
+`watch-bridge.sh <session-id> [config-file]` 提供退出后重启，每次以 open 启动指定会话。
 
 需要运行随插件附带的本地回归测试时，切换到插件目录执行：
 
@@ -475,7 +427,7 @@ py -3 -m unittest discover -s tests -v
 
 ## 日志和状态放在哪里
 
-默认自动模式的终端日志保存在插件目录的 `.cac/bridge-discover.log`。
+终端日志保存在插件目录的 `.cac/bridge-<command>-<session-id>.log`。
 显式模式日志为 `.cac/bridge-<command>-<session-id>.log`，例如
 `.cac/bridge-open-<session-id>.log`。日志追加保存，原始内容留在绿区。
 
@@ -483,7 +435,6 @@ py -3 -m unittest discover -s tests -v
 
 | 路径 | 内容 |
 | --- | --- |
-| `.state/discovery/discovery.sqlite3` | 自动发现游标、当前绑定、连接请求和待发回复 |
 | `.state/<session-id>/bridge.sqlite3` | 任务状态、去重、恢复记录和待发任务结果 |
 | `.state/<session-id>/runs/<task-id>/<iteration>/execution/` | EXEC 的 `execution.json` 回执、stdout/stderr 及可选审查结果 |
 
@@ -495,10 +446,8 @@ Bridge 不提供操作系统或网络隔离，实际执行权限取决于绿区�
 | 现象 | 处理方式 |
 | --- | --- |
 | 启动提示已创建配置，随后退出 | 编辑插件目录的 `config.local.json`，填写真实配置后重新启动 |
-| 发送 OPEN 后没有 READY | 确认绿区显示 discovery ready、两侧使用同一 Hub、密钥可访问当前会话；首次启动前发送的 OPEN 需要用新请求 ID 重发 |
 | 收到 BUSY | 默认实例已绑定其他会话、会话存在未完成工作，或该会话正由显式 Bridge 占用；完成并释放原连接，或为其他会话单独启动显式 Bridge |
 | 提示 `Another bridge owns this state directory` | 已有进程持有相同状态目录的实例锁；找到原终端使用或停止原进程，正常退出会释放锁 |
-| 提示 discovery 状态属于另一个 Hub/workspace | 回到原 workspace 并使用原 Hub；需要不同工作环境时为显式 Bridge 使用独立配置目录和会话，不覆盖已有状态 |
 | 找不到 Agent 可执行文件 | 检查 `agent_command` 的完整路径及本机安装，路径和参数应分别放在 JSON 数组中 |
 | HAPI 返回 401 或 403 | 检查 access key 是否正确、是否有当前 Hub 和会话的访问权限 |
 | 命令执行了但结果为 NEEDS_HUMAN | 查看绿区回执和日志；可能是输出不符合直返要求、审查失败或执行效果不明，不要直接重复执行 |
@@ -516,17 +465,6 @@ bash /c/tools/cross-zone-development/start-bridge.sh sessions
 
 完整参数、任务格式和结果约束见 [中文说明](README_CN.md) 与
 [协议参考](skills/cross-zone-development/references/protocol.md)。
-
-## BUSY 后强制连接
-
-蓝区收到 BUSY 后须先询问用户是否 force open，并说明会中断旧连接任务。
-仅在用户明确确认后，发送与 OPEN 相同三字段的 `FORCE_OPEN`，使用新的 event_id，
-等待匹配的 READY 再下发任务。默认 worker 取消排队和等待任务，通知运行 worker
-停止，待其返回后才切换到当前会话。旧任务执行凭据、结果及恢复记录保留在原会话
-状态目录；待发送结果仍回原会话。重启继续未完成的切换，不重跑旧任务；重复事件
-不会再次抢占后续连接。独立显式 worker 的锁不被强占。强制连接不撤销已完成操作，
-READY 不代表未知远端影响已消除，冲突操作前仍须检查恢复证据。详见
-[协议](skills/cross-zone-development/references/protocol.md#automatic-connection-envelopes)。
 
 ## 审查失败后的直接恢复
 

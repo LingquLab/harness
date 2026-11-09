@@ -26,10 +26,9 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 class HapiClient:
     def __init__(self, base_url, access_key, timeout=20):
-        self.interactive_base = base_url.rstrip("/") + "/api/"
-        if self.interactive_base == "https://hapi-cf.kurox.cn/api/":
-            self.interactive_base = "https://hapi.kurox.cn/api/"
-        self.base = self.interactive_base
+        self.base = base_url.rstrip("/") + "/api/"
+        if self.base == "https://hapi-cf.kurox.cn/api/":
+            self.base = "https://hapi.kurox.cn/api/"
         self.access_key = access_key
         self.timeout = timeout
         self.token = None
@@ -37,16 +36,6 @@ class HapiClient:
         self.auth_lock = threading.Lock()
         self.opener = urllib.request.build_opener(NoRedirect())
         LOG.info("Hub endpoint: mode=interactive host=%s", urllib.parse.urlsplit(self.base).hostname)
-
-    def set_interactive(self, active):
-        """Use CDN polling only while the default discovery worker is idle."""
-        previous = self.base
-        self.base = ("https://hapi-cf.kurox.cn/api/"
-                     if not active and self.interactive_base == "https://hapi.kurox.cn/api/"
-                     else self.interactive_base)
-        if self.base != previous:
-            LOG.info("Hub endpoint: mode=%s host=%s", "interactive" if active else "discovery-idle",
-                     urllib.parse.urlsplit(self.base).hostname)
 
     def _open(self, path, method="GET", body=None, headers=None, timeout=None):
         request = urllib.request.Request(
@@ -90,6 +79,10 @@ class HapiClient:
         try:
             with response:
                 body = response.read(16 * 1024 * 1024 + 1)
+        except (OSError, urllib.error.URLError) as exc:
+            LOG.warning("HTTP body failed response=%s error=%s elapsed_ms=%.1f", id(response),
+                        type(exc).__name__, (time.monotonic() - started) * 1000)
+            raise HapiError() from None
         finally:
             LOG.debug("HTTP body end response=%s elapsed_ms=%.1f", id(response),
                       (time.monotonic() - started) * 1000)

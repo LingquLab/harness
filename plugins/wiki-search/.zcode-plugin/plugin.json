@@ -1,6 +1,6 @@
 {
   "name": "wiki-search",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Find Huawei WIKI documents by keyword, knowledge base, category or document subtree.",
   "author": {
     "name": "LingquLab",

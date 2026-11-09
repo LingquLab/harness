@@ -14,36 +14,21 @@ Bridge HTTP requests (HAPI REST/SSE and the EXEC review API) use
 Match the `CrossZoneBridge/` prefix in ESA/access logs to count Bridge traffic
 across releases. The version follows the installed plugin automatically.
 
-With `hub_url=https://hapi.kurox.cn/`, the default discovery worker uses
-`https://hapi-cf.kurox.cn/` while unbound to reduce polling traffic on the
-interactive endpoint. Attaching a session switches authentication, REST and SSE
-to `https://hapi.kurox.cn/` before preparing the binding and sending READY.
-Releasing the session switches back to CDN polling. Explicit session workers
-use the interactive endpoint directly; other custom Hub URLs and path prefixes are preserved.
-Request failures do not automatically switch hosts.
+Authentication, REST and SSE use `https://hapi.kurox.cn/` directly.
+Existing `hub_url=https://hapi-cf.kurox.cn/` configurations map to this endpoint
+at runtime without changing configuration or persisted session identities.
+Other custom Hub URLs and path prefixes remain unchanged.
 
 Review failures log a safe category (HTTP status, connection/read failure, or response validation stage) before direct fallback. No API response body or credentials are logged. A successful fallback does not establish that AI review succeeded.
 
-Completed task results are collected and sent between discovery page reads, including history bootstrap pages, so a full discovery scan does not delay their delivery. A single in-flight HTTP request can still delay collection.
-
-The same routing applies to existing `hub_url=https://hapi-cf.kurox.cn/`
-configurations. This normalizes only the runtime endpoint; the configured Hub URL
-and persisted binding identity remain unchanged, so no state reset is needed.
-
-Discovery skips message reads for sessions whose `metadata.lifecycleState` is
-`archived`. Offline unarchived sessions and older Hubs without the field remain
-eligible. The bound session is retained for task/result processing even if archived.
-Filtering happens after listing sessions; it does not use the transport-only
-`active=true` filter.
-
 ### Timing diagnostics
 
-Run `BRIDGE_DEBUG=1 ./start-bridge.sh` in Git Bash to enable local timing logs.
+Run `BRIDGE_DEBUG=1 ./start-bridge.sh open <session-id>` in Git Bash to enable local timing logs.
 Endpoint startup/switch logs and request failures include the actual Hub hostname
-even without debug mode. The version remains 0.7.4. Compare `Worker finished` with `Worker collect` to
+even without debug mode. Version 0.8.0 keeps these diagnostics opt-in. Compare `Worker finished` with `Worker collect` to
 measure main-loop collection delay. `HTTP begin` / `HTTP headers` and
 `HTTP body begin` / `HTTP body end` isolate header wait and response-body reads;
-`Discovery tick` and `Outbox send` identify scanning and delivery delays.
+`Outbox send` identifies delivery delays.
 Requests are correlated by numeric trace/response IDs. Diagnostic entries include
 only the Hub hostname, route category, method, timeout and elapsed time, never
 query strings, headers or bodies. Existing EXEC live-output logs are unchanged;
@@ -64,19 +49,17 @@ template starts CodeAgent with `--effort low`. Start it from the
 directory green authorizes as the task workspace:
 
 ```bash
-<plugin-dir>/start-bridge.sh
-# Or specify local configuration:
-<plugin-dir>/start-bridge.sh discover [config-file]
+<plugin-dir>/start-bridge.sh open <session-id> [config-file]
 ```
 
 For automatic restart after a Bridge exit, keep the watchdog running in a separate
 Git Bash terminal:
 
 ```bash
-<plugin-dir>/watch-bridge.sh
+<plugin-dir>/watch-bridge.sh <session-id> [config-file]
 ```
 
-It restarts default discovery after each exit, waiting 3 seconds between starts
+It restarts the selected session worker after each exit, waiting 3 seconds between starts
 (`BRIDGE_RESTART_DELAY` overrides the delay). Stop the watchdog with `Ctrl+C`.
 Update disk code before ending the Bridge process to load the new version on
 restart. Existing instance locking still applies. Interrupted tasks are reported as
@@ -87,10 +70,12 @@ concrete blockers to blue. Recovery evidence travels locally, not in the wire sc
 Recovery TASK dispatch requires an explicit user request; pending recovery still
 blocks EXEC. Older global recovery pauses are migrated automatically on startup.
 
-Version 0.6.0 adds default single-session discovery initiated by blue OPEN and a
-complete Chinese user guide. Explicit-session workers remain available.
+Version 0.8.0 uses green-initiated explicit sessions. Blue automatic OPEN,
+CLOSE, FORCE_OPEN and global discovery have been removed. Stop the old process
+and start `open <session-id>` after upgrading; existing per-session state is retained.
+Old discovery state is left on disk and is not resumed or deleted.
 It uses CROSS_ZONE and cross-zone/v3. All messages omit `target`;
-READY and legacy green OPEN report the running Bridge release in `version`. Legacy target fields are
+Green OPEN reports the running Bridge release in `version`. Legacy target fields are
 rejected on the live transport.
 
 `EXEC` runs a blue-provided argv command or Bash/PowerShell/Python script directly
@@ -109,49 +94,7 @@ The explicit-session launcher writes `<plugin-dir>/.cac/bridge-<command>-<sessio
 stream output is visible there but remains local to green. Runtime state and
 task-owned detached checkouts live under the config directory’s `.state/<session-id>/`.
 
-## Default automatic discovery
-
-### Force open after BUSY (0.7.0+)
-
-After BUSY, blue asks whether to force open and explains that the old connection's
-tasks will be interrupted. Only after explicit user confirmation does blue send
-`FORCE_OPEN` with the same three fields as OPEN and a fresh event ID. Wait for the
-matching READY before sending work. The worker cancels queued/waiting work, signals
-running workers and waits for them to return before switching. Old receipts,
-results and recovery records remain; pending results go to the old session.
-Restart resumes the takeover without replay; duplicate events do not reclaim a
-later binding. Independent explicit workers keep their locks. Unknown effects are
-not undone: inspect old recovery evidence before conflicting operations. See the
-[protocol](skills/cross-zone-development/references/protocol.md#automatic-connection-envelopes).
-
-
-One default Bridge waits for blue OPEN in blue's current authorized HAPI session.
-Blue sends exactly `{protocol, type, event_id}`, with `protocol: "cross-zone/v3"`
-and `type: "OPEN"`, `"CLOSE"` or `"FORCE_OPEN"`, using CROSS_ZONE framing and a valid event ID.
-Blue waits for READY before dispatch; it does not scan other sessions or forge
-user messages. Green replies READY, BUSY or CLOSED with exactly `protocol`,
-`type`, `event_id`, `request_event_id`, `version`, `session_url` in the receiving
-session only. BUSY never discloses the bound session. Connection grants no new
-work authority. See the [exact protocol](skills/cross-zone-development/references/protocol.md).
-
-First startup baselines existing heads and ignores old messages. REST scans run
-every `discovery_poll_seconds` (default 30), independently of bound-session events.
-Bound-session REST fallback uses `poll_seconds` (default 5); SSE hints are
-coalesced to at most one sync per second with default settings and never trigger
-a global scan. Worker completion collects results without forcing a message fetch.
-Short-lived SSE streams retry with exponential backoff from 1 to 30 seconds,
-reset only after a connection lasts 30 seconds.
-Binding, cursors and reply deduplication persist; restart resumes saved execution
-state without replay. Competing sessions receive BUSY. CLOSE releases only an
-idle binding, with no queued, running, waiting, pending-result or unresolved
-recovery work, and green returns CLOSED.
-
-For simultaneous sessions, use independent explicit `open <session-id>` or
-`run <session-id>` workers. They retain legacy behavior and do not accept blue
-automatic connection envelopes. The watchdog retains its explicit
-`watch-bridge.sh <session-id> [config-file]` form as well.
-
-## Legacy green-initiated collaboration
+## Green-initiated collaboration
 
 Use the bundled v0.5 green runtime and its untracked `config.local.json`.
 
@@ -177,7 +120,7 @@ OPEN as a fresh connection, and immediately dispatches any clear, authorized
 unfinished user request whose next green step is ready. With no such work, blue
 replies ready and waits. OPEN alone adds no work authorization, and completed or
 still-running actions are not replayed. Rejections use ordinary conversation;
-blue never echoes or injects legacy green OPEN. User-requested work defaults to EXEC; TASK is
+blue never echoes or injects green OPEN. User-requested work defaults to EXEC; TASK is
 available only when the user explicitly requests TASK mode, including local
 judgment, revision-bound validation or required recovery.
 Saved history and recovery safeguards remain in force; `ai_review` defaults
@@ -361,7 +304,7 @@ history and cannot establish whether an earlier remote action completed.
 ### Upgrading to 0.6.1 / v3
 
 Upgrade blue and green together. Live v2 envelopes and target fields are no longer
-accepted. Legacy green OPEN includes the running Bridge version and starts a fresh interaction at the current
+accepted. Green OPEN includes the running Bridge version and starts a fresh interaction at the current
 message head. Blue can dispatch existing authorized work immediately; the Bridge's
 retained queue is not automatically resumed. Use run only to
 intentionally continue the listener and its queue. EXEC defaults to no AI review;

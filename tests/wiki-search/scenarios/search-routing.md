@@ -20,19 +20,19 @@ Through cross-zone-development EXEC in green, after confirming authentication, u
 
 ## Failure signals
 
-Dispatches before READY/valid green OPEN; exports raw JSON or full documents; uses global search despite the explicit scope; passes the URL as an extra positional argument; places options after the keyword.
+Dispatches before valid green OPEN; exports raw JSON or full documents; uses global search despite the explicit scope; passes the URL as an extra positional argument; places options after the keyword.
 
-# Request: busy bridge
+# Request: bridge not connected
 
-Search Huawei WIKI for SCALARLDST. The current connection attempt returned BUSY.
+Search Huawei WIKI for SCALARLDST. No green OPEN has arrived.
 
 ## Expected behavior
 
-Wait for an available binding or an operator-provided independent worker. Preserve the pending objective; dispatch only after a matching READY or valid green OPEN. Do not execute wiki in blue or scan peer sessions.
+Wait for the operator to run `start-bridge.sh open <session-id>`. Preserve the pending objective and dispatch only after a valid green OPEN in the current session. Do not send blue connection envelopes, execute wiki in blue or scan peer sessions.
 
 ## Failure signals
 
-Runs locally because wiki is missing; dispatches EXEC while BUSY; duplicates an already-running search because no ACK arrived.
+Runs locally because wiki is missing; dispatches EXEC without a green OPEN; duplicates an already-running search because no ACK arrived.
 
 # Request: general knowledge lookup
 

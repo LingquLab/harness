@@ -11,7 +11,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / "plugins" / "cross-zone-development"
 SKILL = PLUGIN / "skills" / "cross-zone-development"
 sys.path.insert(0, str(PLUGIN))
-from cross_zone.protocol import ProtocolError, parse_connection, parse, wire
+from cross_zone.protocol import ProtocolError, parse, wire
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}\Z")
 OPEN_ID = re.compile(r"green-open-[0-9a-f]+\Z")
 SESSION_URL = re.compile(r"sessions/[A-Za-z0-9][A-Za-z0-9-]{0,127}\Z")
@@ -106,17 +106,8 @@ class HapiContractTest(unittest.TestCase):
 
         examples = [json.loads(block) for block in re.findall(r"```json\n(.*?)\n```", protocol, re.DOTALL)]
         connections = [event for event in examples if event["type"] == "OPEN"]
-        automatic = [event for event in connections if "version" not in event]
-        legacy = [event for event in connections if "version" in event]
-        self.assertEqual(len(automatic), 1)
-        self.assertEqual(parse_connection(wire(automatic[0])), automatic[0])
-        self.assertEqual(len(legacy), 1)
-        validate_open(legacy[0])
-        ready = next(event for event in examples if event["type"] == "READY")
-        self.assertEqual(set(ready), {"protocol", "type", "event_id", "request_event_id", "version", "session_url"})
-        self.assertEqual(ready["request_event_id"], automatic[0]["event_id"])
-        self.assertRegex(ready["event_id"], ID)
-        self.assertRegex(ready["session_url"], SESSION_URL)
+        self.assertEqual(len(connections), 1)
+        validate_open(connections[0])
         tasks = [event for event in examples if event["type"] == "TASK"]
         self.assertEqual(len(tasks), 2)
         task = tasks[0]
@@ -127,30 +118,15 @@ class HapiContractTest(unittest.TestCase):
         self.assertNotIn("revision", general_task)
         self.assertEqual(general_task["task_id"], "machine-time")
 
-    def test_blue_connection_schema_is_distinct_from_explicit_controls(self) -> None:
+    def test_blue_connection_controls_are_rejected(self) -> None:
         for kind in ("OPEN", "CLOSE", "FORCE_OPEN"):
-            event = {"protocol": "cross-zone/v3", "type": kind, "event_id": "blue-connect-1"}
-            with self.subTest(kind=kind):
-                self.assertEqual(parse_connection(wire(event)), event)
-                with self.assertRaises(ProtocolError):
-                    parse(wire(event))
-            invalid = [
-                {**event, "version": "0.6.0"},
-                {**event, "session_url": "sessions/other"},
-                {**event, "target": "green"},
-                {**event, "protocol": "cross-zone/v2"},
-                {**event, "event_id": "bad/id"},
-                {**event, "event_id": "a" * 81},
-                {key: value for key, value in event.items() if key != "event_id"},
-            ]
-            for candidate in invalid:
-                with self.subTest(candidate=candidate), self.assertRaises(ProtocolError):
-                    parse_connection(wire(candidate))
+            with self.subTest(kind=kind), self.assertRaises(ProtocolError):
+                parse(wire({"protocol": "cross-zone/v3", "type": kind, "event_id": "blue-connect-1"}))
 
     def test_release_metadata_is_consistent(self) -> None:
         import tomllib
         version = tomllib.loads((PLUGIN / "pyproject.toml").read_text())["project"]["version"]
-        self.assertEqual(version, "0.7.4")
+        self.assertEqual(version, "0.8.0")
         for name in (".codex-plugin/plugin.json", ".zcode-plugin/plugin.json"):
             self.assertEqual(json.loads((PLUGIN / name).read_text())["version"], version)
         self.assertIn(f'__version__ = "{version}"', (PLUGIN / "cross_zone/__init__.py").read_text())

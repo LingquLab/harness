@@ -52,7 +52,7 @@
         "en": "HAPI collaboration between blue development and green protected-service AI agents.",
         "zh-CN": "通过 HAPI 协调蓝区开发 AI 与绿区受保护服务 AI。"
       },
-      "version": "0.7.4",
+      "version": "0.8.0",
       "author": {
         "name": "LingquLab",
         "url": "https://github.com/LingquLab"
@@ -125,7 +125,7 @@
         "en": "Find Huawei WIKI documents by keyword, knowledge base, category or document subtree.",
         "zh-CN": "按关键词、知识库、类目或文档子树查找华为 WIKI 文档。"
       },
-      "version": "0.1.2",
+      "version": "0.1.3",
       "author": {
         "name": "LingquLab",
         "url": "https://github.com/LingquLab"

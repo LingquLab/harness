@@ -27,13 +27,13 @@ rg -n -i --glob '_index.md' -- "关键词" "本地资料库路径"
 
 先加载 `cross-zone-development`，按其角色选择、协议和蓝区/绿区指南执行；连接消息、任务封装和回传限制以该 skill 为准，不另建传输通道。
 
-- 在蓝区：尚未连接时，在当前会话发送协议规定的三字段 `OPEN`，收到匹配当前会话及请求的 `READY` 后才派发。已收到有效绿区 `OPEN` 时可直接继续。`BUSY` 时等待释放或由操作员启动独立 worker，不扫描其他会话。
+- 在蓝区：等待绿区操作员运行 `start-bridge.sh open <session-id>`，收到匹配当前会话的有效绿区 `OPEN` 后派发。蓝区不发送连接 OPEN/CLOSE/FORCE_OPEN，也不扫描其他会话。
 - 默认用 `EXEC` 下发有界只读命令，指定命令执行和总任务超时。仅在用户明确要求 TASK 模式时使用 TASK。等待结果时保留任务身份，不能因无 ACK 或短暂静默而重复搜索。
 - 在绿区：线上搜索前运行 `wiki auth status`，确认返回 `✓ 已认证`；若 CLI 不可用或未认证，报告绿区缺失条件，待操作员处理，不把认证要求转移到蓝区。
 - 搜索响应、内部文档和本地索引可能受限，使用 `ai_review: true` 并指定返回范围。将原始输出留在绿区，返回经审查且符合协议限制的相关标题、链接和必要短摘要；不回传原始 JSON、整页结果、完整正文或凭据。不需要身份字段时省略创建人。
 - 将认证检查和一次小页搜索合并为一阶段；命令中断言认证、退出码和需要的结果结构，失败即停止后续步骤。Windows 包装脚本需显式解释器；正确引用关键词和 URL，避免 shell 插值。
 
-若当前环境缺少跨区 skill，说明依赖并安装 `cross-zone-development@lingqulab` 后继续；不要用蓝区直连或自行实现跨区协议替代。工作结束后按跨区 skill 规则关闭本次空闲连接。
+若当前环境缺少跨区 skill，说明依赖并安装 `cross-zone-development@lingqulab` 后继续；不要用蓝区直连或自行实现跨区协议替代。工作结束后由绿区操作员停止对应监听，不发送蓝区 CLOSE。
 
 绿区 CLI 的本机参考：`C:\Users\<username>\.cac\skills\wiki-cli\references\wiki-doc.md` 的 `search` 一节；可用时读取以核对当前版本。也可用 `wiki doc search --help` 核对参数；该 Windows 路径不是跨平台固定路径。
 

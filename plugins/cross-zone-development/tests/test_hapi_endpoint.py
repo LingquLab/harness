@@ -52,37 +52,23 @@ class HubEndpointTests(unittest.TestCase):
                 self.assertEqual(raised.exception.status, status)
                 self.assertEqual(self.urls(), ["https://hapi.kurox.cn/api/auth"])
 
-    def test_idle_polling_and_interaction_switch_hosts(self):
-        self.client.opener.open.side_effect = [response({"token": "jwt"}),
-                                               response({"sessions": []}),
-                                               response({"ok": True}),
-                                               response({"sessions": []})]
-        self.client.set_interactive(False)
-        self.client.sessions()
-        self.client.set_interactive(True)
-        self.client.send("blue", "ready", "ready-id")
-        self.client.set_interactive(False)
-        self.client.sessions()
-        self.assertEqual(self.urls(), ["https://hapi-cf.kurox.cn/api/auth",
-                                       "https://hapi-cf.kurox.cn/api/sessions",
-                                       "https://hapi.kurox.cn/api/sessions/blue/messages",
-                                       "https://hapi-cf.kurox.cn/api/sessions"])
-
-    def test_existing_cf_config_uses_same_idle_interactive_routing(self):
+    def test_existing_cf_config_uses_direct_hapi(self):
         client = HapiClient("https://hapi-cf.kurox.cn/", "test-key")
         client.opener = Mock()
-        client.opener.open.side_effect = [response({"token": "jwt"}), response({"sessions": []}),
-                                          response({"ok": True})]
-        self.assertEqual(client.base, "https://hapi.kurox.cn/api/")
-        client.set_interactive(False)
-        client.sessions()
-        client.set_interactive(True)
-        client.send("blue", "ready", "ready-id")
+        client.opener.open.side_effect = [response({"token": "jwt"}), response({"sessions": []})]
+        self.assertEqual(client.sessions(), [])
         self.assertEqual([call.args[0].full_url for call in client.opener.open.call_args_list],
-                         ["https://hapi-cf.kurox.cn/api/auth", "https://hapi-cf.kurox.cn/api/sessions",
-                          "https://hapi.kurox.cn/api/sessions/blue/messages"])
-        client.set_interactive(False)
-        self.assertEqual(client.base, "https://hapi-cf.kurox.cn/api/")
+                         ["https://hapi.kurox.cn/api/auth", "https://hapi.kurox.cn/api/sessions"])
+
+    def test_response_body_timeout_is_a_retryable_hub_error(self):
+        class TimeoutResponse(io.BytesIO):
+            def read(self, *args):
+                raise TimeoutError("private-network-diagnostic")
+        self.client.opener.open.side_effect = [response({"token": "jwt"}), TimeoutResponse()]
+        with self.assertLogs("cross_zone.hapi", level="WARNING") as captured, self.assertRaises(HapiError):
+            self.client.sessions()
+        self.assertIn("error=TimeoutError", "\n".join(captured.output))
+        self.assertNotIn("private-network-diagnostic", "\n".join(captured.output))
 
     def test_debug_timings_do_not_log_credentials_or_bodies(self):
         self.client.opener.open.side_effect = [response({"token": "private-response-token"}),
@@ -103,6 +89,4 @@ class HubEndpointTests(unittest.TestCase):
                      "http://hapi.kurox.cn/", "https://hapi-cf.kurox.cn/prefix/"):
             with self.subTest(base=base):
                 client = HapiClient(base, "test-key")
-                for active in (False, True):
-                    client.set_interactive(active)
-                    self.assertEqual(client.base, base + "api/")
+                self.assertEqual(client.base, base + "api/")

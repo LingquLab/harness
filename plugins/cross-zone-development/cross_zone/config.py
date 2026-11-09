@@ -26,7 +26,7 @@ def load_config(path):
     for field in ignored:
         config.pop(field, None)
     config.setdefault("poll_seconds", 5)
-    config.setdefault("discovery_poll_seconds", 30)
+    config.pop("discovery_poll_seconds", None)
     config.setdefault("sse", True)
     config.setdefault("max_questions", 3)
     config.setdefault("max_task_seconds", 1800)
@@ -45,9 +45,6 @@ def load_config(path):
         raise ValueError("exec_live_log must be a boolean")
     if not isinstance(config["agent_log_max_chars"], int) or not 100 <= config["agent_log_max_chars"] <= 20000:
         raise ValueError("agent_log_max_chars out of range")
-    if (type(config["discovery_poll_seconds"]) not in (int, float)
-            or not 1 <= config["discovery_poll_seconds"] <= 3600):
-        raise ValueError("discovery_poll_seconds out of range")
     if not 0.1 <= config["poll_seconds"] <= 300:
         raise ValueError("poll_seconds out of range")
     if (type(config["max_questions"]) is not int or not 0 <= config["max_questions"] <= 3

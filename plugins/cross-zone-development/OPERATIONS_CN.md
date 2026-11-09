@@ -13,11 +13,9 @@ Bridge 的 HTTP 请求（HAPI REST/SSE 和 EXEC 审查 API）统一携带
 在 ESA 或访问日志中匹配 `CrossZoneBridge/` 前缀即可跨版本统计 Bridge 流量，
 版本号会随已安装插件自动更新。
 
-当 `hub_url=https://hapi.kurox.cn/` 时，默认 discovery worker 未绑定会话期间
-使用 `https://hapi-cf.kurox.cn/`，降低交互端点的轮询流量。绑定会话时，
-在准备绑定和发送 READY 前切换到 `https://hapi.kurox.cn/`，认证、REST 和 SSE
-均使用该地址；释放会话后切回 CDN 轮询。显式指定会话的 worker 直接使用交互端点。
-其他自定义 Hub 地址和路径前缀会保留，请求失败不会自动切换域名。
+Bridge 的认证、REST 和 SSE 统一使用不带 `-cf` 的 `https://hapi.kurox.cn/`。
+已有 `hub_url=https://hapi-cf.kurox.cn/` 配置在运行时也映射到该地址，
+不修改配置或持久化会话身份。其他自定义 Hub 地址和路径前缀保持不变。
 
 审核失败时，会在 direct fallback 前记录安全的错误分类（HTTP 状态、连接或读取失败、响应校验阶段），不记录 API 响应正文或凭据。回退成功不代表 AI 审核成功。
 
@@ -33,12 +31,12 @@ Discovery 跳过 `metadata.lifecycleState=archived` 会话的消息读取。
 
 ### 耗时诊断
 
-在 Git Bash 运行 `BRIDGE_DEBUG=1 ./start-bridge.sh` 可开启本地耗时日志，
+在 Git Bash 运行 `BRIDGE_DEBUG=1 ./start-bridge.sh open <session-id>` 可开启本地耗时日志，
 启动、切换端点和请求失败时，即使未开启 debug，也会打印实际访问的 Hub 域名。
-版本号保持 0.7.4。对比 `Worker finished` 与 `Worker collect` 的时间，
+0.8.0 保留这些按需启用的诊断。对比 `Worker finished` 与 `Worker collect` 的时间，
 可以判断主循环收集结果的延迟。`HTTP begin` / `HTTP headers` 和
 `HTTP body begin` / `HTTP body end` 分别定位等待响应头和读取正文的耗时；
-`Discovery tick` 与 `Outbox send` 用于定位扫描及结果发送延迟。
+`Outbox send` 用于定位结果发送延迟。
 通过数字 trace/response ID 关联请求。新增诊断只记录 Hub 域名、路由类别、
 方法、超时和耗时，不记录查询参数、请求头或正文。现有 EXEC 实时输出日志
 保持原样，分享时只摘取排查需要的耗时记录。
@@ -56,26 +54,26 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 从绿区授权作为任务 workspace 的目录启动：
 
 ```bash
-<plugin-dir>/start-bridge.sh
-# 或指定本地配置：
-<plugin-dir>/start-bridge.sh discover [config-file]
+<plugin-dir>/start-bridge.sh open <session-id> [config-file]
 ```
 
 需要 Bridge 退出后自动重新拉起时，在单独的 Git Bash 窗口运行：
 
 ```bash
-<plugin-dir>/watch-bridge.sh
+<plugin-dir>/watch-bridge.sh <session-id> [config-file]
 ```
 
-守护脚本每次退出后等待 3 秒，再启动默认 discovery；可用
+守护脚本每次退出后等待 3 秒，再启动指定会话的 worker；可用
 `BRIDGE_RESTART_DELAY` 调整间隔，`Ctrl+C` 停止守护循环。先更新磁盘代码，
 再结束 Bridge 进程，下一次启动即加载新版。实例锁继续生效；中断任务不会重跑。
 后续 AI 先核查遗留进程和已完成操作，状态未知时只做只读检查，无需人工解锁。
 
 0.6.1 将 EXEC 改为默认仅返回最终结果，通过 `need_ack: true` 开启 ACK/PROGRESS；
-TASK 仅在用户明确要求时使用。0.6.0 引入的自动发现及显式会话模式继续保留。
+TASK 仅在用户明确要求时使用。0.8.0 只保留绿区指定会话的启动方式；
+蓝区自动 OPEN/CLOSE/FORCE_OPEN 和全局 discover 已移除。升级后停止旧进程，
+用 `open <session-id>` 启动；保留原有会话状态，不自动续跑或删除旧 discovery 状态。
 使用 `CROSS_ZONE` 标记及 `cross-zone/v3` 协议，所有消息删除 `target`，
-仅按当前 HAPI 会话绑定。READY 和旧式绿区 OPEN 的 `version` 报告实际运行的 Bridge 版本。
+仅按当前 HAPI 会话绑定。绿区 OPEN 的 `version` 报告实际运行的 Bridge 版本。
 
 新增 `EXEC`：蓝区提供命令参数数组，或 Bash/PowerShell/Python 脚本，Bridge
 在 session 目录原样执行，默认直接返回符合约束的输出；`ai_review=true` 时再由推理接口
@@ -89,42 +87,7 @@ TASK 仅在用户明确要求时使用。0.6.0 引入的自动发现及显式会
 但该内容只保留在绿区。状态和任务专属 detached checkout 位于配置文件目录下的
 `.state/<session-id>/`。
 
-## 默认自动发现
-
-### BUSY 后强制连接（0.7.0+）
-
-蓝区收到 BUSY 后须先询问用户是否 force open，并说明会中断旧连接任务。
-仅在用户明确确认后，发送与 OPEN 相同三字段的 `FORCE_OPEN`，使用新的 event_id，
-等待匹配的 READY 再下发任务。默认 worker 取消排队和等待任务，通知运行 worker
-停止，待其返回后才切换到当前会话。旧任务执行凭据、结果及恢复记录保留在原会话
-状态目录；待发送结果仍回原会话。重启继续未完成的切换，不重跑旧任务；重复事件
-不会再次抢占后续连接。独立显式 worker 的锁不被强占。强制连接不撤销已完成操作，
-READY 不代表未知远端影响已消除，冲突操作前仍须检查恢复证据。详见
-[协议](skills/cross-zone-development/references/protocol.md#automatic-connection-envelopes)。
-
-
-不带 session 启动一个默认 Bridge，等待蓝区在当前授权 HAPI 会话中发送 OPEN。
-蓝区用 assistant 消息发送严格的 `protocol`、`type`、`event_id` 三字段信封，
-`protocol` 为 `cross-zone/v3`，`type` 为 OPEN、CLOSE 或 FORCE_OPEN，event_id 须符合协议 ID
-规则，并使用 CROSS_ZONE 标记。蓝区等待匹配的 READY 后才能下发工作，
-不得扫描其他会话或伪造 user 消息。有效的绿区 READY 也直接选择蓝区角色。
-绿区 READY/BUSY/CLOSED 严格包含 `protocol`、`type`、`event_id`、
-`request_event_id`、`version`、`session_url`，只回到接收请求的会话；BUSY
-绝不透露已绑定会话。连接本身不增加工作授权。详见[协议](skills/cross-zone-development/references/protocol.md)。
-
-首次启动以现有消息末尾建立基线，忽略旧消息。全会话发现使用独立的
-`discovery_poll_seconds`（默认 30 秒）；已绑定会话以 `poll_seconds`（默认 5 秒）
-轮询兜底，SSE 通知合并处理，默认最多每秒同步一次，不触发全会话扫描。
-任务完成只唤醒结果收集。短连接按 1–30 秒指数退避，
-只有连接持续至少 30 秒后才重置退避。绑定、游标、回复去重持久化，
-重启恢复执行状态而不重放。竞争会话收到 BUSY。只有没有排队、运行、等待、
-待发结果或未解决恢复事项时，CLOSE 才释放绑定，并由绿区返回 CLOSED。
-
-多会话并行使用独立的显式 `open <session-id>` 或 `run <session-id>` worker；
-这些命令保留旧行为，不接收蓝区自动连接信封。守护脚本仍支持显式
-`watch-bridge.sh <session-id> [config-file]`。
-
-## 旧式绿区主动开启协同
+## 绿区主动开启协同
 
 使用插件内置的 v0.5 绿区运行时及不受 Git 跟踪的 `config.local.json`。
 

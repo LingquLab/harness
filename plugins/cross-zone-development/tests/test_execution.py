@@ -13,7 +13,7 @@ import test_bridge as fixtures
 from cross_zone.controller import Bridge
 from cross_zone.egress import review
 from cross_zone.execution import DirectExecutor
-from cross_zone.protocol import ProtocolError, parse, parse_connection, read_wire, wire
+from cross_zone.protocol import ProtocolError, parse, read_wire, wire
 
 
 def exec_task(**changes):
@@ -37,13 +37,12 @@ class ExecutionProtocolTests(unittest.TestCase):
                       fixtures.task()):
             self.assertEqual(parse(wire(event, readable=True)), event)
 
-    def test_long_scripts_survive_discovery_and_task_parsing(self):
+    def test_long_scripts_survive_task_parsing(self):
         for factory in (compact_exec, exec_task):
             for script in ("x" * 13012, "# 中文\n" * 10000):
                 event = factory(execution={"interpreter": "python", "script": script})
                 text = wire(event, readable=True)
                 with self.subTest(reviewed=factory is exec_task, characters=len(script)):
-                    self.assertIsNone(parse_connection(text))
                     self.assertEqual(parse(text), event)
 
     def test_ai_review_is_optional_exec_only_boolean(self):

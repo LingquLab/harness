@@ -11,7 +11,6 @@ import uuid
 from .agent import executable_available, resolve_windows_launcher
 from .config import load_config
 from .controller import Bridge
-from .discovery import Discovery
 from .hapi import HapiClient, HapiError
 from .protocol import open_event, wire as _wire
 
@@ -103,9 +102,9 @@ def main():
     parser = argparse.ArgumentParser(description="HAPI cross-zone bridge (Windows / CodeAgent CLI)")
     parser.add_argument("--config", default="config.local.json")
     parser.add_argument("--workspace", default=os.getcwd(), help="authorized workspace; defaults to launch directory")
-    parser.add_argument("--session", help="HAPI session UUID; required except for 'sessions' and 'discover'")
-    parser.add_argument("command", nargs="?", default="discover",
-                        choices=["discover", "sessions", "doctor", "bind", "run", "open", "status", "acknowledge-recovery"])
+    parser.add_argument("--session", help="HAPI session UUID; required except for sessions")
+    parser.add_argument("command",
+                        choices=["sessions", "doctor", "bind", "run", "open", "status", "acknowledge-recovery"])
     args = parser.parse_args()
     debug = os.environ.get("BRIDGE_DEBUG", "").lower() in {"1", "true", "yes"}
     logging.basicConfig(level=logging.DEBUG if debug else logging.INFO,
@@ -117,11 +116,7 @@ def main():
     try:
         config = load_config(args.config)
         config["workspace_dir"] = str(Path(args.workspace).resolve())
-        if args.command == "discover":
-            if args.session:
-                raise ValueError("discover does not accept --session; use open or run for an independent Bridge")
-            config["state_dir"] = str(Path(args.config).resolve().parent / ".state" / "discovery")
-        elif args.command != "sessions":
+        if args.command != "sessions":
             select_session(config, args.config, args.session)
         stage = "initializing HAPI authentication"
         local_only = args.command in ("status", "acknowledge-recovery")
@@ -129,11 +124,6 @@ def main():
                                      or getpass.getpass("HAPI access key (hidden): "))
         client = HapiClient(config["hub_url"], key)
         stage = f"executing '{args.command}'"
-        if args.command == "discover":
-            preflight(config)
-            with InstanceLock(config["state_dir"]):
-                Discovery(config, client, InstanceLock).run()
-            return
         if args.command == "sessions":
             for session in client.sessions():
                 metadata = session.get("metadata") or {}

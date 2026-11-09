@@ -11,10 +11,10 @@
 从绿区授权的任务工作目录启动 Bridge：
 
 ```bash
-<plugin-dir>/start-bridge.sh
+<plugin-dir>/start-bridge.sh open <session-id>
 ```
 
-然后让蓝区智能体连接并执行所需检查。多会话场景可以启动独立显式 worker。默认 worker 忙碌时，强制接管会中断原有任务，需要先确认。
+session ID 使用目标 HAPI 会话地址中的完整 UUID。绿区向指定会话发送 OPEN，蓝区再派发已授权的工作；每个会话独立启动 worker。0.8.0 移除蓝区自动连接发现，统一使用不带 `-cf` 的 HAPI 域名。
 
 安装与日常使用见[中文用户指南](USER_GUIDE_CN.md)。配置、超时、日志、升级与恢复见[操作参考](OPERATIONS_CN.md)，消息格式见[协议参考](skills/cross-zone-development/references/protocol.md)。
 

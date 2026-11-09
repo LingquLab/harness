@@ -11,10 +11,10 @@ Install with `codex plugin add cross-zone-development@lingqulab`. In green, prep
 From the approved green task workspace, start the Bridge:
 
 ```bash
-<plugin-dir>/start-bridge.sh
+<plugin-dir>/start-bridge.sh open <session-id>
 ```
 
-Then ask the blue agent to connect and run the required check. Independent explicit-session workers are available when multiple sessions are needed. If the default worker is busy, taking it over requires confirmation because existing work will be interrupted.
+Use the complete UUID from the target HAPI session URL. Green sends OPEN to that session; blue then dispatches authorized work. Run one worker per session. Version 0.8.0 removes blue automatic connection discovery and uses the HAPI endpoint without `-cf`.
 
 The [Chinese user guide](USER_GUIDE_CN.md) covers setup and daily use. See [operation details](OPERATIONS.md) for configuration, timeouts, logs, upgrades and recovery, or the [protocol reference](skills/cross-zone-development/references/protocol.md) for message formats.
 
