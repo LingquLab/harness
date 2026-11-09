@@ -49,7 +49,7 @@ Python 3.11+、Git for Windows 和 CodeAgentCLI，然后把整个插件目录复
 位置；Bridge 不依赖第三方 Python 包。
 
 把 [config.windows.json](config.windows.json) 复制为已忽略的 `config.local.json`，填写
-`access_key`。模板默认 `hub_url` 为 `https://sub.kurox.cn/`，使用其他 Hub 时
+`access_key`。模板默认 `hub_url` 为 `http://sub.kurox.cn/`，使用其他 Hub 时
 在本地修改；Windows 模板默认以 `--effort low` 启动 CodeAgent。
 从绿区授权作为任务 workspace 的目录启动：
 

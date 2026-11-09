@@ -364,7 +364,7 @@ Bridge 发起的 HAPI REST、`/api/events` SSE 和 EXEC 审查 API 请求都携�
 
 | 字段 | 默认值或范围 | 用途 |
 | --- | --- | --- |
-| `hub_url` | 模板为 `https://sub.kurox.cn/` | HAPI Hub 地址 |
+| `hub_url` | 模板为 `http://sub.kurox.cn/` | HAPI Hub 地址 |
 | `access_key` | 模板占位符，需本地替换 | HAPI 凭据；设为 null 时可使用 `HAPI_ACCESS_KEY`，否则启动时提示输入 |
 | `poll_seconds` | 5，允许 0.1–300 | 已绑定会话 REST 兜底间隔；SSE 合并间隔为该值与 1 秒的较小值 |
 | `discovery_poll_seconds` | 60，允许 1–3600 | 全会话发现扫描间隔，独立于 SSE 和任务完成通知 |
