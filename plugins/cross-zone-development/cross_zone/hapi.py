@@ -23,13 +23,20 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 class HapiClient:
     def __init__(self, base_url, access_key, timeout=20):
-        self.base = base_url.rstrip("/") + "/api/"
+        self.interactive_base = base_url.rstrip("/") + "/api/"
+        self.base = self.interactive_base
         self.access_key = access_key
         self.timeout = timeout
         self.token = None
         self.expires = 0
         self.auth_lock = threading.Lock()
         self.opener = urllib.request.build_opener(NoRedirect())
+
+    def set_interactive(self, active):
+        """Use CDN polling only while the default discovery worker is idle."""
+        self.base = ("https://hapi-cf.kurox.cn/api/"
+                     if not active and self.interactive_base == "https://hapi.kurox.cn/api/"
+                     else self.interactive_base)
 
     def _open(self, path, method="GET", body=None, headers=None, timeout=None):
         request = urllib.request.Request(

@@ -14,9 +14,13 @@ Bridge HTTP requests (HAPI REST/SSE and the EXEC review API) use
 Match the `CrossZoneBridge/` prefix in ESA/access logs to count Bridge traffic
 across releases. The version follows the installed plugin automatically.
 
-Bridge uses the configured `hub_url` directly for authentication, REST requests
-and SSE. With `hub_url=https://hapi.kurox.cn/`, all Hub traffic goes to
-`https://hapi.kurox.cn/`. Custom Hub URLs and path prefixes are preserved.
+With `hub_url=https://hapi.kurox.cn/`, the default discovery worker uses
+`https://hapi-cf.kurox.cn/` while unbound to reduce polling traffic on the
+interactive endpoint. Attaching a session switches authentication, REST and SSE
+to `https://hapi.kurox.cn/` before preparing the binding and sending READY.
+Releasing the session switches back to CDN polling. Explicit session workers
+use the configured Hub directly; custom Hub URLs and path prefixes are preserved.
+Request failures do not automatically switch hosts.
 
 Review failures log a safe category (HTTP status, connection/read failure, or response validation stage) before direct fallback. No API response body or credentials are logged. A successful fallback does not establish that AI review succeeded.
 

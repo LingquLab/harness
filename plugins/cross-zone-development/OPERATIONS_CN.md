@@ -13,9 +13,11 @@ Bridge 的 HTTP 请求（HAPI REST/SSE 和 EXEC 审查 API）统一携带
 在 ESA 或访问日志中匹配 `CrossZoneBridge/` 前缀即可跨版本统计 Bridge 流量，
 版本号会随已安装插件自动更新。
 
-Bridge 的认证、REST 请求和 SSE 均直接使用配置的 `hub_url`。
-当 `hub_url=https://hapi.kurox.cn/` 时，所有 Hub 请求均访问该地址。
-自定义 Hub 地址及路径前缀会保留。
+当 `hub_url=https://hapi.kurox.cn/` 时，默认 discovery worker 未绑定会话期间
+使用 `https://hapi-cf.kurox.cn/`，降低交互端点的轮询流量。绑定会话时，
+在准备绑定和发送 READY 前切换到 `https://hapi.kurox.cn/`，认证、REST 和 SSE
+均使用该地址；释放会话后切回 CDN 轮询。显式指定会话的 worker 直接使用配置的
+Hub 地址。自定义 Hub 地址和路径前缀会保留，请求失败不会自动切换域名。
 
 审核失败时，会在 direct fallback 前记录安全的错误分类（HTTP 状态、连接或读取失败、响应校验阶段），不记录 API 响应正文或凭据。回退成功不代表 AI 审核成功。
 

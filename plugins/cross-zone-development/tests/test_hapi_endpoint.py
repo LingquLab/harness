@@ -51,9 +51,27 @@ class HubEndpointTests(unittest.TestCase):
                 self.assertEqual(raised.exception.status, status)
                 self.assertEqual(self.urls(), ["https://hapi.kurox.cn/api/auth"])
 
+    def test_idle_polling_and_interaction_switch_hosts(self):
+        self.client.opener.open.side_effect = [response({"token": "jwt"}),
+                                               response({"sessions": []}),
+                                               response({"ok": True}),
+                                               response({"sessions": []})]
+        self.client.set_interactive(False)
+        self.client.sessions()
+        self.client.set_interactive(True)
+        self.client.send("blue", "ready", "ready-id")
+        self.client.set_interactive(False)
+        self.client.sessions()
+        self.assertEqual(self.urls(), ["https://hapi-cf.kurox.cn/api/auth",
+                                       "https://hapi-cf.kurox.cn/api/sessions",
+                                       "https://hapi.kurox.cn/api/sessions/blue/messages",
+                                       "https://hapi-cf.kurox.cn/api/sessions"])
+
     def test_custom_hubs_and_path_prefixes_are_preserved(self):
         for base in ("https://example.test/prefix/", "https://hapi.kurox.cn/prefix/",
                      "http://hapi.kurox.cn/", "https://hapi-cf.kurox.cn/"):
             with self.subTest(base=base):
                 client = HapiClient(base, "test-key")
-                self.assertEqual(client.base, base + "api/")
+                for active in (False, True):
+                    client.set_interactive(active)
+                    self.assertEqual(client.base, base + "api/")

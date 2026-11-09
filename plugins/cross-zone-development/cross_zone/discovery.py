@@ -57,6 +57,7 @@ class Discovery:
         self.stop = threading.Event()
         self.wake = threading.Event()
         self.sync = SessionSync(config["poll_seconds"], self.wake)
+        self.client.set_interactive(False)
 
     def get(self, key):
         row = self.db.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
@@ -104,6 +105,7 @@ class Discovery:
             stack.enter_context(self.lock_factory(cfg["state_dir"]))
             bridge = self.bridge_factory(cfg, self.client)
             try:
+                self.client.set_interactive(True)
                 if not binding["prepared"]:
                     bridge.prepare_open()
                     binding["prepared"] = True
@@ -115,6 +117,7 @@ class Discovery:
                 bridge.close()
                 raise
         except BaseException:
+            self.client.set_interactive(False)
             stack.close()
             raise
         self.session_lock = stack
@@ -138,6 +141,7 @@ class Discovery:
             self.bridge.close()
             self.bridge = None
         self.session_lock.close()
+        self.client.set_interactive(False)
 
     def respond(self, session, event, kind):
         response = {"protocol": PROTOCOL, "type": kind, "event_id": "green-connection-" + uuid.uuid4().hex,
