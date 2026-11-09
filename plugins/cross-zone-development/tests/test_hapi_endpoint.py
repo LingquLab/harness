@@ -68,6 +68,22 @@ class HubEndpointTests(unittest.TestCase):
                                        "https://hapi.kurox.cn/api/sessions/blue/messages",
                                        "https://hapi-cf.kurox.cn/api/sessions"])
 
+    def test_existing_cf_config_uses_same_idle_interactive_routing(self):
+        client = HapiClient("https://hapi-cf.kurox.cn/", "test-key")
+        client.opener = Mock()
+        client.opener.open.side_effect = [response({"token": "jwt"}), response({"sessions": []}),
+                                          response({"ok": True})]
+        self.assertEqual(client.base, "https://hapi.kurox.cn/api/")
+        client.set_interactive(False)
+        client.sessions()
+        client.set_interactive(True)
+        client.send("blue", "ready", "ready-id")
+        self.assertEqual([call.args[0].full_url for call in client.opener.open.call_args_list],
+                         ["https://hapi-cf.kurox.cn/api/auth", "https://hapi-cf.kurox.cn/api/sessions",
+                          "https://hapi.kurox.cn/api/sessions/blue/messages"])
+        client.set_interactive(False)
+        self.assertEqual(client.base, "https://hapi-cf.kurox.cn/api/")
+
     def test_debug_timings_do_not_log_credentials_or_bodies(self):
         self.client.opener.open.side_effect = [response({"token": "private-response-token"}),
                                                response({"ok": "private-response-body"})]
@@ -84,7 +100,7 @@ class HubEndpointTests(unittest.TestCase):
 
     def test_custom_hubs_and_path_prefixes_are_preserved(self):
         for base in ("https://example.test/prefix/", "https://hapi.kurox.cn/prefix/",
-                     "http://hapi.kurox.cn/", "https://hapi-cf.kurox.cn/"):
+                     "http://hapi.kurox.cn/", "https://hapi-cf.kurox.cn/prefix/"):
             with self.subTest(base=base):
                 client = HapiClient(base, "test-key")
                 for active in (False, True):

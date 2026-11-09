@@ -27,6 +27,8 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 class HapiClient:
     def __init__(self, base_url, access_key, timeout=20):
         self.interactive_base = base_url.rstrip("/") + "/api/"
+        if self.interactive_base == "https://hapi-cf.kurox.cn/api/":
+            self.interactive_base = "https://hapi.kurox.cn/api/"
         self.base = self.interactive_base
         self.access_key = access_key
         self.timeout = timeout

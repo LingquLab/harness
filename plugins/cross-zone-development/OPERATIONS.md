@@ -19,12 +19,16 @@ With `hub_url=https://hapi.kurox.cn/`, the default discovery worker uses
 interactive endpoint. Attaching a session switches authentication, REST and SSE
 to `https://hapi.kurox.cn/` before preparing the binding and sending READY.
 Releasing the session switches back to CDN polling. Explicit session workers
-use the configured Hub directly; custom Hub URLs and path prefixes are preserved.
+use the interactive endpoint directly; other custom Hub URLs and path prefixes are preserved.
 Request failures do not automatically switch hosts.
 
 Review failures log a safe category (HTTP status, connection/read failure, or response validation stage) before direct fallback. No API response body or credentials are logged. A successful fallback does not establish that AI review succeeded.
 
 Completed task results are collected and sent between discovery page reads, including history bootstrap pages, so a full discovery scan does not delay their delivery. A single in-flight HTTP request can still delay collection.
+
+The same routing applies to existing `hub_url=https://hapi-cf.kurox.cn/`
+configurations. This normalizes only the runtime endpoint; the configured Hub URL
+and persisted binding identity remain unchanged, so no state reset is needed.
 
 Discovery skips message reads for sessions whose `metadata.lifecycleState` is
 `archived`. Offline unarchived sessions and older Hubs without the field remain

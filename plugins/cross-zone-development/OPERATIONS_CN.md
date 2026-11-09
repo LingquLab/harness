@@ -16,12 +16,15 @@ Bridge 的 HTTP 请求（HAPI REST/SSE 和 EXEC 审查 API）统一携带
 当 `hub_url=https://hapi.kurox.cn/` 时，默认 discovery worker 未绑定会话期间
 使用 `https://hapi-cf.kurox.cn/`，降低交互端点的轮询流量。绑定会话时，
 在准备绑定和发送 READY 前切换到 `https://hapi.kurox.cn/`，认证、REST 和 SSE
-均使用该地址；释放会话后切回 CDN 轮询。显式指定会话的 worker 直接使用配置的
-Hub 地址。自定义 Hub 地址和路径前缀会保留，请求失败不会自动切换域名。
+均使用该地址；释放会话后切回 CDN 轮询。显式指定会话的 worker 直接使用交互端点。
+其他自定义 Hub 地址和路径前缀会保留，请求失败不会自动切换域名。
 
 审核失败时，会在 direct fallback 前记录安全的错误分类（HTTP 状态、连接或读取失败、响应校验阶段），不记录 API 响应正文或凭据。回退成功不代表 AI 审核成功。
 
 发现扫描（包括历史消息初始化）在每页读取后优先收集并发送已完成任务的结果，避免等待整轮扫描结束。正在进行的单次 HTTP 请求仍可能延迟收集。
+
+已有 `hub_url=https://hapi-cf.kurox.cn/` 配置也使用相同的空闲/交互路由。
+只调整运行时端点，不修改配置 URL 或持久化绑定身份，因此无需清理状态目录。
 
 Discovery 跳过 `metadata.lifecycleState=archived` 会话的消息读取。
 未归档的离线会话和未返回该字段的旧版 Hub 仍可参与发现。当前绑定会话即使归档，
