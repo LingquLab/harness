@@ -107,7 +107,9 @@ def main():
     parser.add_argument("command", nargs="?", default="discover",
                         choices=["discover", "sessions", "doctor", "bind", "run", "open", "status", "acknowledge-recovery"])
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    debug = os.environ.get("BRIDGE_DEBUG", "").lower() in {"1", "true", "yes"}
+    logging.basicConfig(level=logging.DEBUG if debug else logging.INFO,
+                        format="%(asctime)s %(levelname)s %(message)s")
     bridge = None
     client = None
     config = None

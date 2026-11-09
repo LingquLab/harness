@@ -259,6 +259,7 @@ class Bridge:
             if task["state"] == "CANCELLING":
                 cancel.set()
             if future.done():
+                LOG.debug("Worker collect: %s / %s", task_id, iteration)
                 try:
                     result = future.result()
                 except Exception as exc:
@@ -291,11 +292,18 @@ class Bridge:
             runner = self.direct_executor if request["type"] == "EXEC" else self.agent
             future = self.executor.submit(runner.run, request, task["session_id"], task["answer"], deadline, cancel, recovery)
             self.active[(task["task_id"], task["iteration"])] = (future, cancel, recovery)
-            future.add_done_callback(lambda completed: self.wake.set())
+            def completed_callback(completed, task_id=task["task_id"], iteration=task["iteration"]):
+                LOG.debug("Worker finished: %s / %s; waking main loop", task_id, iteration)
+                self.wake.set()
+            future.add_done_callback(completed_callback)
 
     def flush(self):
         for row in self.store.db.execute("SELECT * FROM outbox WHERE sent=0 ORDER BY rowid LIMIT 20").fetchall():
+            started = time.monotonic()
+            LOG.debug("Outbox send begin event=%s", row["id"])
             self.client.send(self.config["session_id"], row["text"], row["id"])
+            LOG.debug("Outbox send end event=%s elapsed_ms=%.1f", row["id"],
+                      (time.monotonic() - started) * 1000)
             with self.store.db:
                 self.store.db.execute("UPDATE outbox SET sent=1 WHERE id=?", (row["id"],))
 

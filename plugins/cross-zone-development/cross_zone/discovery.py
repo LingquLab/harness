@@ -365,10 +365,14 @@ class Discovery:
                     # Advance before I/O so failed requests also respect cadence.
                     next_discovery = now + self.config.get("discovery_poll_seconds", 30)
                 sync = self.sync.due(now)
+                started = time.monotonic()
+                LOG.debug("Discovery tick begin discover=%s sync=%s bound=%s", discover, sync, self.bridge is not None)
                 try:
                     self.tick(discover=discover, sync=sync)
                 except HapiError as exc:
                     LOG.warning("Discovery Hub unavailable; retrying (%s)", exc)
+                finally:
+                    LOG.debug("Discovery tick end elapsed_ms=%.1f", (time.monotonic() - started) * 1000)
                 now = time.monotonic()
                 self.wake.wait(min(self.sync.wait_seconds(now), max(0, next_discovery - now)))
         finally:
