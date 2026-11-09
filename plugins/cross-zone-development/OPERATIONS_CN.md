@@ -17,6 +17,8 @@ Bridge 的认证、REST 请求和 SSE 均直接使用配置的 `hub_url`。
 当 `hub_url=https://hapi.kurox.cn/` 时，所有 Hub 请求均访问该地址。
 自定义 Hub 地址及路径前缀会保留。
 
+审核失败时，会在 direct fallback 前记录安全的错误分类（HTTP 状态、连接或读取失败、响应校验阶段），不记录 API 响应正文或凭据。回退成功不代表 AI 审核成功。
+
 ## 绿区运行时安装
 
 插件已经包含 Python Bridge [`cross_zone`](cross_zone)、Git Bash 启动脚本

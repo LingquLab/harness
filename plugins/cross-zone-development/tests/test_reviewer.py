@@ -180,6 +180,25 @@ class ReviewAPITests(unittest.TestCase):
                 self.assertFalse((Path(self.cfg["state_dir"]) / f"runs/invalid-{index}/1/execution/review.json").exists())
         self.assertEqual(len(self.calls), len(variants))
 
+    def test_review_failure_logs_identify_stage_without_response_content(self):
+        cases = [
+            (401, self.key.encode(), "HTTP 401"),
+            (200, self.key.encode(), "response_json"),
+            (200, self.response(fixtures.output(summary=self.key), finish_reason="length"),
+             "incomplete_response"),
+            (200, self.response(fixtures.output(summary=self.key)), "result_validation"),
+        ]
+        for index, (status, body, expected) in enumerate(cases):
+            with self.subTest(expected=expected):
+                self.status, self.body = status, body
+                with self.assertLogs("cross_zone.reviewer", level="WARNING") as captured:
+                    result = self.run_exec(exec_task(task_id=f"diagnostic-{index}"))
+                logs = "\n".join(captured.output)
+                self.assertIn(expected, logs)
+                self.assertNotIn(self.key, logs)
+                self.assertEqual(result["output"]["error_code"], "AI_REVIEW_FALLBACK")
+        self.assertEqual(len(self.calls), len(cases))
+
     def test_http_errors_and_redirect_fall_back_without_retrying_api(self):
         for index, status in enumerate((401, 500, 302)):
             self.status = status

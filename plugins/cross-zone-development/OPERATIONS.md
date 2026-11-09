@@ -18,6 +18,8 @@ Bridge uses the configured `hub_url` directly for authentication, REST requests
 and SSE. With `hub_url=https://hapi.kurox.cn/`, all Hub traffic goes to
 `https://hapi.kurox.cn/`. Custom Hub URLs and path prefixes are preserved.
 
+Review failures log a safe category (HTTP status, connection/read failure, or response validation stage) before direct fallback. No API response body or credentials are logged. A successful fallback does not establish that AI review succeeded.
+
 ## Green runtime setup
 
 The plugin ships the Python Bridge in [`cross_zone`](cross_zone), its Git Bash
