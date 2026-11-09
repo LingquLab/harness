@@ -24,6 +24,19 @@ Request failures do not automatically switch hosts.
 
 Review failures log a safe category (HTTP status, connection/read failure, or response validation stage) before direct fallback. No API response body or credentials are logged. A successful fallback does not establish that AI review succeeded.
 
+### Timing diagnostics
+
+Run `BRIDGE_DEBUG=1 ./start-bridge.sh` in Git Bash to enable local timing logs.
+Endpoint startup/switch logs and request failures include the actual Hub hostname
+even without debug mode. The version remains 0.7.4. Compare `Worker finished` with `Worker collect` to
+measure main-loop collection delay. `HTTP begin` / `HTTP headers` and
+`HTTP body begin` / `HTTP body end` isolate header wait and response-body reads;
+`Discovery tick` and `Outbox send` identify scanning and delivery delays.
+Requests are correlated by numeric trace/response IDs. Diagnostic entries include
+only the Hub hostname, route category, method, timeout and elapsed time, never
+query strings, headers or bodies. Existing EXEC live-output logs are unchanged;
+share only the timing entries needed for diagnosis.
+
 ## Green runtime setup
 
 The plugin ships the Python Bridge in [`cross_zone`](cross_zone), its Git Bash
