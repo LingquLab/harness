@@ -113,7 +113,7 @@ READY 不代表未知远端影响已消除，冲突操作前仍须检查恢复�
 绝不透露已绑定会话。连接本身不增加工作授权。详见[协议](skills/cross-zone-development/references/protocol.md)。
 
 首次启动以现有消息末尾建立基线，忽略旧消息。全会话发现使用独立的
-`discovery_poll_seconds`（默认 30 秒）；已绑定会话以 `poll_seconds`（默认 5 秒）
+`discovery_poll_seconds`（默认 60 秒）；已绑定会话以 `poll_seconds`（默认 5 秒）
 轮询兜底，SSE 通知合并处理，默认最多每秒同步一次，不触发全会话扫描。
 任务完成只唤醒结果收集。短连接按 1–30 秒指数退避，
 只有连接持续至少 30 秒后才重置退避。绑定、游标、回复去重持久化，

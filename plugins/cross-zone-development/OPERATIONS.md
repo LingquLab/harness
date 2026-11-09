@@ -135,7 +135,7 @@ session only. BUSY never discloses the bound session. Connection grants no new
 work authority. See the [exact protocol](skills/cross-zone-development/references/protocol.md).
 
 First startup baselines existing heads and ignores old messages. REST scans run
-every `discovery_poll_seconds` (default 30), independently of bound-session events.
+every `discovery_poll_seconds` (default 60), independently of bound-session events.
 Bound-session REST fallback uses `poll_seconds` (default 5); SSE hints are
 coalesced to at most one sync per second with default settings and never trigger
 a global scan. Worker completion collects results without forcing a message fetch.

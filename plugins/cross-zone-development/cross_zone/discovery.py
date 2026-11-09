@@ -380,7 +380,7 @@ class Discovery:
                 discover = now >= next_discovery
                 if discover:
                     # Advance before I/O so failed requests also respect cadence.
-                    next_discovery = now + self.config.get("discovery_poll_seconds", 30)
+                    next_discovery = now + self.config.get("discovery_poll_seconds", 60)
                 sync = self.sync.due(now)
                 started = time.monotonic()
                 LOG.debug("Discovery tick begin discover=%s sync=%s bound=%s", discover, sync, self.bridge is not None)

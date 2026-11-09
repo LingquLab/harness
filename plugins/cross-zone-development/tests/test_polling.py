@@ -97,22 +97,22 @@ class DiscoveryTrafficTests(DiscoveryFixture):
     def test_event_storm_does_not_amplify_global_discovery(self):
         self.start()
         self.send()
-        lists, reads = self.run_for(60, notify=True)
-        self.assertEqual(lists, 2)  # t=0,30, not 6000 notification-driven scans.
+        lists, reads = self.run_for(120, notify=True)
+        self.assertEqual(lists, 2)  # t=0,60, not 12000 notification-driven scans.
         self.assertEqual(sum(call.args[0] == OTHER for call in reads), 2)
-        self.assertLessEqual(sum(call.args[0] == OWNER for call in reads), 120)
+        self.assertLessEqual(sum(call.args[0] == OWNER for call in reads), 240)
 
     def test_idle_discovery_and_bound_rest_fallback_keep_separate_cadences(self):
         self.start()
         self.send()
-        lists, reads = self.run_for(60)
+        lists, reads = self.run_for(120)
         self.assertEqual(lists, 2)
         self.assertEqual(sum(call.args[0] == OTHER for call in reads), 2)
-        self.assertEqual(sum(call.args[0] == OWNER for call in reads), 24)
+        self.assertEqual(sum(call.args[0] == OWNER for call in reads), 48)
 
     def test_failed_initialization_also_respects_discovery_cadence(self):
         with patch.object(self.client, 'sessions', side_effect=HapiError(503)) as sessions:
-            self.run_for(60)
+            self.run_for(120)
         self.assertEqual(sessions.call_count, 2)
 
 
@@ -204,14 +204,14 @@ class PollConfigTests(unittest.TestCase):
     def test_discovery_interval_default_and_validation(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'config.json'
-            for value in (None, 60, 0, True, '30', float('inf'), float('nan')):
+            for value in (None, 30, 60, 0, True, '30', float('inf'), float('nan')):
                 settings = {'hub_url': 'https://hub.example/'}
                 if value is not None:
                     settings['discovery_poll_seconds'] = value
                 path.write_text(json.dumps(settings))
                 with self.subTest(value=value):
-                    if value in (None, 60):
-                        self.assertEqual(load_config(path)['discovery_poll_seconds'], value or 30)
+                    if value in (None, 30, 60):
+                        self.assertEqual(load_config(path)['discovery_poll_seconds'], value or 60)
                     else:
                         with self.assertRaises(ValueError):
                             load_config(path)
