@@ -611,7 +611,7 @@ class DiscoveryTests(DiscoveryFixture):
         self.assert_reply("BUSY", "close-after-restart")
         self.assertEqual(len(self.agent.calls), 1)
 
-    def test_malformed_user_tool_and_sidechain_envelopes_are_ignored(self):
+    def test_malformed_controls_reject_but_user_tool_and_sidechain_are_ignored(self):
         self.start()
         mutations = [
             lambda row: row["content"].update(role="user"),
@@ -626,7 +626,10 @@ class DiscoveryTests(DiscoveryFixture):
             self.client.append(event)
         self.discovery.tick()
         self.assertIsNone(self.discovery.bridge)
-        self.assertEqual(self.client.replies(), [])
+        replies = self.client.replies()
+        self.assertEqual(len(replies), 4)
+        self.assertTrue(all(reply["type"] == "REJECTED" and reply["reason"] == "invalid_connection"
+                            for reply in replies))
         self.send(event_id="valid-after-invalid")
         self.assert_reply("READY", "valid-after-invalid")
 

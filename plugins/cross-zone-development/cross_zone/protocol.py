@@ -81,6 +81,36 @@ def read_wire(text):
         raise ProtocolError("invalid_json") from exc
 
 
+def format_rejection(text, error, session=""):
+    """Return a stable, sanitized rejection even when request IDs cannot be read."""
+    reason = str(error)
+    details = {
+        "invalid_json": "Envelope body must be valid JSON with unique object keys.",
+        "invalid_fields": "Required fields are missing or unsupported fields are present for this message type.",
+        "invalid_timeout": "timeout_seconds must be a positive integer.",
+        "invalid_execution_timeout": "execution_timeout_seconds must be a positive integer.",
+        "invalid_connection": "Connection controls require only protocol, type and a valid event_id.",
+        "invalid_protocol": "protocol must be cross-zone/v3 in a JSON object.",
+        "invalid_direction": "This message type is not accepted in this direction.",
+    }
+    response = {"protocol": PROTOCOL, "type": "REJECTED",
+                "event_id": "green-format-" + hashlib.sha256((session + "\0" + text).encode()).hexdigest()[:40],
+                "error_code": "FORMAT_ERROR", "reason": reason,
+                "detail": details.get(reason, "Invalid envelope: " + reason.replace("_", " ") + ".")}
+    try:
+        request = read_wire(text)
+    except ProtocolError:
+        request = None
+    if isinstance(request, dict):
+        for field, target in (("event_id", "request_event_id"), ("task_id", "task_id")):
+            value = request.get(field)
+            if isinstance(value, str) and ID.fullmatch(value):
+                response[target] = value
+        if type(request.get("iteration")) is int and request["iteration"] > 0:
+            response["iteration"] = request["iteration"]
+    return response
+
+
 def parse(text):
     if not text or not text.startswith(MARKER):
         return None

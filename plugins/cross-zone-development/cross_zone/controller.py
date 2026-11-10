@@ -12,7 +12,7 @@ from .egress import failure_detail, review
 from .execution import DirectExecutor
 from .reviewer import OpenAIReviewer
 from .hapi import HapiError
-from .protocol import ProtocolError, assistant_text, canonical, fingerprint, parse, parse_connection
+from .protocol import ProtocolError, assistant_text, canonical, fingerprint, format_rejection, parse, parse_connection, wire
 from .scheduling import SessionSync
 from .store import Store
 
@@ -172,8 +172,11 @@ class Bridge:
                         event = parse(text)
                         if event:
                             self._accept(event)
-                    except ProtocolError:
-                        LOG.warning("Malformed cross-zone envelope ignored")
+                    except ProtocolError as exc:
+                        rejection = format_rejection(text, exc, self.config["session_id"])
+                        self.store.db.execute("INSERT OR IGNORE INTO outbox(id,text,created) VALUES (?,?,?)",
+                                              (rejection["event_id"], wire(rejection, readable=True), time.time()))
+                        LOG.warning("Malformed cross-zone envelope rejected: %s", exc)
                 self.store.set_meta("cursor", next_cursor)
             if not page["hasMore"] or cursor["seq"] is None:
                 return

@@ -12,7 +12,7 @@ import uuid
 from . import __version__
 from .controller import Bridge
 from .hapi import HapiError
-from .protocol import PROTOCOL, ProtocolError, assistant_text, parse_connection, wire
+from .protocol import PROTOCOL, ProtocolError, assistant_text, format_rejection, parse_connection, wire
 
 from .scheduling import SessionSync
 
@@ -304,7 +304,12 @@ class Discovery:
                     continue
                 try:
                     event = parse_connection(assistant_text(message))
-                except ProtocolError:
+                except ProtocolError as exc:
+                    rejection = format_rejection(assistant_text(message), exc, session)
+                    with self.db:
+                        self.db.execute("INSERT OR IGNORE INTO outbox(id,session,text) VALUES (?,?,?)",
+                                        (rejection["event_id"], session, wire(rejection, readable=True)))
+                    LOG.warning("Malformed discovery envelope rejected: %s", exc)
                     continue
                 if event:
                     position = {"seq": message["seq"], "epoch": page["epoch"]}

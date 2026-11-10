@@ -568,3 +568,5 @@ as v3 tasks. Use a new v3 instruction/iteration after establishing earlier effec
 A database whose old binding cannot be verified is left intact and rejected;
 do not erase it to bypass recovery. Retain the original config identity or use a
 separate state directory only after assessing prior effects.
+
+Malformed marked envelopes receive `REJECTED` with `error_code=FORMAT_ERROR`, a stable `reason` code and a readable `detail`. Valid request/task IDs are included when recoverable; broken JSON can be rejected without these IDs. Ordinary prose is ignored. Rejections use the durable outbox and do not execute the invalid request.
