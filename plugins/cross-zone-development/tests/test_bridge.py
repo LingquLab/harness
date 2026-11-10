@@ -115,7 +115,7 @@ class OpenTests(unittest.TestCase):
         event = open_event("sessions/19146292-52a4-4094-9cd5-6086b0c3ec05")
         self.assertEqual(event["protocol"], "cross-zone/v3")
         self.assertEqual(event["type"], "OPEN")
-        self.assertEqual(event["version"], "0.7.5")
+        self.assertEqual(event["version"], "0.7.6")
         self.assertNotIn("target", event)
         self.assertIn(event["session_url"], event["session_url"])
         self.assertIn("green-open-", event["event_id"])
@@ -384,8 +384,17 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaisesRegex(ProtocolError, "invalid_protocol"):
             parse(wire(task(protocol="cross-zone/v2")))
 
+    def test_broken_json_rejection_does_not_echo_input(self):
+        from cross_zone.protocol import format_rejection
+        text = MARKER + '{"secret":"private-value",'
+        rejection = format_rejection(text, ProtocolError("invalid_json"))
+        self.assertEqual(rejection["reason"], "invalid_json")
+        self.assertEqual(rejection["type"], "REJECTED")
+        self.assertNotIn("private-value", json.dumps(rejection))
+        self.assertEqual(rejection, format_rejection(text, ProtocolError("invalid_json")))
+
     def test_malformed_envelopes_reject(self):
-        variants = [task(iteration=True), task(revision="main"), task(timeout_seconds=599),
+        variants = [task(iteration=True), task(revision="main"), task(timeout_seconds=0),
                     task(checks=[]), task(task_id="../../escape"), task(extra="field"), task(type=[]), task(type="UNKNOWN")]
         for event in variants:
             with self.subTest(event=event), self.assertRaises(ProtocolError):
@@ -536,6 +545,22 @@ class BridgeTests(unittest.TestCase):
     def ingest(self, event):
         self.client.rows.append(message(event, len(self.client.rows) + 1))
         self.bridge.catch_up()
+
+    def test_malformed_request_is_rejected_once_without_execution(self):
+        self.bridge.bind()
+        self.ingest(task(timeout_seconds="short"))
+        self.bridge.flush()
+        replies = [event for _, event in self.client.sent]
+        self.assertEqual(len(replies), 1)
+        self.assertEqual(replies[0]["type"], "REJECTED")
+        self.assertEqual(replies[0]["error_code"], "FORMAT_ERROR")
+        self.assertEqual(replies[0]["reason"], "invalid_timeout")
+        self.assertIn("positive integer", replies[0]["detail"])
+        self.assertEqual(replies[0]["request_event_id"], task()["event_id"])
+        self.assertIsNone(self.row())
+        self.bridge.catch_up()
+        self.bridge.flush()
+        self.assertEqual(len(self.client.sent), 1)
 
     def settle(self):
         for _ in range(100):

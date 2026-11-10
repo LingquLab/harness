@@ -29,7 +29,7 @@ Codex（`metadata.flavor=codex`）且未归档的会话，避免 Hub 忽略查�
 
 在 Git Bash 运行 `BRIDGE_DEBUG=1 ./start-bridge.sh` 可开启本地耗时日志，
 启动、切换端点和请求失败时，即使未开启 debug，也会打印实际访问的 Hub 域名。
-当前 debug 分支版本号为 0.7.5。对比 `Worker finished` 与 `Worker collect` 的时间，
+当前 debug 分支版本号为 0.7.6。对比 `Worker finished` 与 `Worker collect` 的时间，
 可以判断主循环收集结果的延迟。`HTTP begin` / `HTTP headers` 和
 `HTTP body begin` / `HTTP body end` 分别定位等待响应头和读取正文的耗时；
 `Discovery tick` 与 `Outbox send` 用于定位扫描及结果发送延迟。
@@ -175,7 +175,7 @@ Agent 故障会返回明确且安全的原因：`agent_executable_not_found` 表
 没有返回要求的 stream-json 结构化结果。绿区本地 Bridge 日志会记录异常类型、有长度
 限制的详情、退出码和对应修复建议。
 
-TASK 超时不得低于 600 秒。普通代码验证建议使用 900 秒；即使是较小的环境检查也应
+TASK/EXEC 超时只要求正整数，不再校验协议数值范围。普通代码验证建议使用 900 秒；即使是较小的环境检查也应
 使用 600 秒，因为绿区 CLI 初始化和执行可能超过 5 分钟。
 
 ## 协议边界

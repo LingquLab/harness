@@ -33,7 +33,7 @@ bound-session synchronization are separate reads.
 
 Run `BRIDGE_DEBUG=1 ./start-bridge.sh` in Git Bash to enable local timing logs.
 Endpoint startup/switch logs and request failures include the actual Hub hostname
-even without debug mode. The debug branch version is 0.7.5. Compare `Worker finished` with `Worker collect` to
+even without debug mode. The debug branch version is 0.7.6. Compare `Worker finished` with `Worker collect` to
 measure main-loop collection delay. `HTTP begin` / `HTTP headers` and
 `HTTP body begin` / `HTTP body end` isolate header wait and response-body reads;
 `Discovery tick` and `Outbox send` identify scanning and delivery delays.
@@ -211,8 +211,8 @@ means `agent_command[0]` is missing or not on PATH;
 stream-json structured result. The green-local bridge log includes the exception
 type, bounded detail, exit code, and corrective action where applicable.
 
-TASK timeouts must be at least 600 seconds. Use 900 seconds for ordinary code
-validation; even small environment checks should receive 600 seconds because the
+TASK/EXEC timeouts accept positive integers without protocol range limits. Use 900 seconds for ordinary code
+validation; agent-based environment checks should generally receive 600 seconds because the
 green CLI may take more than five minutes to initialize and complete.
 
 ## Protocol boundaries

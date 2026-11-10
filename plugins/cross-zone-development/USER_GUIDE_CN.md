@@ -304,8 +304,8 @@ EXEC 不支持 QUESTION/ANSWER。等待回答期间 TASK 会释放并发槽位�
 
 | 参数 | 作用与范围 |
 | --- | --- |
-| `timeout_seconds` | 总任务时限，600–86400 秒，同时受本地 `max_task_seconds` 限制 |
-| `execution_timeout_seconds` | 仅 EXEC 的命令时限，1 秒起，最多为总任务时限减 60 秒 |
+| `timeout_seconds` | 总任务时限，正整数秒，同时受本地 `max_task_seconds` 限制 |
+| `execution_timeout_seconds` | 仅 EXEC 的命令时限，正整数秒；执行仍受总任务截止时间限制 |
 | `exec_review.timeout_seconds` | AI 审查上限，默认 300 秒，还受任务剩余时间限制 |
 
 普通 TASK 环境检查建议至少 600 秒，候选代码验证通常从 900 秒起。
