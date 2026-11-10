@@ -143,11 +143,11 @@ def parse(text):
             names.add(check["id"])
             if any(not isinstance(check[k], str) or not 1 <= len(check[k]) <= 2000 for k in ("action", "expected")):
                 raise ProtocolError("invalid_check_text")
-        if type(event["timeout_seconds"]) is not int or not 600 <= event["timeout_seconds"] <= 86400:
+        if type(event["timeout_seconds"]) is not int or event["timeout_seconds"] <= 0:
             raise ProtocolError("invalid_timeout")
         if kind == "EXEC":
             duration = event["execution_timeout_seconds"]
-            if type(duration) is not int or not 1 <= duration <= event["timeout_seconds"] - 60:
+            if type(duration) is not int or duration <= 0:
                 raise ProtocolError("invalid_execution_timeout")
             execution = event["execution"]
             if not isinstance(execution, dict):

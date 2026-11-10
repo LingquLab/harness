@@ -385,7 +385,7 @@ class ProtocolTests(unittest.TestCase):
             parse(wire(task(protocol="cross-zone/v2")))
 
     def test_malformed_envelopes_reject(self):
-        variants = [task(iteration=True), task(revision="main"), task(timeout_seconds=599),
+        variants = [task(iteration=True), task(revision="main"), task(timeout_seconds=0),
                     task(checks=[]), task(task_id="../../escape"), task(extra="field"), task(type=[]), task(type="UNKNOWN")]
         for event in variants:
             with self.subTest(event=event), self.assertRaises(ProtocolError):

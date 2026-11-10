@@ -244,7 +244,7 @@ or access profile; green selects task directories locally.
 Include reproducible prerequisites, actions, expected outcomes, cleanup, and stop
 conditions in goal/checks. Exact duplicates are ignored; reusing a task/iteration
 with different content rejects. A later iteration requires the previous one to
-be terminal. `timeout_seconds` is between 600 and 86400; use at least 600 because
+be terminal. `timeout_seconds` is a positive integer with no protocol range limit. For agent tasks, consider at least 600 seconds because
 green Agent startup and protected-environment checks commonly exceed five minutes.
 
 TASK rejects `repository` and `scope_profile`. Neither side can select a green
@@ -281,8 +281,7 @@ Bridge imposes no size limit on incoming protocol messages or EXEC scripts.
 EXEC shares TASK's binding and total `timeout_seconds`, but forbids `revision`.
 EXEC never carries `goal`; that field belongs only to TASK. `checks` is required
 with `ai_review=true` and may be omitted for direct EXEC.
-It adds `execution_timeout_seconds` (integer, 1 through total timeout
-minus 60) and exactly one execution form:
+It adds `execution_timeout_seconds` (positive integer; execution also respects the total task deadline) and exactly one execution form:
 
 - `"execution": {"argv": ["executable", "argument", "..."]}`: 1–128 strings,
   each at most 4000 characters; no shell expansion or implicit shell. Empty
@@ -328,7 +327,8 @@ Use foreground commands; do not detach children or treat a successful SSH exit a
 proof that remote background work completed. Original stdout/stderr, script and
 execution receipt stay under the green-local run directory. Combined output above
 32 MiB terminates execution. The effective command deadline also respects the
-configured total-task cap and retains a minimum 60-second margin. For reviewed
+configured total-task cap. Direct EXEC reserves no review margin; reviewed EXEC
+reserves up to 60 seconds, capped at half the remaining task time. For reviewed
 EXEC, blue should budget the command timeout plus the configured review timeout
 (300 seconds by default) within the total task timeout.
 

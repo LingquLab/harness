@@ -109,7 +109,9 @@ class DirectExecutor:
                               "and completed effects. A read-only TASK requires an explicit user request; "
                               "do not switch modes automatically.",
                     "execution": facts("NOT_STARTED")}
-        if cancel.is_set() or time.time() >= deadline - REVIEW_SECONDS:
+        remaining = max(0, deadline - time.time())
+        review_seconds = min(REVIEW_SECONDS, remaining / 2) if request.get("ai_review", False) else 0
+        if cancel.is_set() or time.time() >= deadline - review_seconds:
             return {"failure": "execution_not_started", "status": "CANCELLED" if cancel.is_set() else "TIMED_OUT",
                     "detail": "Command was not started; cancelled or insufficient time remains for execution and review.",
                     "execution": facts("NOT_STARTED")}
@@ -159,7 +161,7 @@ class DirectExecutor:
                    and (not review_key or v != review_key)}
             env.update(PYTHONUTF8="1", PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
             options = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
-            command_deadline = min(time.time() + request["execution_timeout_seconds"], deadline - REVIEW_SECONDS)
+            command_deadline = min(time.time() + request["execution_timeout_seconds"], deadline - review_seconds)
             with stdout.open("wb") as out, stderr.open("wb") as err:
                 if cancel.is_set() or time.time() >= command_deadline:
                     record.update(facts("NOT_STARTED"))

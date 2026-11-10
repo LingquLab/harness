@@ -37,6 +37,16 @@ class ExecutionProtocolTests(unittest.TestCase):
                       fixtures.task()):
             self.assertEqual(parse(wire(event, readable=True)), event)
 
+    def test_timeout_values_are_positive_integers_without_range_or_pair_limits(self):
+        for value in (1, 15, 599, 86401):
+            for event in (fixtures.general_task(timeout_seconds=value),
+                          exec_task(timeout_seconds=value, execution_timeout_seconds=86401)):
+                self.assertEqual(parse(wire(event)), event)
+        for value in (0, -1, True, 1.5, "15"):
+            for field in ("timeout_seconds", "execution_timeout_seconds"):
+                with self.subTest(field=field, value=value), self.assertRaises(ProtocolError):
+                    parse(wire(exec_task(**{field: value})))
+
     def test_long_scripts_survive_discovery_and_task_parsing(self):
         for factory in (compact_exec, exec_task):
             for script in ("x" * 13012, "# 中文\n" * 10000):
@@ -113,7 +123,7 @@ class ExecutionProtocolTests(unittest.TestCase):
             with self.subTest(execution=str(execution)[:60]), self.assertRaises(ProtocolError):
                 parse(wire(exec_task(execution=execution)))
         for changes in ({"revision": "a" * 40}, {"execution_timeout_seconds": 0},
-                        {"execution_timeout_seconds": True}, {"execution_timeout_seconds": 541}):
+                        {"execution_timeout_seconds": True}, {"execution_timeout_seconds": -1}):
             with self.subTest(changes=changes), self.assertRaises(ProtocolError):
                 parse(wire(exec_task(**changes)))
 
@@ -134,6 +144,12 @@ class DirectExecutionTests(unittest.TestCase):
 
     def receipt(self):
         return Path(self.cfg["state_dir"]) / "runs/task-1/1/execution/execution.json"
+
+    def test_short_direct_exec_starts_without_review_reservation(self):
+        event = exec_task(ai_review=False, timeout_seconds=5, execution_timeout_seconds=10)
+        result = self.runner.run(event, None, None, time.time() + 5, threading.Event(), [])
+        self.assertEqual(result["execution"]["status"], "EXITED")
+        self.assertEqual(result["output"]["status"], "PASS")
 
     def test_live_output_is_visible_before_exit_and_capture_is_unchanged(self):
         # The child cannot finish until the test observes both live streams.
