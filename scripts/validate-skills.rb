@@ -870,6 +870,19 @@ begin
   validate_marketplace
   validate_skill(File.join(PLUGINS_ROOT, "aikg-search", "skills"), "aikg-search")
   validate_skill(File.join(PLUGINS_ROOT, "wiki-search", "skills"), "wiki-search")
+  drawio_root = File.join(PLUGINS_ROOT, "drawio")
+  drawio_manifest, drawio_skills = validate_plugin_manifest(drawio_root, "drawio")
+  unless drawio_manifest["version"] == "1.2.6" && drawio_manifest["license"] == "Apache-2.0"
+    raise "drawio: unexpected version or license"
+  end
+  validate_standard_skill(drawio_skills, "drawio")
+  validate_relative_markdown_links(drawio_root)
+  unless File.file?(File.join(drawio_root, "LICENSE")) && File.file?(File.join(drawio_root, "VENDORED.md"))
+    raise "drawio: missing license or vendor record"
+  end
+  unless system("node", "--test", File.join(ROOT, "tests", "drawio", "test-find-shapes.cjs"))
+    raise "drawio: offline shape-search tests failed"
+  end
   zcode_validator = File.join(ROOT, "scripts", "validate-zcode.py")
   unless system(
     { "PYTHONDONTWRITEBYTECODE" => "1" },

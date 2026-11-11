@@ -114,3 +114,13 @@ Superpowers Neo independently restates selected software-design, debugging and t
 ## AI Knowledge Graph retrieval source
 
 The aikg-search plugin links to [AmourSec/aikg](https://github.com/AmourSec/aikg); it does not vendor its documents, code or skills. Integration was reviewed against commit `f4a42b37e4b9c13e829d9ac9800a26684db7de2d`. Its documentation is CC-BY-4.0 and its code/configuration is MIT; see the [upstream license](https://github.com/AmourSec/aikg/blob/master/LICENSE). Retrieval uses current sources or identifies the local snapshot.
+
+## draw.io
+
+The `drawio` plugin vendors the Codex assistant plugin from
+[jgraph/drawio-mcp](https://github.com/jgraph/drawio-mcp) at commit
+`fee698bdac5ef5b3adb5be3c99754a367370d2ff`, version `1.2.6`.
+Its code, skill and draw.io logo retain the upstream Apache-2.0 terms; see
+[the included license](plugins/drawio/LICENSE) and
+[vendor record](plugins/drawio/VENDORED.md). The root MIT license does not
+replace these terms.

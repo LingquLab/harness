@@ -26,6 +26,7 @@ Replace `superpowers-neo` with a plugin name below. Start a new Codex task after
 | [cross-zone-development](plugins/cross-zone-development/README.md) | Run protected-environment checks and receive bounded results through HAPI | `0.7.2` |
 | [persistent-shell](plugins/persistent-shell/README.md) | Reuse SSH sessions from Windows while keeping the remote directory and shell state | `0.1.1` |
 | [archify](plugins/archify/README.md) | Turn system descriptions or code into interactive diagrams with image and video export | `2.17.0-dev.1` |
+| [drawio](plugins/drawio/README.md) | Create editable draw.io files, browser links and PNG/SVG/PDF exports | `1.2.6` |
 | [aikg-search](plugins/aikg-search/README.md) | Find explanations and references for AI fundamentals, inference, training, GPU/NPU and performance analysis | `0.1.0` |
 | [wiki-search](plugins/wiki-search/README.md) | Find Huawei WIKI documents by keyword, knowledge base, category or document subtree | `0.1.2` |
 

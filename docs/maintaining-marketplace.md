@@ -2,7 +2,7 @@
 
 ## Validate
 
-The validator uses Ruby standard libraries. Its offline regression checks also run Python 3; persistent-shell tests require Paramiko in the active `python3` environment (`python3 -m pip install paramiko`, preferably in a virtual environment).
+The validator uses Ruby standard libraries and Node.js 18+ for draw.io shape-search regression tests. Its offline regression checks also run Python 3; persistent-shell tests require Paramiko in the active `python3` environment (`python3 -m pip install paramiko`, preferably in a virtual environment).
 
 ```bash
 ruby scripts/validate-skills.rb

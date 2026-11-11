@@ -26,6 +26,7 @@ codex plugin add superpowers-neo@lingqulab
 | [cross-zone-development](plugins/cross-zone-development/README_CN.md) | 在受保护环境执行检查，通过 HAPI 返回限定范围内的结果 | `0.7.0` |
 | [persistent-shell](plugins/persistent-shell/README_CN.md) | 从 Windows 复用 SSH session，保留远程工作目录和 shell 状态 | `0.1.1` |
 | [archify](plugins/archify/README_CN.md) | 将系统描述或代码转换为交互式图表，并导出图片和视频 | `2.17.0-dev.1` |
+| [drawio](plugins/drawio/README_CN.md) | 创建可编辑的 draw.io 文件、浏览器链接及 PNG/SVG/PDF 导出 | `1.2.6` |
 | [aikg-search](plugins/aikg-search/README_CN.md) | 查找 AI 基础、推理训练、GPU/NPU 和性能分析的知识解释与参考资料 | `0.1.0` |
 | [wiki-search](plugins/wiki-search/README_CN.md) | 按关键词、知识库、类目或文档子树查找华为 WIKI 文档 | `0.1.2` |
 

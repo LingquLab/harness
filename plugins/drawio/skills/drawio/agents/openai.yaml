@@ -1,0 +1,4 @@
+interface:
+  display_name: "draw.io"
+  short_description: "Create editable draw.io diagrams and exports"
+  default_prompt: "Use $drawio to create an editable diagram for this system."
