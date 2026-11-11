@@ -1,0 +1,42 @@
+{
+  "name": "drawio",
+  "version": "1.2.6",
+  "description": "Generate native .drawio diagrams from Codex using Mermaid or XML, with optional ELK layout, PNG/SVG/PDF export, and browser URL output.",
+  "author": {
+    "name": "draw.io",
+    "url": "https://www.drawio.com"
+  },
+  "homepage": "https://github.com/jgraph/drawio-mcp/tree/main/plugins/codex/drawio",
+  "repository": "https://github.com/jgraph/drawio-mcp",
+  "license": "Apache-2.0",
+  "keywords": [
+    "draw.io",
+    "diagrams",
+    "mermaid",
+    "flowcharts",
+    "xml"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "draw.io",
+    "shortDescription": "Create editable draw.io diagrams in Codex.",
+    "longDescription": "Generate native .drawio files from Mermaid or draw.io XML, optionally apply ELK layouts, export editable PNG/SVG/PDF files with embedded diagram XML, or open diagrams in the draw.io browser editor.",
+    "developerName": "draw.io",
+    "category": "Productivity",
+    "capabilities": [
+      "Skills"
+    ],
+    "websiteURL": "https://www.drawio.com",
+    "privacyPolicyURL": "https://www.drawio.com/trust/",
+    "termsOfServiceURL": "https://www.drawio.com/trust/terms-of-use/",
+    "brandColor": "#F08705",
+    "composerIcon": "./assets/drawio-logo.svg",
+    "logo": "./assets/drawio-logo.svg",
+    "logoDark": "./assets/drawio-logo.svg",
+    "defaultPrompt": [
+      "Create a flowchart for user login.",
+      "Draw an architecture diagram for this system.",
+      "Export this diagram as an editable SVG."
+    ]
+  }
+}

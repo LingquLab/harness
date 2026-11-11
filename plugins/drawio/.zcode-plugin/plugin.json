@@ -1,0 +1,24 @@
+{
+  "name": "drawio",
+  "version": "1.2.6",
+  "description": "Create editable draw.io diagrams with optional PNG, SVG, PDF export and browser URLs.",
+  "author": {
+    "name": "draw.io",
+    "url": "https://www.drawio.com"
+  },
+  "homepage": "https://github.com/jgraph/drawio-mcp/tree/main/plugins/codex/drawio",
+  "repository": "https://github.com/jgraph/drawio-mcp",
+  "license": "Apache-2.0",
+  "keywords": [
+    "draw.io",
+    "diagrams",
+    "mermaid",
+    "flowcharts",
+    "xml"
+  ],
+  "skills": "skills",
+  "description_i18n": {
+    "en": "Create editable draw.io diagrams with optional PNG, SVG, PDF export and browser URLs.",
+    "zh-CN": "创建可编辑的 draw.io 图表，支持可选的 PNG、SVG、PDF 导出和浏览器链接。"
+  }
+}
