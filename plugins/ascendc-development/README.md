@@ -2,7 +2,7 @@
 
 [中文文档](./README_CN.md)
 
-This ZCode and Codex plugin provides version-aware workflows for Ascend C operator implementation, API research, code review, environment inspection, NPU status, CANN setup, and runtime debugging.
+This Codex plugin provides version-aware workflows for Ascend C operator implementation, API research, code review, environment inspection, NPU status, CANN setup, and runtime debugging.
 
 ## Use
 

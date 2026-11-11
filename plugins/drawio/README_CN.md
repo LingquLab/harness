@@ -7,7 +7,7 @@
 
 ## 安装和使用
 
-在 ZCode 中添加 `LingquLab/harness` 插件市场，安装 `drawio`。Codex 用户运行：
+在 Codex 中运行：
 
 ```bash
 codex plugin marketplace add LingquLab/harness

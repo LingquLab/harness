@@ -4,7 +4,7 @@
 
 首次使用请阅读 [中文用户指南](USER_GUIDE_CN.md)，按步骤完成配置、连接和日常操作。
 
-这个 Codex 与 ZCode 插件通过 HAPI 协调蓝区和绿区 AI。绿区 Windows Bridge
+这个 Codex 插件通过 HAPI 协调蓝区和绿区 AI。绿区 Windows Bridge
 调用本地 Claude Code 兼容 CLI，只向蓝区返回经过审查的有界结果。传输不再使用
 GitHub Issue，也不需要操作浏览器。
 

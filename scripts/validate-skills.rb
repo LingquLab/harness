@@ -883,16 +883,6 @@ begin
   unless system("node", "--test", File.join(ROOT, "tests", "drawio", "test-find-shapes.cjs"))
     raise "drawio: offline shape-search tests failed"
   end
-  zcode_validator = File.join(ROOT, "scripts", "validate-zcode.py")
-  unless system(
-    { "PYTHONDONTWRITEBYTECODE" => "1" },
-    "python3",
-    zcode_validator,
-    out: File::NULL,
-    err: File::NULL
-  )
-    raise "#{zcode_validator}: ZCode marketplace validation failed"
-  end
   manifest, declared_skills_root = validate_plugin_manifest(PLUGIN_ROOT, PLUGIN_NAME)
   raise "#{PLUGIN_MANIFEST_PATH}: unexpected version" unless manifest["version"] == EXPECTED_PLUGIN_VERSION
   unless manifest.dig("interface", "category") == EXPECTED_PLUGIN_CATEGORY

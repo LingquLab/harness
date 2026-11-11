@@ -2,7 +2,7 @@
 
 [中文文档](./README_CN.md)
 
-This ZCode and Codex plugin turns codebases or system descriptions into
+This Codex plugin turns codebases or system descriptions into
 validated, interactive architecture, workflow, sequence, data-flow, and
 lifecycle diagrams. It produces self-contained HTML with inline SVG and
 supports static image and WebM export.
