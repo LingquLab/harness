@@ -151,12 +151,9 @@ class HapiContractTest(unittest.TestCase):
         import tomllib
         version = tomllib.loads((PLUGIN / "pyproject.toml").read_text())["project"]["version"]
         self.assertEqual(version, "0.7.6")
-        for name in (".codex-plugin/plugin.json", ".zcode-plugin/plugin.json"):
-            self.assertEqual(json.loads((PLUGIN / name).read_text())["version"], version)
+        manifest = json.loads((PLUGIN / ".codex-plugin/plugin.json").read_text())
+        self.assertEqual(manifest["version"], version)
         self.assertIn(f'__version__ = "{version}"', (PLUGIN / "cross_zone/__init__.py").read_text())
-        marketplace = json.loads((ROOT / "marketplace.json").read_text())
-        entry = next(item for item in marketplace["plugins"] if item["name"] == "cross-zone-development")
-        self.assertEqual(entry["version"], version)
 
     def test_removed_github_transport_is_not_shipped(self) -> None:
         self.assertFalse((SKILL / "references" / "github-access.md").exists())

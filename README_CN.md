@@ -2,11 +2,9 @@
 
 [English](README.md)
 
-面向 ZCode 和 Codex 的 skill 插件集，帮助你开发软件、编写 Ascend C 算子、检索 AI 系统知识、绘制图表，并在开发环境与受保护环境之间协作验证。按需安装所需插件即可。
+面向 Codex 的 skill 插件集，帮助你开发软件、编写 Ascend C 算子、检索 AI 系统知识、绘制图表，并在开发环境与受保护环境之间协作验证。按需安装所需插件即可。
 
 ## 安装
-
-在 ZCode 中，打开 **Settings → Plugins → Create → Add marketplace**，输入 `LingquLab/harness`。
 
 在 Codex 中，添加 marketplace 并安装插件：
 

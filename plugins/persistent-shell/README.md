@@ -2,7 +2,7 @@
 
 [中文文档](./README_CN.md)
 
-This ZCode and Codex plugin manages reusable, stateful SSH shell sessions from Windows. PowerShell and Git Bash launchers share a user-level local daemon, so repeated commands can reuse one remote shell channel.
+This Codex plugin manages reusable, stateful SSH shell sessions from Windows. PowerShell and Git Bash launchers share a user-level local daemon, so repeated commands can reuse one remote shell channel.
 
 ## Use
 

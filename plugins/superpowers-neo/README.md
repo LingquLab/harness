@@ -2,7 +2,7 @@
 
 [中文文档](./README_CN.md)
 
-This ZCode and Codex plugin provides modular software-development workflows whose rigor scales with task complexity. Its skills cover design, planning, isolated worktrees, plan execution, validation, debugging, simplification, review, verification, and Git delivery.
+This Codex plugin provides modular software-development workflows whose rigor scales with task complexity. Its skills cover design, planning, isolated worktrees, plan execution, validation, debugging, simplification, review, verification, and Git delivery.
 
 ## Use
 

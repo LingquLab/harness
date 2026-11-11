@@ -2,7 +2,7 @@
 
 [English](./README.md)
 
-这是一个兼容 ZCode 与 Codex 的插件，提供版本匹配的 Ascend C 算子实现、API 检索、代码审查、环境检查、NPU 状态、CANN 配置和运行时调试工作流。
+这是一个兼容 Codex 的插件，提供版本匹配的 Ascend C 算子实现、API 检索、代码审查、环境检查、NPU 状态、CANN 配置和运行时调试工作流。
 
 ## 使用方式
 

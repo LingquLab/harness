@@ -4,7 +4,7 @@
 
 [中文用户指南](./USER_GUIDE_CN.md) covers setup and day-to-day operation.
 
-This Codex and ZCode plugin coordinates blue and green AI agents through HAPI.
+This Codex plugin coordinates blue and green AI agents through HAPI.
 A Windows bridge in the green protected-service zone invokes its local Claude
 Code-compatible CLI and sends only bounded, reviewed results back to blue. GitHub
 Issues and browser automation are not part of the transport.

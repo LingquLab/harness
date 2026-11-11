@@ -2,7 +2,7 @@
 
 [English](./README.md)
 
-这是一个兼容 ZCode 与 Codex 的插件，用于在 Windows 上管理可复用、保留状态的 SSH shell 会话。PowerShell 与 Git Bash 启动器共享一个用户级本地守护进程，使多次命令可以复用同一个远端 shell channel。
+这是一个兼容 Codex 的插件，用于在 Windows 上管理可复用、保留状态的 SSH shell 会话。PowerShell 与 Git Bash 启动器共享一个用户级本地守护进程，使多次命令可以复用同一个远端 shell channel。
 
 ## 使用方式
 

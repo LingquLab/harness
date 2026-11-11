@@ -8,10 +8,10 @@
 
 The runtime skill, shape-search script, Codex manifest and logo are copied from
 this snapshot. Local changes narrow the skill discovery description to respect
-explicit selection of other diagram tools, add `agents/openai.yaml`, ZCode
-metadata, and replace the upstream README with marketplace user guides.
+explicit selection of other diagram tools, add `agents/openai.yaml`, and replace
+the upstream README with marketplace user guides.
 No MCP server or hooks are bundled.
 
 To refresh, replace the upstream files, reapply these adaptations, synchronize
-both manifests and catalog versions, and run the repository validator and
+the Codex manifest and catalog versions, and run the repository validator and
 `node --test tests/drawio/test-find-shapes.cjs`.

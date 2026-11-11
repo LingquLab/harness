@@ -8,7 +8,6 @@ that opens the diagram in the browser editor.
 
 ## Install and use
 
-In ZCode, add `LingquLab/harness` as a marketplace and install `drawio`.
 In Codex:
 
 ```bash
