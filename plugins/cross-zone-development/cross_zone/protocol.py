@@ -6,6 +6,7 @@ import re
 import uuid
 
 from . import __version__
+from .scripts import CAPABILITIES, validate as validate_script
 
 PROTOCOL = "cross-zone/v3"
 MARKER = "CROSS_ZONE\n"
@@ -126,13 +127,14 @@ def parse(text):
         raise ProtocolError("invalid_direction")
     extra = {
         "TASK": {"goal", "checks", "timeout_seconds"},
-        "EXEC": {"timeout_seconds", "execution", "execution_timeout_seconds"},
+        "EXEC": {"execution", "execution_timeout_seconds"},
         "ANSWER": {"question_id", "answer"},
         "CANCEL": set(),
     }.get(kind)
     fields = set(event)
     optional_revision = {"revision"} if "revision" in fields else set()
     if kind == "EXEC":
+        extra |= fields & {"timeout_seconds"}  # Legacy field is accepted but ignored.
         if "need_ack" in fields:
             extra |= {"need_ack"}
             if type(event["need_ack"]) is not bool:
@@ -173,7 +175,7 @@ def parse(text):
             names.add(check["id"])
             if any(not isinstance(check[k], str) or not 1 <= len(check[k]) <= 2000 for k in ("action", "expected")):
                 raise ProtocolError("invalid_check_text")
-        if type(event["timeout_seconds"]) is not int or event["timeout_seconds"] <= 0:
+        if kind == "TASK" and (type(event["timeout_seconds"]) is not int or event["timeout_seconds"] <= 0):
             raise ProtocolError("invalid_timeout")
         if kind == "EXEC":
             duration = event["execution_timeout_seconds"]
@@ -195,7 +197,10 @@ def parse(text):
                 if not isinstance(script, str) or not script or "\0" in script:
                     raise ProtocolError("invalid_execution_script")
             else:
-                raise ProtocolError("invalid_execution_fields")
+                try:
+                    validate_script(execution)
+                except ValueError as exc:
+                    raise ProtocolError(str(exc)) from None
     elif kind == "ANSWER":
         if not isinstance(event["question_id"], str) or not ID.fullmatch(event["question_id"]):
             raise ProtocolError("invalid_question_id")
@@ -233,4 +238,4 @@ def open_event(session_url):
     command-line session ID. It is never read from configuration.
     """
     return {"protocol": PROTOCOL, "type": "OPEN", "event_id": "green-open-" + uuid.uuid4().hex,
-            "version": __version__, "session_url": session_url}
+            "capabilities": CAPABILITIES, "version": __version__, "session_url": session_url}

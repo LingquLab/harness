@@ -13,11 +13,11 @@ import time
 from .agent import terminate_tree
 from .egress import MAX_DIRECT_STDOUT_BYTES
 from .protocol import canonical
+from .scripts import ScriptFeedback, prepare as prepare_script
 
 LOG = logging.getLogger(__name__)
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 OUTPUT_LIMIT = 32 * 1024 * 1024
-REVIEW_SECONDS = 60
 DISPLAY_CHUNK_BYTES = 8192
 DISPLAY_LINES = 40
 
@@ -85,15 +85,30 @@ class DirectExecutor:
             return {"failure": "direct_execution_failed", "status": status,
                     "detail": "Direct command did not exit successfully; output remains green-local.",
                     "execution": execution}
+        reasons = []
+        summary = ""
         try:
-            if stdout.stat().st_size > MAX_DIRECT_STDOUT_BYTES or stderr.stat().st_size:
-                raise ValueError("unexpected output")
-            summary = stdout.read_bytes().decode("utf-8-sig").replace("\r\n", "\n")
-            if any((ord(c) < 32 or 127 <= ord(c) <= 159) and c not in "\n\t" for c in summary):
-                raise ValueError("control characters")
-        except (OSError, UnicodeError, ValueError):
+            stdout_bytes = stdout.stat().st_size
+            stderr_bytes = stderr.stat().st_size
+            if stdout_bytes > MAX_DIRECT_STDOUT_BYTES:
+                reasons.append(f"stdout exceeds limit: {stdout_bytes} bytes > {MAX_DIRECT_STDOUT_BYTES} bytes")
+            if stderr_bytes:
+                reasons.append(f"stderr is nonempty: {stderr_bytes} bytes")
+            if stdout_bytes <= MAX_DIRECT_STDOUT_BYTES:
+                try:
+                    summary = stdout.read_bytes().decode("utf-8-sig").replace("\r\n", "\n")
+                except UnicodeDecodeError as exc:
+                    reasons.append(f"stdout is invalid UTF-8 at byte offset {exc.start}")
+                else:
+                    for index, char in enumerate(summary):
+                        if (ord(char) < 32 or 127 <= ord(char) <= 159) and char not in "\n\t":
+                            reasons.append(f"stdout contains control character U+{ord(char):04X} at character offset {index}")
+                            break
+        except OSError as exc:
+            reasons.append(f"cannot read captured output: {type(exc).__name__}, errno={exc.errno}")
+        if reasons:
             return {"failure": "direct_output_rejected", "status": "NEEDS_HUMAN",
-                    "detail": "Direct output is oversized, invalid UTF-8, contains control characters, or stderr is nonempty; output withheld.",
+                    "detail": "Direct output rejected: " + "; ".join(reasons) + ". Output withheld.",
                     "execution": execution}
         return {"output": {"kind": "RESULT", "status": "PASS",
                            "summary": "Direct EXEC (no AI review):\n" + summary.strip(),
@@ -109,11 +124,10 @@ class DirectExecutor:
                               "and completed effects. A read-only TASK requires an explicit user request; "
                               "do not switch modes automatically.",
                     "execution": facts("NOT_STARTED")}
-        remaining = max(0, deadline - time.time())
-        review_seconds = min(REVIEW_SECONDS, remaining / 2) if request.get("ai_review", False) else 0
-        if cancel.is_set() or time.time() >= deadline - review_seconds:
+        deadline = float("inf")  # EXEC phases have independent budgets.
+        if cancel.is_set():
             return {"failure": "execution_not_started", "status": "CANCELLED" if cancel.is_set() else "TIMED_OUT",
-                    "detail": "Command was not started; cancelled or insufficient time remains for execution and review.",
+                    "detail": "Command was not started; execution was cancelled.",
                     "execution": facts("NOT_STARTED")}
         root = Path(self.config["state_dir"]).resolve()
         directory = root / "runs" / request["task_id"] / str(request["iteration"]) / "execution"
@@ -140,7 +154,12 @@ class DirectExecutor:
 
         try:
             spec = request["execution"]
-            if "argv" in spec:
+            if "git" in spec:
+                try:
+                    command = prepare_script(spec, self.config, directory, deadline, cancel)
+                except (OSError, UnicodeError) as exc:
+                    raise ScriptFeedback("SCRIPT_PREPARATION_FAILED", exception_type=type(exc).__name__) from None
+            elif "argv" in spec:
                 command = list(spec["argv"])
                 # Windows may implicitly interpret batch files despite shell=False.
                 resolved = shutil.which(command[0]) or command[0]
@@ -161,7 +180,7 @@ class DirectExecutor:
                    and (not review_key or v != review_key)}
             env.update(PYTHONUTF8="1", PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
             options = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
-            command_deadline = min(time.time() + request["execution_timeout_seconds"], deadline - review_seconds)
+            command_deadline = min(time.time() + request["execution_timeout_seconds"], deadline)
             with stdout.open("wb") as out, stderr.open("wb") as err:
                 if cancel.is_set() or time.time() >= command_deadline:
                     record.update(facts("NOT_STARTED"))
@@ -192,6 +211,10 @@ class DirectExecutor:
                             terminate_tree(process)
                         record.update(facts(status, process.returncode))
                         break
+        except ScriptFeedback as exc:
+            record.update(facts("NOT_STARTED"), script_feedback=exc.payload, finished=time.time())
+            save()
+            return {"script_feedback": exc.payload, "execution": facts("NOT_STARTED")}
         except (OSError, ValueError, subprocess.SubprocessError, RuntimeError) as exc:
             record.update(facts("START_FAILED" if process is None else "EXECUTION_ERROR"))
             record["error"] = f"{type(exc).__name__}: {exc}"
@@ -237,9 +260,6 @@ class DirectExecutor:
             if cancel.is_set():
                 return {"failure": "execution_review_cancelled", "status": "CANCELLED",
                         "detail": "Review cancelled; no direct fallback was exported.", "execution": execution}
-            if time.time() >= deadline:
-                return {"failure": "execution_review_timed_out", "status": "TIMED_OUT",
-                        "detail": "Task deadline expired; no direct fallback was exported.", "execution": execution}
             LOG.warning("EXEC review failed; trying direct saved-output fallback: %s / %s reason=%s",
                         request["task_id"], request["iteration"], result["failure"])
             direct = self._direct_result(request, execution, stdout, stderr)

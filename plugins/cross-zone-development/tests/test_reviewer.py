@@ -52,7 +52,7 @@ class ReviewAPITests(unittest.TestCase):
         self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True)
         self.thread.start()
         self.key = "private-review-credential"
-        self.cfg["exec_review"] = {"base_url": f"http://127.0.0.1:{self.server.server_port}/v1", "model": "Qwen3.8",
+        self.cfg["exec_review"] = {"base_url": f"http://127.0.0.1:{self.server.server_port}/v1", "model": "qwen3.8-flash-next",
                                    "api_key": self.key, "timeout_seconds": 3}
         self.reviewer = OpenAIReviewer(self.cfg)
         self.runner = DirectExecutor(self.cfg, self.reviewer)
@@ -86,8 +86,9 @@ class ReviewAPITests(unittest.TestCase):
         self.assertEqual(path, "/v1/chat/completions")
         self.assertEqual(auth, "Bearer " + self.key)
         self.assertEqual(self.user_agents, [f"CrossZoneBridge/{__version__}"])
-        self.assertEqual(payload["model"], "Qwen3.8")
+        self.assertEqual(payload["model"], "qwen3.8-flash-next")
         self.assertFalse(payload["stream"])
+        self.assertEqual(payload["max_tokens"], 65536)
         self.assertNotIn("tools", payload)
         evidence = json.loads(payload["messages"][1]["content"])
         self.assertEqual(evidence["evidence"]["stdout"], "done\n")
@@ -378,10 +379,10 @@ class ReviewConfigTests(unittest.TestCase):
 
     def test_defaults_and_template_placeholders(self):
         cfg = self.load()["exec_review"]
-        self.assertEqual(cfg["model"], "Qwen3.8")
+        self.assertEqual(cfg["model"], "qwen3.8-flash-next")
         self.assertEqual(cfg["timeout_seconds"], 300)
         self.assertEqual(self.load({"timeout_seconds": 60})["exec_review"]["timeout_seconds"], 60)
-        self.assertEqual(cfg["base_url"], "http://techdev.hicomputing.huawei.com:18000/v1")
+        self.assertEqual(cfg["base_url"], "http://models.ascend.huawei.com/v1")
         self.assertIsNone(cfg["api_key"])
         root = Path(__file__).resolve().parents[1]
         for name in ("config.example.json", "config.windows.json"):

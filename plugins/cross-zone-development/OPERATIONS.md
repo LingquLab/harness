@@ -33,7 +33,7 @@ bound-session synchronization are separate reads.
 
 Run `BRIDGE_DEBUG=1 ./start-bridge.sh` in Git Bash to enable local timing logs.
 Endpoint startup/switch logs and request failures include the actual Hub hostname
-even without debug mode. The debug branch version is 0.7.6. Compare `Worker finished` with `Worker collect` to
+even without debug mode. The Bridge version is 0.8.0. Compare `Worker finished` with `Worker collect` to
 measure main-loop collection delay. `HTTP begin` / `HTTP headers` and
 `HTTP body begin` / `HTTP body end` isolate header wait and response-body reads;
 `Discovery tick` and `Outbox send` identify scanning and delivery delays.
@@ -261,8 +261,8 @@ starting CodeAgent or enabling model tools. Configure `exec_review` in the ignor
 
 ```json
 "exec_review": {
-  "base_url": "http://techdev.hicomputing.huawei.com:18000/v1",
-  "model": "Qwen3.8",
+  "base_url": "http://models.ascend.huawei.com/v1",
+  "model": "qwen3.8-flash-next",
   "api_key": "REPLACE_WITH_REVIEW_API_KEY",
   "timeout_seconds": 300
 }
@@ -365,3 +365,14 @@ retained queue is not automatically resumed. Use run only to
 intentionally continue the listener and its queue. EXEC defaults to no AI review;
 blue opts in with ai_review=true for possibly restricted output. See the protocol
 reference's Upgrading from v2 section for state migration and recovery behavior.
+
+Bridge 0.8.0 supports [session scripts](skills/cross-zone-development/references/session-scripts.md): CrossZoneScript session branches pinned to commits. No registry or manifest is required.
+
+### Independent EXEC timeouts
+
+EXEC uses only `execution_timeout_seconds` for command runtime and
+`exec_review.timeout_seconds` for AI review, starting separately. There is no
+total EXEC deadline or review reservation. Legacy EXEC `timeout_seconds` and
+local `max_task_seconds` are ignored; omit them in new requests/configs.
+TASK alone retains `timeout_seconds` for its Agent runtime. Git script fetch
+has a separate 120-second timeout; HAPI network timeouts are unchanged.

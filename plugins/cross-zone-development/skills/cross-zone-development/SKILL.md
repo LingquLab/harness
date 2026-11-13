@@ -1,6 +1,6 @@
 ---
 name: cross-zone-development
-description: Coordinate blue and green AI agents through HAPI for protected-environment validation. Use when green opens collaboration, blue dispatches a scoped task, green returns sanitized evidence, or either side continues or cancels a task; do not use GitHub Issues as transport.
+description: Coordinate blue and green AI agents through HAPI for protected-environment validation. Use when green opens collaboration, blue dispatches a scoped task, green returns sanitized evidence, or either side continues or cancels a task; do not use GitHub Issues as transport. CrossZoneScript repository operations use this skill directly without loading superpowers-neo skills.
 ---
 
 # Cross-Zone Development
@@ -74,6 +74,16 @@ workers for multiple concurrent sessions.
 - Use only the task working directory, target class, checks, and mutation scope authorized for that handoff. A handoff does not authorize production changes, shared-service disruption, credential changes, destructive cleanup, or unrelated investigation.
 - Keep HAPI output reviewed and within the result limits defined in [references/protocol.md](references/protocol.md).
 
+For reusable scripts on Bridge 0.8.0+, follow
+[session scripts](references/session-scripts.md): commit-pinned scripts from CrossZoneScript branches named
+after the current HAPI session. Prefer these over repeating long inline code.
+For **any operation in `LingquLab/CrossZoneScript`**, do not read or invoke
+superpowers-neo (including superpower-neo aliases) skills. Follow this skill and
+the session-scripts reference directly; perform appropriate checks without an
+additional skill workflow. Before the first commit in each clone or temporary
+repository, set repository-local author identity to `Codex <codex@openai.com>`
+as documented there. This exception applies to CrossZoneScript only.
+
 Default to `EXEC` for user-requested work: blue supplies a bounded exact command
 or operational script, Bridge runs it unchanged, and green AI reviews saved output through the configured inference API only when
 `ai_review=true`. That endpoint must be approved to receive the saved green evidence. Prefer batching related
@@ -138,7 +148,7 @@ Removed legacy configuration fields are ignored and grant no authority.
 ### Simple EXEC results without AI review
 
 With Bridge 0.5.2+, omit `goal`, `checks` and the default `ai_review=false` in
-direct EXEC. Keep execution, binding and both timeout fields. Use the compact
+direct EXEC. Keep execution, binding and execution_timeout_seconds. Use the compact
 form and compatibility rules in the protocol reference. EXEC never carries goal,
 even with review; reviewed EXEC requires checks. TASK still requires goal/checks.
 

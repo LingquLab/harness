@@ -116,3 +116,6 @@ contract for exact output limits and failure behavior.
 In direct recovery (0.7.1+), blue supplies a new bounded EXEC after terminal
 review/export failure; Bridge does not repeat the original command automatically.
 See [blue-zone.md](blue-zone.md#blue-recovery-after-failed-reviewfallback-072).
+
+For commit-pinned Git scripts, see [session-scripts.md](session-scripts.md).
+Use inline EXEC for short one-off commands; reusable scripts belong in CrossZoneScript.

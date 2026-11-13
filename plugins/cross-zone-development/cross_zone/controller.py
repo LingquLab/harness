@@ -195,10 +195,21 @@ class Bridge:
             self.store.terminal(task, "NEEDS_HUMAN" if result.get("pause") else "CANCELLED",
                                 "termination_unconfirmed" if result.get("pause") else "cancelled", detail, execution)
             return
+        if "script_feedback" in result:
+            payload = result["script_feedback"]
+            code = payload["error_code"]
+            state = "PASS" if not code else "FAIL"
+            if code == "SCRIPT_CANCELLED":
+                state = "CANCELLED"
+            elif code == "SCRIPT_TIMED_OUT":
+                state = "TIMED_OUT"
+            self.store.update(task, state=state)
+            self.store.emit(request, "REJECTED", status=state, **payload)
+            return
         if "failure" in result:
             self.store.terminal(task, result["status"], result["failure"], detail, execution)
             return
-        if time.time() >= task["deadline"]:
+        if request["type"] != "EXEC" and time.time() >= task["deadline"]:
             self.store.terminal(task, "TIMED_OUT", "task_deadline_exceeded",
                                 "Agent result arrived after the task deadline; it was not accepted. "
                                 "Check completed changes before splitting remaining work.", execution)
@@ -285,7 +296,7 @@ class Bridge:
         tasks = self.store.db.execute("SELECT * FROM tasks WHERE state='QUEUED' ORDER BY rowid LIMIT ?", (slots,)).fetchall()
         for task in tasks:
             request = json.loads(task["request"])
-            deadline = task["deadline"] or time.time() + min(request["timeout_seconds"], self.config["max_task_seconds"])
+            deadline = None if request["type"] == "EXEC" else (task["deadline"] or time.time() + request["timeout_seconds"])
             with self.store.db:
                 self.store.update(task, state="RUNNING", deadline=deadline)
                 self.store.emit(request, "PROGRESS", state="RUNNING")

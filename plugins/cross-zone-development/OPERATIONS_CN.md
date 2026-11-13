@@ -29,7 +29,7 @@ Codex（`metadata.flavor=codex`）且未归档的会话，避免 Hub 忽略查�
 
 在 Git Bash 运行 `BRIDGE_DEBUG=1 ./start-bridge.sh` 可开启本地耗时日志，
 启动、切换端点和请求失败时，即使未开启 debug，也会打印实际访问的 Hub 域名。
-当前 debug 分支版本号为 0.7.6。对比 `Worker finished` 与 `Worker collect` 的时间，
+当前 Bridge 版本号为 0.8.0。对比 `Worker finished` 与 `Worker collect` 的时间，
 可以判断主循环收集结果的延迟。`HTTP begin` / `HTTP headers` 和
 `HTTP body begin` / `HTTP body end` 分别定位等待响应头和读取正文的耗时；
 `Discovery tick` 与 `Outbox send` 用于定位扫描及结果发送延迟。
@@ -216,8 +216,8 @@ Bridge 退出会取消所有运行中的任务；重启后逐个保留中断记�
 
 ```json
 "exec_review": {
-  "base_url": "http://techdev.hicomputing.huawei.com:18000/v1",
-  "model": "Qwen3.8",
+  "base_url": "http://models.ascend.huawei.com/v1",
+  "model": "qwen3.8-flash-next",
   "api_key": "REPLACE_WITH_REVIEW_API_KEY",
   "timeout_seconds": 300
 }
@@ -302,3 +302,14 @@ HAPI 消息历史代次或游标失效时，Bridge 自动绑定到当前消息�
 open 会从当前消息末尾开始新的交互；蓝区可直接下发已授权且就绪的待办工作，
 Bridge 不自动续跑已有排队任务。需要保留并继续
 原有监听及队列时使用 run。已完成记录、回执和恢复保护不因 open 被清除。
+
+Bridge 0.8.0 支持[session 脚本](skills/cross-zone-development/references/session-scripts.md)：从 CrossZoneScript 的 session 分支执行指定提交。无需注册表或清单。
+
+### Independent EXEC timeouts
+
+EXEC uses only `execution_timeout_seconds` for command runtime and
+`exec_review.timeout_seconds` for AI review, starting separately. There is no
+total EXEC deadline or review reservation. Legacy EXEC `timeout_seconds` and
+local `max_task_seconds` are ignored; omit them in new requests/configs.
+TASK alone retains `timeout_seconds` for its Agent runtime. Git script fetch
+has a separate 120-second timeout; HAPI network timeouts are unchanged.
