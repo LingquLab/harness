@@ -10,6 +10,7 @@ import time
 import uuid
 
 from . import __version__
+from .scripts import CAPABILITIES
 from .controller import Bridge
 from .hapi import HapiError
 from .protocol import PROTOCOL, ProtocolError, assistant_text, format_rejection, parse_connection, wire
@@ -159,7 +160,7 @@ class Discovery:
 
     def respond(self, session, event, kind):
         response = {"protocol": PROTOCOL, "type": kind, "event_id": "green-connection-" + uuid.uuid4().hex,
-                    "request_event_id": event["event_id"], "version": __version__,
+                    "request_event_id": event["event_id"], "version": __version__, "capabilities": CAPABILITIES,
                     "session_url": "sessions/" + session}
         with self.db:
             self.db.execute("UPDATE requests SET response=? WHERE session=? AND event_id=?",

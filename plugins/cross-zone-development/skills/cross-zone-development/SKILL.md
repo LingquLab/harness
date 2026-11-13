@@ -74,6 +74,11 @@ workers for multiple concurrent sessions.
 - Use only the task working directory, target class, checks, and mutation scope authorized for that handoff. A handoff does not authorize production changes, shared-service disruption, credential changes, destructive cleanup, or unrelated investigation.
 - Keep HAPI output reviewed and within the result limits defined in [references/protocol.md](references/protocol.md).
 
+For reusable scripts on Bridge 0.8.0+, follow
+[session scripts](references/session-scripts.md): session-local names with hash-checked
+read/update/execute, or commit-pinned scripts from CrossZoneScript branches named
+after the current HAPI session. Prefer these over repeating long inline code.
+
 Default to `EXEC` for user-requested work: blue supplies a bounded exact command
 or operational script, Bridge runs it unchanged, and green AI reviews saved output through the configured inference API only when
 `ai_review=true`. That endpoint must be approved to receive the saved green evidence. Prefer batching related

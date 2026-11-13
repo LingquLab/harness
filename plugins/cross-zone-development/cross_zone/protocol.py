@@ -6,6 +6,7 @@ import re
 import uuid
 
 from . import __version__
+from .scripts import CAPABILITIES, validate as validate_script
 
 PROTOCOL = "cross-zone/v3"
 MARKER = "CROSS_ZONE\n"
@@ -195,7 +196,10 @@ def parse(text):
                 if not isinstance(script, str) or not script or "\0" in script:
                     raise ProtocolError("invalid_execution_script")
             else:
-                raise ProtocolError("invalid_execution_fields")
+                try:
+                    validate_script(execution)
+                except ValueError as exc:
+                    raise ProtocolError(str(exc)) from None
     elif kind == "ANSWER":
         if not isinstance(event["question_id"], str) or not ID.fullmatch(event["question_id"]):
             raise ProtocolError("invalid_question_id")
@@ -233,4 +237,4 @@ def open_event(session_url):
     command-line session ID. It is never read from configuration.
     """
     return {"protocol": PROTOCOL, "type": "OPEN", "event_id": "green-open-" + uuid.uuid4().hex,
-            "version": __version__, "session_url": session_url}
+            "capabilities": CAPABILITIES, "version": __version__, "session_url": session_url}

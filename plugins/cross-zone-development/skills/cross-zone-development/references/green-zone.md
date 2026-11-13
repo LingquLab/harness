@@ -116,3 +116,7 @@ contract for exact output limits and failure behavior.
 In direct recovery (0.7.1+), blue supplies a new bounded EXEC after terminal
 review/export failure; Bridge does not repeat the original command automatically.
 See [blue-zone.md](blue-zone.md#blue-recovery-after-failed-reviewfallback-072).
+
+For reusable scripts and their explicit read/update/hash-conflict responses, see
+[session-scripts.md](session-scripts.md). Full script content is intentionally
+returned on read/hash mismatch; ordinary execution output retains existing rules.

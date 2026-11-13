@@ -13,6 +13,7 @@ import time
 from .agent import terminate_tree
 from .egress import MAX_DIRECT_STDOUT_BYTES
 from .protocol import canonical
+from .scripts import ScriptFeedback, prepare as prepare_script
 
 LOG = logging.getLogger(__name__)
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
@@ -140,7 +141,12 @@ class DirectExecutor:
 
         try:
             spec = request["execution"]
-            if "argv" in spec:
+            if any(key in spec for key in ("script_read", "script_update", "git")) or "script" in spec and "interpreter" not in spec:
+                try:
+                    command = prepare_script(spec, self.config, directory, deadline - review_seconds, cancel)
+                except (OSError, UnicodeError) as exc:
+                    raise ScriptFeedback("SCRIPT_PREPARATION_FAILED", exception_type=type(exc).__name__) from None
+            elif "argv" in spec:
                 command = list(spec["argv"])
                 # Windows may implicitly interpret batch files despite shell=False.
                 resolved = shutil.which(command[0]) or command[0]
@@ -192,6 +198,10 @@ class DirectExecutor:
                             terminate_tree(process)
                         record.update(facts(status, process.returncode))
                         break
+        except ScriptFeedback as exc:
+            record.update(facts("NOT_STARTED"), script_feedback=exc.payload, finished=time.time())
+            save()
+            return {"script_feedback": exc.payload, "execution": facts("NOT_STARTED")}
         except (OSError, ValueError, subprocess.SubprocessError, RuntimeError) as exc:
             record.update(facts("START_FAILED" if process is None else "EXECUTION_ERROR"))
             record["error"] = f"{type(exc).__name__}: {exc}"

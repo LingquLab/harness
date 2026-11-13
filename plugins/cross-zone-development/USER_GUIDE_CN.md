@@ -547,3 +547,5 @@ review/fallback 已终结为 NEEDS_HUMAN 时，蓝区发送新的 EXEC，显式�
 
 绿区已收到 8 KiB、64 KiB 合成负载；256 KiB RESULT 投递返回 HTTP 403，
 未确认具体原因。本正式版采用已观察到的 64 KiB 档位，结束无上限实验。
+
+长脚本可使用[session 脚本引用](skills/cross-zone-development/references/session-scripts.md)，避免反复在消息中发送整段代码；哈希不一致会回传完整当前脚本及哈希，供蓝区修改。

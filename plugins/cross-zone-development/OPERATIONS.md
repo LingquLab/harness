@@ -33,7 +33,7 @@ bound-session synchronization are separate reads.
 
 Run `BRIDGE_DEBUG=1 ./start-bridge.sh` in Git Bash to enable local timing logs.
 Endpoint startup/switch logs and request failures include the actual Hub hostname
-even without debug mode. The debug branch version is 0.7.6. Compare `Worker finished` with `Worker collect` to
+even without debug mode. The Bridge version is 0.8.0. Compare `Worker finished` with `Worker collect` to
 measure main-loop collection delay. `HTTP begin` / `HTTP headers` and
 `HTTP body begin` / `HTTP body end` isolate header wait and response-body reads;
 `Discovery tick` and `Outbox send` identify scanning and delivery delays.
@@ -365,3 +365,5 @@ retained queue is not automatically resumed. Use run only to
 intentionally continue the listener and its queue. EXEC defaults to no AI review;
 blue opts in with ai_review=true for possibly restricted output. See the protocol
 reference's Upgrading from v2 section for state migration and recovery behavior.
+
+Bridge 0.8.0 supports [session scripts](skills/cross-zone-development/references/session-scripts.md): named scripts with hash-checked read/update/execute, and CrossZoneScript session branches pinned to commits. No registry or manifest is required.

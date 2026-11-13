@@ -195,6 +195,17 @@ class Bridge:
             self.store.terminal(task, "NEEDS_HUMAN" if result.get("pause") else "CANCELLED",
                                 "termination_unconfirmed" if result.get("pause") else "cancelled", detail, execution)
             return
+        if "script_feedback" in result:
+            payload = result["script_feedback"]
+            code = payload["error_code"]
+            state = "PASS" if not code else "FAIL"
+            if code == "SCRIPT_CANCELLED":
+                state = "CANCELLED"
+            elif code == "SCRIPT_TIMED_OUT":
+                state = "TIMED_OUT"
+            self.store.update(task, state=state)
+            self.store.emit(request, "REJECTED" if code else "SCRIPT_RESULT", status=state, **payload)
+            return
         if "failure" in result:
             self.store.terminal(task, result["status"], result["failure"], detail, execution)
             return

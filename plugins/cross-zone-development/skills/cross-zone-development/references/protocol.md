@@ -58,7 +58,7 @@ a target held by an explicit worker still returns BUSY. Upgrade green before use
 older Bridges do not support this connection type.
 
 Green replies as a user message in the receiving session only. READY, BUSY and
-CLOSED each contain exactly these six fields:
+CLOSED contain these six fields (0.8.0+ may also include `capabilities`):
 
 ```json
 {
@@ -107,7 +107,7 @@ CROSS_ZONE
 ```
 ````
 
-Legacy green OPEN has exactly those five fields. Its event ID is `green-open-` followed by
+Legacy green OPEN has those five fields, with optional `capabilities` from 0.8.0. Its event ID is `green-open-` followed by
 lowercase hexadecimal characters. It does not carry or require `task_id`,
 `iteration`, or `revision`; never apply TASK validation to it. The bridge derives
 `session_url` from the command-line session ID. It identifies the destination
@@ -570,3 +570,11 @@ do not erase it to bypass recovery. Retain the original config identity or use a
 separate state directory only after assessing prior effects.
 
 Malformed marked envelopes receive `REJECTED` with `error_code=FORMAT_ERROR`, a stable `reason` code and a readable `detail`. Valid request/task IDs are included when recoverable; broken JSON can be rejected without these IDs. Ordinary prose is ignored. Rejections use the durable outbox and do not execute the invalid request.
+
+## Reusable scripts (0.8.0)
+
+EXEC also accepts the mutually exclusive named-script, read/update and Git-session
+execution forms in [session-scripts.md](session-scripts.md). READY and legacy OPEN
+include optional `capabilities`; accept these new forms only when advertised.
+SCRIPT_RESULT is a terminal green reply for successful read/update; script failures
+return REJECTED with explicit error_code. Both are correlated by task_id/iteration.
