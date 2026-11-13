@@ -216,8 +216,8 @@ Bridge 退出会取消所有运行中的任务；重启后逐个保留中断记�
 
 ```json
 "exec_review": {
-  "base_url": "http://techdev.hicomputing.huawei.com:18000/v1",
-  "model": "Qwen3.8",
+  "base_url": "http://models.ascend.huawei.com/v1",
+  "model": "qwen3.8-flash-next",
   "api_key": "REPLACE_WITH_REVIEW_API_KEY",
   "timeout_seconds": 300
 }

@@ -377,7 +377,7 @@ Bridge 发起的 HAPI REST、`/api/events` SSE 和 EXEC 审查 API 请求都携�
 | `exec_live_log` | true | 显示 EXEC 命令与实时输出 |
 | `agent_log_max_chars` | 2000，整数 100–20000 | Agent 单次日志显示的字符上限 |
 | `exec_review.base_url` | 使用模板中的授权接口，或按本地环境配置 | 审查 API 前缀，Bridge 追加 `/chat/completions` |
-| `exec_review.model` | 模板为 `Qwen3.8` | 审查模型 |
+| `exec_review.model` | 模板为 `qwen3.8-flash-next` | 审查模型 |
 | `exec_review.api_key` | 模板占位符，按接口要求替换 | 审查接口密钥 |
 | `exec_review.timeout_seconds` | 300，整数 1–600 | 审查超时上限 |
 

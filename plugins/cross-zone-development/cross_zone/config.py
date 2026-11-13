@@ -57,8 +57,8 @@ def load_config(path):
     settings = config.setdefault("exec_review", {})
     if not isinstance(settings, dict) or set(settings) - {"base_url", "model", "api_key", "timeout_seconds"}:
         raise ValueError("exec_review must be an object with base_url, model, api_key and timeout_seconds")
-    settings.setdefault("base_url", "http://techdev.hicomputing.huawei.com:18000/v1")
-    settings.setdefault("model", "Qwen3.8")
+    settings.setdefault("base_url", "http://models.ascend.huawei.com/v1")
+    settings.setdefault("model", "qwen3.8-flash-next")
     settings.setdefault("api_key", None)
     settings.setdefault("timeout_seconds", DEFAULT_REVIEW_TIMEOUT_SECONDS)
     endpoint = urlsplit(settings["base_url"]) if isinstance(settings["base_url"], str) else None

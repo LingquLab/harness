@@ -261,8 +261,8 @@ starting CodeAgent or enabling model tools. Configure `exec_review` in the ignor
 
 ```json
 "exec_review": {
-  "base_url": "http://techdev.hicomputing.huawei.com:18000/v1",
-  "model": "Qwen3.8",
+  "base_url": "http://models.ascend.huawei.com/v1",
+  "model": "qwen3.8-flash-next",
   "api_key": "REPLACE_WITH_REVIEW_API_KEY",
   "timeout_seconds": 300
 }
