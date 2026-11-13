@@ -366,7 +366,7 @@ intentionally continue the listener and its queue. EXEC defaults to no AI review
 blue opts in with ai_review=true for possibly restricted output. See the protocol
 reference's Upgrading from v2 section for state migration and recovery behavior.
 
-Bridge 0.8.0 supports [session scripts](skills/cross-zone-development/references/session-scripts.md): named scripts with hash-checked read/update/execute, and CrossZoneScript session branches pinned to commits. No registry or manifest is required.
+Bridge 0.8.0 supports [session scripts](skills/cross-zone-development/references/session-scripts.md): CrossZoneScript session branches pinned to commits. No registry or manifest is required.
 
 ### Independent EXEC timeouts
 

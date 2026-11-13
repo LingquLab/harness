@@ -154,7 +154,7 @@ class DirectExecutor:
 
         try:
             spec = request["execution"]
-            if any(key in spec for key in ("script_read", "script_update", "git")) or "script" in spec and "interpreter" not in spec:
+            if "git" in spec:
                 try:
                     command = prepare_script(spec, self.config, directory, deadline, cancel)
                 except (OSError, UnicodeError) as exc:

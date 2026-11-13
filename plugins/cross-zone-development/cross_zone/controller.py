@@ -204,7 +204,7 @@ class Bridge:
             elif code == "SCRIPT_TIMED_OUT":
                 state = "TIMED_OUT"
             self.store.update(task, state=state)
-            self.store.emit(request, "REJECTED" if code else "SCRIPT_RESULT", status=state, **payload)
+            self.store.emit(request, "REJECTED", status=state, **payload)
             return
         if "failure" in result:
             self.store.terminal(task, result["status"], result["failure"], detail, execution)

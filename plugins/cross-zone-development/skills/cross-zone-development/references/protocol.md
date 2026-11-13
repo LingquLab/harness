@@ -570,8 +570,7 @@ Malformed marked envelopes receive `REJECTED` with `error_code=FORMAT_ERROR`, a 
 
 ## Reusable scripts (0.8.0)
 
-EXEC also accepts the mutually exclusive named-script, read/update and Git-session
+EXEC also accepts the mutually exclusive Git-session
 execution forms in [session-scripts.md](session-scripts.md). READY and legacy OPEN
 include optional `capabilities`; accept these new forms only when advertised.
-SCRIPT_RESULT is a terminal green reply for successful read/update; script failures
-return REJECTED with explicit error_code. Both are correlated by task_id/iteration.
+Git preparation failures return REJECTED with explicit error_code, correlated by task_id/iteration.

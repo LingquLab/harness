@@ -169,6 +169,5 @@ configuration. If a direct retry also fails, change the output-producing command
 or report the specific blocker; do not loop the same failing command. Automatic
 Bridge fallback still uses saved output once and never reruns the operation.
 
-For reusable scripts and their explicit read/update/hash-conflict responses, see
-[session-scripts.md](session-scripts.md). Full script content is intentionally
-returned on read/hash mismatch; ordinary execution output retains existing rules.
+For commit-pinned Git scripts, see [session-scripts.md](session-scripts.md).
+Use inline EXEC for short one-off commands; reusable scripts belong in CrossZoneScript.

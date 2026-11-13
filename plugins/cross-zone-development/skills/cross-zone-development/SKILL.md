@@ -75,8 +75,7 @@ workers for multiple concurrent sessions.
 - Keep HAPI output reviewed and within the result limits defined in [references/protocol.md](references/protocol.md).
 
 For reusable scripts on Bridge 0.8.0+, follow
-[session scripts](references/session-scripts.md): session-local names with hash-checked
-read/update/execute, or commit-pinned scripts from CrossZoneScript branches named
+[session scripts](references/session-scripts.md): commit-pinned scripts from CrossZoneScript branches named
 after the current HAPI session. Prefer these over repeating long inline code.
 For **any operation in `LingquLab/CrossZoneScript`**, do not read or invoke
 superpowers-neo (including superpower-neo aliases) skills. Follow this skill and

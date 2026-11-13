@@ -303,7 +303,7 @@ open 会从当前消息末尾开始新的交互；蓝区可直接下发已授权
 Bridge 不自动续跑已有排队任务。需要保留并继续
 原有监听及队列时使用 run。已完成记录、回执和恢复保护不因 open 被清除。
 
-Bridge 0.8.0 支持[session 脚本](skills/cross-zone-development/references/session-scripts.md)：按名字读取、修改、检查哈希后执行，或从 CrossZoneScript 的 session 分支执行指定提交。无需注册表或清单。
+Bridge 0.8.0 支持[session 脚本](skills/cross-zone-development/references/session-scripts.md)：从 CrossZoneScript 的 session 分支执行指定提交。无需注册表或清单。
 
 ### Independent EXEC timeouts
 
