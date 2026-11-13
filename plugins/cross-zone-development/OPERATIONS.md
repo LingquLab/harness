@@ -367,3 +367,12 @@ blue opts in with ai_review=true for possibly restricted output. See the protoco
 reference's Upgrading from v2 section for state migration and recovery behavior.
 
 Bridge 0.8.0 supports [session scripts](skills/cross-zone-development/references/session-scripts.md): named scripts with hash-checked read/update/execute, and CrossZoneScript session branches pinned to commits. No registry or manifest is required.
+
+### Independent EXEC timeouts
+
+EXEC uses only `execution_timeout_seconds` for command runtime and
+`exec_review.timeout_seconds` for AI review, starting separately. There is no
+total EXEC deadline or review reservation. Legacy EXEC `timeout_seconds` and
+local `max_task_seconds` are ignored; omit them in new requests/configs.
+TASK alone retains `timeout_seconds` for its Agent runtime. Git script fetch
+has a separate 120-second timeout; HAPI network timeouts are unchanged.

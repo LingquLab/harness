@@ -18,7 +18,6 @@ from .scripts import ScriptFeedback, prepare as prepare_script
 LOG = logging.getLogger(__name__)
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 OUTPUT_LIMIT = 32 * 1024 * 1024
-REVIEW_SECONDS = 60
 DISPLAY_CHUNK_BYTES = 8192
 DISPLAY_LINES = 40
 
@@ -125,11 +124,10 @@ class DirectExecutor:
                               "and completed effects. A read-only TASK requires an explicit user request; "
                               "do not switch modes automatically.",
                     "execution": facts("NOT_STARTED")}
-        remaining = max(0, deadline - time.time())
-        review_seconds = min(REVIEW_SECONDS, remaining / 2) if request.get("ai_review", False) else 0
-        if cancel.is_set() or time.time() >= deadline - review_seconds:
+        deadline = float("inf")  # EXEC phases have independent budgets.
+        if cancel.is_set():
             return {"failure": "execution_not_started", "status": "CANCELLED" if cancel.is_set() else "TIMED_OUT",
-                    "detail": "Command was not started; cancelled or insufficient time remains for execution and review.",
+                    "detail": "Command was not started; execution was cancelled.",
                     "execution": facts("NOT_STARTED")}
         root = Path(self.config["state_dir"]).resolve()
         directory = root / "runs" / request["task_id"] / str(request["iteration"]) / "execution"
@@ -158,7 +156,7 @@ class DirectExecutor:
             spec = request["execution"]
             if any(key in spec for key in ("script_read", "script_update", "git")) or "script" in spec and "interpreter" not in spec:
                 try:
-                    command = prepare_script(spec, self.config, directory, deadline - review_seconds, cancel)
+                    command = prepare_script(spec, self.config, directory, deadline, cancel)
                 except (OSError, UnicodeError) as exc:
                     raise ScriptFeedback("SCRIPT_PREPARATION_FAILED", exception_type=type(exc).__name__) from None
             elif "argv" in spec:
@@ -182,7 +180,7 @@ class DirectExecutor:
                    and (not review_key or v != review_key)}
             env.update(PYTHONUTF8="1", PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
             options = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
-            command_deadline = min(time.time() + request["execution_timeout_seconds"], deadline - review_seconds)
+            command_deadline = min(time.time() + request["execution_timeout_seconds"], deadline)
             with stdout.open("wb") as out, stderr.open("wb") as err:
                 if cancel.is_set() or time.time() >= command_deadline:
                     record.update(facts("NOT_STARTED"))
@@ -262,9 +260,6 @@ class DirectExecutor:
             if cancel.is_set():
                 return {"failure": "execution_review_cancelled", "status": "CANCELLED",
                         "detail": "Review cancelled; no direct fallback was exported.", "execution": execution}
-            if time.time() >= deadline:
-                return {"failure": "execution_review_timed_out", "status": "TIMED_OUT",
-                        "detail": "Task deadline expired; no direct fallback was exported.", "execution": execution}
             LOG.warning("EXEC review failed; trying direct saved-output fallback: %s / %s reason=%s",
                         request["task_id"], request["iteration"], result["failure"])
             direct = self._direct_result(request, execution, stdout, stderr)

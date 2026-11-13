@@ -29,7 +29,7 @@ def load_config(path):
     config.setdefault("discovery_poll_seconds", 60)
     config.setdefault("sse", True)
     config.setdefault("max_questions", 3)
-    config.setdefault("max_task_seconds", 1800)
+    config.pop("max_task_seconds", None)  # Removed legacy total-task cap.
     config.setdefault("max_concurrent_tasks", 4)
     config.setdefault("agent_command", ["codeagent"])
     config.setdefault("agent_live_log", True)
@@ -50,9 +50,7 @@ def load_config(path):
         raise ValueError("discovery_poll_seconds out of range")
     if not 0.1 <= config["poll_seconds"] <= 300:
         raise ValueError("poll_seconds out of range")
-    if (type(config["max_questions"]) is not int or not 0 <= config["max_questions"] <= 3
-            or type(config["max_task_seconds"]) is not int
-            or not 600 <= config["max_task_seconds"] <= 86400):
+    if (type(config["max_questions"]) is not int or not 0 <= config["max_questions"] <= 3):
         raise ValueError("task budget out of range")
     if type(config["max_concurrent_tasks"]) is not int or not 1 <= config["max_concurrent_tasks"] <= 16:
         raise ValueError("max_concurrent_tasks must be an integer between 1 and 16")

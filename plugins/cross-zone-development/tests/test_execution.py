@@ -43,9 +43,14 @@ class ExecutionProtocolTests(unittest.TestCase):
                           exec_task(timeout_seconds=value, execution_timeout_seconds=86401)):
                 self.assertEqual(parse(wire(event)), event)
         for value in (0, -1, True, 1.5, "15"):
-            for field in ("timeout_seconds", "execution_timeout_seconds"):
+            for field in ("execution_timeout_seconds",):
                 with self.subTest(field=field, value=value), self.assertRaises(ProtocolError):
                     parse(wire(exec_task(**{field: value})))
+
+    def test_exec_needs_only_execution_timeout(self):
+        event=exec_task()
+        event.pop("timeout_seconds")
+        self.assertEqual(parse(wire(event)),event)
 
     def test_long_scripts_survive_discovery_and_task_parsing(self):
         for factory in (compact_exec, exec_task):
@@ -408,7 +413,7 @@ class DirectExecutionTests(unittest.TestCase):
         self.assertNotIn("output", result)
         self.assertEqual(result["execution"], {"status": "EXITED", "exit_code": 0})
 
-    def test_total_task_expiry_does_not_fall_back_after_review_timeout(self):
+    def test_legacy_total_expiry_does_not_limit_independent_review(self):
         expired = [False]
         real_time = time.time
         deadline = real_time() + 90
@@ -418,8 +423,7 @@ class DirectExecutionTests(unittest.TestCase):
         self.reviewer.run = timeout
         with patch("cross_zone.execution.time.time", side_effect=lambda: deadline + 1 if expired[0] else real_time()):
             result = self.runner.run(exec_task(), None, None, deadline, threading.Event(), [])
-        self.assertEqual(result["status"], "TIMED_OUT")
-        self.assertNotIn("output", result)
+        self.assertEqual(result["output"]["error_code"], "AI_REVIEW_FALLBACK")
         self.assertEqual(result["execution"], {"status": "EXITED", "exit_code": 0})
 
     def test_receipt_write_failure_keeps_exit_facts_and_prevents_replay(self):

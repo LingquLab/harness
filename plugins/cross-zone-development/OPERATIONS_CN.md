@@ -304,3 +304,12 @@ Bridge 不自动续跑已有排队任务。需要保留并继续
 原有监听及队列时使用 run。已完成记录、回执和恢复保护不因 open 被清除。
 
 Bridge 0.8.0 支持[session 脚本](skills/cross-zone-development/references/session-scripts.md)：按名字读取、修改、检查哈希后执行，或从 CrossZoneScript 的 session 分支执行指定提交。无需注册表或清单。
+
+### Independent EXEC timeouts
+
+EXEC uses only `execution_timeout_seconds` for command runtime and
+`exec_review.timeout_seconds` for AI review, starting separately. There is no
+total EXEC deadline or review reservation. Legacy EXEC `timeout_seconds` and
+local `max_task_seconds` are ignored; omit them in new requests/configs.
+TASK alone retains `timeout_seconds` for its Agent runtime. Git script fetch
+has a separate 120-second timeout; HAPI network timeouts are unchanged.

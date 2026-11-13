@@ -209,7 +209,7 @@ class Bridge:
         if "failure" in result:
             self.store.terminal(task, result["status"], result["failure"], detail, execution)
             return
-        if time.time() >= task["deadline"]:
+        if request["type"] != "EXEC" and time.time() >= task["deadline"]:
             self.store.terminal(task, "TIMED_OUT", "task_deadline_exceeded",
                                 "Agent result arrived after the task deadline; it was not accepted. "
                                 "Check completed changes before splitting remaining work.", execution)
@@ -296,7 +296,7 @@ class Bridge:
         tasks = self.store.db.execute("SELECT * FROM tasks WHERE state='QUEUED' ORDER BY rowid LIMIT ?", (slots,)).fetchall()
         for task in tasks:
             request = json.loads(task["request"])
-            deadline = task["deadline"] or time.time() + min(request["timeout_seconds"], self.config["max_task_seconds"])
+            deadline = None if request["type"] == "EXEC" else (task["deadline"] or time.time() + request["timeout_seconds"])
             with self.store.db:
                 self.store.update(task, state="RUNNING", deadline=deadline)
                 self.store.emit(request, "PROGRESS", state="RUNNING")

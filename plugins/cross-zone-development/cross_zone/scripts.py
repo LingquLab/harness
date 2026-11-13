@@ -133,7 +133,7 @@ def git_snapshot(spec, config, directory, deadline, cancel):
     repo = directory / "repository"
     repo.mkdir()
     git_command(["init"], repo, deadline, cancel)
-    git_command(["fetch", "--no-tags", REPOSITORY, "refs/heads/" + session], repo, deadline, cancel)
+    git_command(["fetch", "--no-tags", REPOSITORY, "refs/heads/" + session], repo, min(deadline, time.time() + 120), cancel)
     commit = spec["commit"]
     git_command(["merge-base", "--is-ancestor", commit, "FETCH_HEAD"], repo, deadline, cancel)
     tree = git_command(["ls-tree", "-rz", "--full-tree", commit], repo, deadline, cancel)

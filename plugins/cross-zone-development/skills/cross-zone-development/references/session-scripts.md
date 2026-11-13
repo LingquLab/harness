@@ -3,7 +3,7 @@
 Use session scripts for reusable code rather than repeating long inline EXEC scripts.
 READY/legacy OPEN advertise `exec.session-script.v1` and `exec.git-session.v1`
 in `capabilities`. Send new forms only after the matching capability is present.
-The outer EXEC fields, CROSS_ZONE marker, identity, positive integer timeouts,
+The outer EXEC fields, CROSS_ZONE marker, identity, positive integer execution timeout,
 cancellation, and no-replay rules remain unchanged. Keep `ai_review:false` for
 script-management operations; their explicit script feedback does not run AI review.
 
@@ -100,7 +100,7 @@ update modifies session-local scripts only, never Git history.
 
 The script source identity (entry, SHA256, commit when applicable) is saved as
 `script-source.json` beside the execution receipt. Each task has an independent
-snapshot. Preparation is inside the task deadline and observes cancellation.
+snapshot. Preparation observes cancellation; Git fetch has a 120-second timeout. Command and review budgets start independently.
 Git errors return `SCRIPT_GIT_FAILED` with the failing stage; no Git stderr or
 credentials are exported, and no alternative version is executed.
 

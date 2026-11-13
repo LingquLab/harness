@@ -304,9 +304,9 @@ EXEC 不支持 QUESTION/ANSWER。等待回答期间 TASK 会释放并发槽位�
 
 | 参数 | 作用与范围 |
 | --- | --- |
-| `timeout_seconds` | 总任务时限，正整数秒，同时受本地 `max_task_seconds` 限制 |
-| `execution_timeout_seconds` | 仅 EXEC 的命令时限，正整数秒；执行仍受总任务截止时间限制 |
-| `exec_review.timeout_seconds` | AI 审查上限，默认 300 秒，还受任务剩余时间限制 |
+| `timeout_seconds` | 仅 TASK 的 Agent 运行时限，正整数秒；EXEC 中旧字段忽略 |
+| `execution_timeout_seconds` | 仅 EXEC 的命令时限，正整数秒；不挤占审核预算 |
+| `exec_review.timeout_seconds` | AI 审查独立上限，默认 300 秒 |
 
 普通 TASK 环境检查建议至少 600 秒，候选代码验证通常从 900 秒起。
 带审查 EXEC 的总时限应覆盖命令时限加审查预算；初始排队等待不启动执行期限，
@@ -369,7 +369,7 @@ Bridge 发起的 HAPI REST、`/api/events` SSE 和 EXEC 审查 API 请求都携�
 | `poll_seconds` | 5，允许 0.1–300 | 已绑定会话 REST 兜底间隔；SSE 合并间隔为该值与 1 秒的较小值 |
 | `discovery_poll_seconds` | 60，允许 1–3600 | 全会话发现扫描间隔，独立于 SSE 和任务完成通知 |
 | `sse` | true | 开启服务器事件通知，加速已绑定会话消息获取 |
-| `max_task_seconds` | 1800，允许 600–86400 | 本机总任务时限上限 |
+| `max_task_seconds` | 已移除 | 旧配置忽略 |
 | `max_concurrent_tasks` | 4，整数 1–16 | 并发任务槽位 |
 | `max_questions` | 3，整数 0–3 | 每个 TASK 可提问的次数 |
 | `agent_command` | 通用模板为 `["codeagent"]` | TASK 使用的 CLI 和参数；Windows 模板提供示例绝对路径 |
@@ -549,3 +549,12 @@ review/fallback 已终结为 NEEDS_HUMAN 时，蓝区发送新的 EXEC，显式�
 未确认具体原因。本正式版采用已观察到的 64 KiB 档位，结束无上限实验。
 
 长脚本可使用[session 脚本引用](skills/cross-zone-development/references/session-scripts.md)，避免反复在消息中发送整段代码；哈希不一致会回传完整当前脚本及哈希，供蓝区修改。
+
+### Independent EXEC timeouts
+
+EXEC uses only `execution_timeout_seconds` for command runtime and
+`exec_review.timeout_seconds` for AI review, starting separately. There is no
+total EXEC deadline or review reservation. Legacy EXEC `timeout_seconds` and
+local `max_task_seconds` are ignored; omit them in new requests/configs.
+TASK alone retains `timeout_seconds` for its Agent runtime. Git script fetch
+has a separate 120-second timeout; HAPI network timeouts are unchanged.
