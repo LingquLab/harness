@@ -88,6 +88,7 @@ class ReviewAPITests(unittest.TestCase):
         self.assertEqual(self.user_agents, [f"CrossZoneBridge/{__version__}"])
         self.assertEqual(payload["model"], "Qwen3.8")
         self.assertFalse(payload["stream"])
+        self.assertEqual(payload["max_tokens"], 65536)
         self.assertNotIn("tools", payload)
         evidence = json.loads(payload["messages"][1]["content"])
         self.assertEqual(evidence["evidence"]["stdout"], "done\n")

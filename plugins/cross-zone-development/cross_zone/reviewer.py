@@ -94,7 +94,7 @@ class OpenAIReviewer:
         except (OSError, UnicodeError, ValueError):
             return self._failure("Saved review evidence is unavailable, invalid UTF-8 or exceeds the combined 64 KiB limit; output withheld.")
         payload = {
-            "model": settings["model"], "stream": False, "temperature": 0, "max_tokens": 2048,
+            "model": settings["model"], "stream": False, "temperature": 0, "max_tokens": 65536,
             "response_format": {"type": "json_object"},
             "messages": [
                 {"role": "system", "content": INSTRUCTIONS + "\nSchema:\n" + json.dumps(SCHEMA)},
