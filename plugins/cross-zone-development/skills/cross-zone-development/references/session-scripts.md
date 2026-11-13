@@ -115,3 +115,8 @@ script content only on read or conflict, not arbitrary execution stdout/stderr.
 
 Keep event IDs unique. Do not replay non-idempotent work after unknown effects.
 Existing argv and interpreter+script EXEC remain supported.
+
+Direct-output rejection detail reports the observed condition(s): stdout byte count
+and limit, nonempty stderr byte count, invalid UTF-8 byte offset, control-character
+code point/offset, or capture-read error class/errno. It never substitutes a list
+of possible causes or exports raw stderr.

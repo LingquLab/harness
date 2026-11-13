@@ -86,15 +86,30 @@ class DirectExecutor:
             return {"failure": "direct_execution_failed", "status": status,
                     "detail": "Direct command did not exit successfully; output remains green-local.",
                     "execution": execution}
+        reasons = []
+        summary = ""
         try:
-            if stdout.stat().st_size > MAX_DIRECT_STDOUT_BYTES or stderr.stat().st_size:
-                raise ValueError("unexpected output")
-            summary = stdout.read_bytes().decode("utf-8-sig").replace("\r\n", "\n")
-            if any((ord(c) < 32 or 127 <= ord(c) <= 159) and c not in "\n\t" for c in summary):
-                raise ValueError("control characters")
-        except (OSError, UnicodeError, ValueError):
+            stdout_bytes = stdout.stat().st_size
+            stderr_bytes = stderr.stat().st_size
+            if stdout_bytes > MAX_DIRECT_STDOUT_BYTES:
+                reasons.append(f"stdout exceeds limit: {stdout_bytes} bytes > {MAX_DIRECT_STDOUT_BYTES} bytes")
+            if stderr_bytes:
+                reasons.append(f"stderr is nonempty: {stderr_bytes} bytes")
+            if stdout_bytes <= MAX_DIRECT_STDOUT_BYTES:
+                try:
+                    summary = stdout.read_bytes().decode("utf-8-sig").replace("\r\n", "\n")
+                except UnicodeDecodeError as exc:
+                    reasons.append(f"stdout is invalid UTF-8 at byte offset {exc.start}")
+                else:
+                    for index, char in enumerate(summary):
+                        if (ord(char) < 32 or 127 <= ord(char) <= 159) and char not in "\n\t":
+                            reasons.append(f"stdout contains control character U+{ord(char):04X} at character offset {index}")
+                            break
+        except OSError as exc:
+            reasons.append(f"cannot read captured output: {type(exc).__name__}, errno={exc.errno}")
+        if reasons:
             return {"failure": "direct_output_rejected", "status": "NEEDS_HUMAN",
-                    "detail": "Direct output is oversized, invalid UTF-8, contains control characters, or stderr is nonempty; output withheld.",
+                    "detail": "Direct output rejected: " + "; ".join(reasons) + ". Output withheld.",
                     "execution": execution}
         return {"output": {"kind": "RESULT", "status": "PASS",
                            "summary": "Direct EXEC (no AI review):\n" + summary.strip(),

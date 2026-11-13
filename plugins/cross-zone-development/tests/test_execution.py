@@ -151,6 +151,19 @@ class DirectExecutionTests(unittest.TestCase):
         self.assertEqual(result["execution"]["status"], "EXITED")
         self.assertEqual(result["output"]["status"], "PASS")
 
+    def test_direct_rejection_reports_specific_conditions(self):
+        directory = Path(self.tmp.name)
+        out, err = directory / "out", directory / "err"
+        for raw, stderr, expected in ((b"ok", b"warning", "stderr is nonempty: 7 bytes"),
+                                      (b"\xff", b"", "invalid UTF-8 at byte offset 0"),
+                                      (b"a\x00", b"", "U+0000 at character offset 1"),
+                                      (b"x" * 65537, b"", "stdout exceeds limit:")):
+            out.write_bytes(raw); err.write_bytes(stderr)
+            result = self.runner._direct_result(exec_task(ai_review=False),
+                                                {"status": "EXITED", "exit_code": 0}, out, err)
+            self.assertIn(expected, result["detail"])
+            self.assertNotIn(" or ", result["detail"])
+
     def test_live_output_is_visible_before_exit_and_capture_is_unchanged(self):
         # The child cannot finish until the test observes both live streams.
         script = ("import sys,time\nfrom pathlib import Path\n"
