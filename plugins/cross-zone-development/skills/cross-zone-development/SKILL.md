@@ -1,6 +1,6 @@
 ---
 name: cross-zone-development
-description: Coordinate blue and green AI agents through HAPI for protected-environment validation. Use when green opens collaboration, blue dispatches a scoped task, green returns sanitized evidence, or either side continues or cancels a task; do not use GitHub Issues as transport.
+description: Coordinate blue and green AI agents through HAPI for protected-environment validation. Use when green opens collaboration, blue dispatches a scoped task, green returns sanitized evidence, or either side continues or cancels a task; do not use GitHub Issues as transport. CrossZoneScript repository operations use this skill directly without loading superpowers-neo skills.
 ---
 
 # Cross-Zone Development
@@ -78,6 +78,12 @@ For reusable scripts on Bridge 0.8.0+, follow
 [session scripts](references/session-scripts.md): session-local names with hash-checked
 read/update/execute, or commit-pinned scripts from CrossZoneScript branches named
 after the current HAPI session. Prefer these over repeating long inline code.
+For **any operation in `LingquLab/CrossZoneScript`**, do not read or invoke
+superpowers-neo (including superpower-neo aliases) skills. Follow this skill and
+the session-scripts reference directly; perform appropriate checks without an
+additional skill workflow. Before the first commit in each clone or temporary
+repository, set repository-local author identity to `Codex <codex@openai.com>`
+as documented there. This exception applies to CrossZoneScript only.
 
 Default to `EXEC` for user-requested work: blue supplies a bounded exact command
 or operational script, Bridge runs it unchanged, and green AI reviews saved output through the configured inference API only when

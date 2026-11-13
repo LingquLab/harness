@@ -63,6 +63,24 @@ after an edit does not undo the edit; inspect current content before continuing.
 ## Git scripts: session branch, pinned commit
 
 Repository is fixed: https://github.com/LingquLab/CrossZoneScript.
+For any operation in `LingquLab/CrossZoneScript` (including creating/editing
+scripts, checks, Git commits/pushes and recovery), do not load or invoke any
+superpowers-neo/superpower-neo skills. Use this workflow directly. Still run
+appropriate syntax/content checks before delivery; do not add a separate skill
+reading or approval sequence for these repository operations.
+
+Before the first commit in every clone or temporary repository, configure the
+Codex automation identity locally, without waiting for a missing-author error:
+
+```bash
+git config --local user.name "Codex"
+git config --local user.email "codex@openai.com"
+```
+
+Run these commands in the CrossZoneScript repository. Do not change global Git
+identity or other repositories. The identity is commit authorship metadata;
+continue using the environment's existing GitHub authentication for pushes.
+
 Branch name is exactly the bound HAPI session UUID. Blue commits and pushes
 changes there, then sends:
 
