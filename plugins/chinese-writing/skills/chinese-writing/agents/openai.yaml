@@ -1,0 +1,4 @@
+interface:
+  display_name: "中文技术表述"
+  short_description: "用具体动作撰写中文技术文本，保留英文术语并扫描生硬词汇"
+  default_prompt: "用 $chinese-writing 撰写或检查这段中文技术文本，逐条处理黑名单命中。"

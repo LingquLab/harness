@@ -51,7 +51,6 @@ A narrow local fix is correct, readable, and covered by a focused test. No simpl
 A plugin README opens with its upstream commit, migration history and internal
 fallback order. The user asks for a useful introduction and installation guidance.
 A required third-party license notice and operator setup instructions already exist.
-The Chinese guide also replaces `token` with an unnatural literal translation.
 
 ## Expected Behavior C
 
@@ -62,32 +61,9 @@ The Chinese guide also replaces `token` with an unnatural literal translation.
 - Move provenance and maintenance detail to linked dedicated documents, preserving
   required license notices and instructions operators need.
 - Keep translated guides consistent and verify links and examples.
-- Preserve original English technical terms such as `token`; explain their meaning
-  in Chinese when useful instead of forcing unnatural translations.
 
 ## Failure Signals C
 
 - Merely rephrasing commit hashes, adaptation history or fallback order as the introduction.
 - Removing required attribution, dependencies or useful operational instructions.
 - Inventing capabilities or rewriting unrelated documents.
-- Replacing `token` with a forced Chinese equivalent or using inconsistent terminology.
-
-## Request D: Clear Chinese Code Comments
-
-A bilingual Host API comment translates `opaque handle` as “不透明句柄” and
-says destruction “coordinates internal resource cleanup”. The user asks for
-clearer comments without changing behavior.
-
-## Expected Behavior D
-
-- Read the relevant implementation before describing destruction or ownership.
-- Keep `opaque handle` in English and explain what callers can access.
-- Replace vague coordination language with the actual calls, waits or releases
-  supported by the code, without inventing ordering or synchronization guarantees.
-- Keep both language versions accurate without requiring literal translation.
-
-## Failure Signals D
-
-- Merely replacing one awkward Chinese term with another literal translation.
-- Claiming an unobserved wait, cleanup order or successful release guarantee.
-- Changing runtime behavior to match a rewritten comment.

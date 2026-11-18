@@ -870,6 +870,25 @@ begin
   validate_marketplace
   validate_skill(File.join(PLUGINS_ROOT, "aikg-search", "skills"), "aikg-search")
   validate_skill(File.join(PLUGINS_ROOT, "wiki-search", "skills"), "wiki-search")
+  chinese_writing_name = "chinese-writing"
+  chinese_writing_root = File.join(PLUGINS_ROOT, chinese_writing_name)
+  chinese_writing_manifest, chinese_writing_skills = validate_plugin_manifest(chinese_writing_root, chinese_writing_name)
+  unless chinese_writing_manifest["version"] == "0.1.0" && chinese_writing_manifest["license"] == "MIT"
+    raise "#{chinese_writing_name}: unexpected version or license"
+  end
+  validate_standard_skill(chinese_writing_skills, chinese_writing_name)
+  validate_relative_markdown_links(chinese_writing_root)
+  chinese_writing_tests = File.join(ROOT, "tests", chinese_writing_name)
+  validate_scenarios(
+    File.join(chinese_writing_tests, "scenarios"),
+    ["01-chinese-code-comments.md"],
+    [chinese_writing_name],
+    "Chinese Writing"
+  )
+  unless system("python3", File.join(chinese_writing_tests, "test_chinese_writing.py"))
+    raise "#{chinese_writing_name}: scanner tests failed"
+  end
+
   drawio_root = File.join(PLUGINS_ROOT, "drawio")
   drawio_manifest, drawio_skills = validate_plugin_manifest(drawio_root, "drawio")
   unless drawio_manifest["version"] == "1.2.6" && drawio_manifest["license"] == "Apache-2.0"
