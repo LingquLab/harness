@@ -11,7 +11,11 @@ SCANNER = REPO_ROOT / "plugins/chinese-writing/skills/chinese-writing/scripts/sc
 
 class ChineseWritingScannerTests(unittest.TestCase):
     def test_reports_required_terms_and_positions_from_stdin(self):
-        draft = "方案涉及结构性决策、裁决和契约。\n协调资源、赋能、统一管理、赋能。\n"
+        draft = (
+            "方案涉及结构性决策、裁决和契约。\n"
+            "协调资源、赋能、统一管理、赋能。\n"
+            "运行 Host 合同检查。\n"
+        )
         result = subprocess.run(
             [sys.executable, str(SCANNER)],
             input=draft,
@@ -30,6 +34,7 @@ class ChineseWritingScannerTests(unittest.TestCase):
                 "stdin:2:6: 赋能",
                 "stdin:2:9: 统一管理",
                 "stdin:2:14: 赋能",
+                "stdin:3:9: 合同",
             ],
         )
         self.assertIn("接口约定", result.stdout)
