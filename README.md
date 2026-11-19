@@ -27,6 +27,7 @@ Replace `superpowers-neo` with a plugin name below. Start a new Codex task after
 | [drawio](plugins/drawio/README.md) | Create editable draw.io files, browser links and PNG/SVG/PDF exports | `1.2.6` |
 | [aikg-search](plugins/aikg-search/README.md) | Find explanations and references for AI fundamentals, inference, training, GPU/NPU and performance analysis | `0.1.0` |
 | [wiki-search](plugins/wiki-search/README.md) | Find Huawei WIKI documents by keyword, knowledge base, category or document subtree | `0.1.2` |
+| [chinese-writing](plugins/chinese-writing/README.md) | Write clear Chinese technical prose and scan drafts for vocabulary that needs review | `0.1.0` |
 
 ## Get Started
 

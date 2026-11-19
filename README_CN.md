@@ -27,6 +27,7 @@ codex plugin add superpowers-neo@lingqulab
 | [drawio](plugins/drawio/README_CN.md) | 创建可编辑的 draw.io 文件、浏览器链接及 PNG/SVG/PDF 导出 | `1.2.6` |
 | [aikg-search](plugins/aikg-search/README_CN.md) | 查找 AI 基础、推理训练、GPU/NPU 和性能分析的知识解释与参考资料 | `0.1.0` |
 | [wiki-search](plugins/wiki-search/README_CN.md) | 按关键词、知识库、类目或文档子树查找华为 WIKI 文档 | `0.1.2` |
+| [chinese-writing](plugins/chinese-writing/README_CN.md) | 撰写中文技术文本并用词汇黑名单自查草稿 | `0.1.0` |
 
 ## 开始使用
 

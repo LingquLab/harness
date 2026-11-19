@@ -1,0 +1,23 @@
+{
+  "name": "chinese-writing",
+  "version": "0.1.0",
+  "description": "Write and check Chinese technical prose with concrete actions, original English terminology, and a local vocabulary blacklist.",
+  "author": {
+    "name": "LingquLab",
+    "url": "https://github.com/LingquLab"
+  },
+  "homepage": "https://github.com/LingquLab/harness/tree/main/plugins/chinese-writing",
+  "repository": "https://github.com/LingquLab/harness",
+  "license": "MIT",
+  "keywords": ["Chinese", "technical writing", "documentation"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "中文技术表述",
+    "shortDescription": "写清具体动作，保留英文术语并自查词汇",
+    "longDescription": "撰写或检查中文技术文档、代码注释、PR 说明和回复。扫描草稿中的生硬词汇和空泛表述，按上下文改写。",
+    "developerName": "LingquLab",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": ["用 $chinese-writing 检查这段中文技术文本。"]
+  }
+}
