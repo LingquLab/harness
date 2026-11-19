@@ -28,14 +28,8 @@ HANDOFF_PLUGIN_ROOT = File.join(PLUGINS_ROOT, HANDOFF_PLUGIN_NAME)
 HANDOFF_SKILLS_ROOT = File.join(HANDOFF_PLUGIN_ROOT, "skills")
 HANDOFF_SCENARIOS_ROOT = File.join(ROOT, "tests", HANDOFF_PLUGIN_NAME, "scenarios")
 HANDOFF_PLUGIN_SOURCE = "./plugins/cross-zone-development"
-HANDOFF_PLUGIN_VERSION = "0.7.3"
+HANDOFF_PLUGIN_VERSION = "0.8.0"
 HANDOFF_PLUGIN_LICENSE = "MIT"
-PERSISTENT_PLUGIN_NAME = "persistent-shell"
-PERSISTENT_PLUGIN_ROOT = File.join(PLUGINS_ROOT, PERSISTENT_PLUGIN_NAME)
-PERSISTENT_SKILLS_ROOT = File.join(PERSISTENT_PLUGIN_ROOT, "skills")
-PERSISTENT_PLUGIN_SOURCE = "./plugins/persistent-shell"
-PERSISTENT_PLUGIN_VERSION = "0.1.1"
-PERSISTENT_PLUGIN_LICENSE = "MIT"
 ARCHIFY_PLUGIN_NAME = "archify"
 ARCHIFY_PLUGIN_ROOT = File.join(PLUGINS_ROOT, ARCHIFY_PLUGIN_NAME)
 ARCHIFY_SKILLS_ROOT = File.join(ARCHIFY_PLUGIN_ROOT, "skills")
@@ -246,12 +240,6 @@ def validate_marketplace
       raise "#{entry_path}: unexpected category" unless category == EXPECTED_PLUGIN_CATEGORY
     elsif plugin_name == HANDOFF_PLUGIN_NAME
       raise "#{entry_path}: unexpected source path" unless source_path == HANDOFF_PLUGIN_SOURCE
-      raise "#{entry_path}: expected AVAILABLE installation policy" unless installation == "AVAILABLE"
-      raise "#{entry_path}: expected ON_INSTALL authentication policy" unless authentication == "ON_INSTALL"
-      raise "#{entry_path}: product gating is not approved" if policy.key?("products")
-      raise "#{entry_path}: unexpected category" unless category == EXPECTED_PLUGIN_CATEGORY
-    elsif plugin_name == PERSISTENT_PLUGIN_NAME
-      raise "#{entry_path}: unexpected source path" unless source_path == PERSISTENT_PLUGIN_SOURCE
       raise "#{entry_path}: expected AVAILABLE installation policy" unless installation == "AVAILABLE"
       raise "#{entry_path}: expected ON_INSTALL authentication policy" unless authentication == "ON_INSTALL"
       raise "#{entry_path}: product gating is not approved" if policy.key?("products")
@@ -519,40 +507,6 @@ def validate_handoff_contract
   end
 
   validate_relative_markdown_links(HANDOFF_PLUGIN_ROOT)
-end
-
-def validate_persistent_shell_contract
-  skill_root = File.join(PERSISTENT_SKILLS_ROOT, PERSISTENT_PLUGIN_NAME)
-  script = File.join(skill_root, "scripts", "pshell.py")
-  installer = File.join(skill_root, "scripts", "install.ps1")
-  test = File.join(skill_root, "scripts", "test_pshell.py")
-  [script, installer, test].each do |path|
-    raise "#{path}: required file is missing" unless File.file?(path)
-  end
-
-  syntax_check = "import sys; path = sys.argv[1]; compile(open(path, encoding='utf-8').read(), path, 'exec')"
-  [script, test].each do |path|
-    unless system("python3", "-c", syntax_check, path, out: File::NULL, err: File::NULL)
-      raise "#{path}: Python syntax validation failed"
-    end
-  end
-  unless system(
-    { "PYTHONDONTWRITEBYTECODE" => "1" },
-    "python3",
-    test,
-    out: File::NULL,
-    err: File::NULL
-  )
-    raise "#{test}: offline regression tests failed"
-  end
-
-  version_pins = Dir.glob(File.join(skill_root, "**", "*")).select { |path| File.file?(path) }.map do |path|
-    path if File.read(path, mode: "rb").force_encoding("UTF-8").match?(/Python 3\.\d+|py -3\.\d+/i)
-  end.compact
-  unless version_pins.empty?
-    raise "persistent-shell must not pin a Python minor version: #{version_pins.join(', ')}"
-  end
-  validate_relative_markdown_links(PERSISTENT_PLUGIN_ROOT)
 end
 
 def validate_archify_contract
@@ -852,13 +806,6 @@ unless actual_handoff_skills == EXPECTED_HANDOFF_SKILLS.sort
   exit 1
 end
 
-actual_persistent_skills = Dir.children(PERSISTENT_SKILLS_ROOT).select do |entry|
-  File.directory?(File.join(PERSISTENT_SKILLS_ROOT, entry))
-end.sort
-unless actual_persistent_skills == [PERSISTENT_PLUGIN_NAME]
-  raise "persistent-shell skill inventory mismatch: #{actual_persistent_skills.inspect}"
-end
-
 actual_archify_skills = Dir.children(ARCHIFY_SKILLS_ROOT).select do |entry|
   File.directory?(File.join(ARCHIFY_SKILLS_ROOT, entry))
 end.sort
@@ -961,24 +908,6 @@ begin
     "Cross-Zone Development"
   )
   validate_handoff_contract
-  persistent_manifest, persistent_declared_skills_root = validate_plugin_manifest(
-    PERSISTENT_PLUGIN_ROOT,
-    PERSISTENT_PLUGIN_NAME
-  )
-  unless persistent_manifest["version"] == PERSISTENT_PLUGIN_VERSION
-    raise "#{PERSISTENT_PLUGIN_ROOT}: unexpected version"
-  end
-  unless persistent_manifest["license"] == PERSISTENT_PLUGIN_LICENSE
-    raise "#{PERSISTENT_PLUGIN_ROOT}: unexpected license identifier"
-  end
-  unless persistent_manifest.dig("interface", "category") == EXPECTED_PLUGIN_CATEGORY
-    raise "#{PERSISTENT_PLUGIN_ROOT}: unexpected plugin category"
-  end
-  unless persistent_declared_skills_root == File.realpath(PERSISTENT_SKILLS_ROOT)
-    raise "#{PERSISTENT_PLUGIN_ROOT}: skills path must resolve to ./skills/"
-  end
-  validate_standard_skill(PERSISTENT_SKILLS_ROOT, PERSISTENT_PLUGIN_NAME)
-  validate_persistent_shell_contract
   archify_manifest, archify_declared_skills_root = validate_plugin_manifest(
     ARCHIFY_PLUGIN_ROOT,
     ARCHIFY_PLUGIN_NAME
@@ -1012,7 +941,5 @@ puts "validated #{EXPECTED_ASCENDC_SCENARIOS.length} Ascend C behavior scenario 
 puts "validated plugin #{HANDOFF_PLUGIN_NAME} at version #{HANDOFF_PLUGIN_VERSION}"
 puts "validated #{EXPECTED_HANDOFF_SKILLS.length} cross-zone handoff skill"
 puts "validated #{EXPECTED_HANDOFF_SCENARIOS.length} cross-zone handoff behavior scenario definition"
-puts "validated plugin #{PERSISTENT_PLUGIN_NAME} at version #{PERSISTENT_PLUGIN_VERSION}"
-puts "validated persistent-shell skill and offline contract"
 puts "validated plugin #{ARCHIFY_PLUGIN_NAME} at version #{ARCHIFY_PLUGIN_VERSION}"
 puts "validated vendored archify skill and attribution"
