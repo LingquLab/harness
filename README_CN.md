@@ -22,7 +22,6 @@ codex plugin add superpowers-neo@lingqulab
 | [superpowers-neo](plugins/superpowers-neo/README_CN.md) | 完成软件设计、实现、调试、审查和交付，并按任务选择适当的检查 | `0.3.5` |
 | [ascendc-development](plugins/ascendc-development/README_CN.md) | 开发 Ascend C 算子、核对 API、诊断运行时故障和配置 CANN | `0.3.1` |
 | [cross-zone-development](plugins/cross-zone-development/README_CN.md) | 在受保护环境执行检查，通过 HAPI 返回限定范围内的结果 | `0.7.0` |
-| [persistent-shell](plugins/persistent-shell/README_CN.md) | 从 Windows 复用 SSH session，保留远程工作目录和 shell 状态 | `0.1.1` |
 | [archify](plugins/archify/README_CN.md) | 将系统描述或代码转换为交互式图表，并导出图片和视频 | `2.17.0-dev.1` |
 | [drawio](plugins/drawio/README_CN.md) | 创建可编辑的 draw.io 文件、浏览器链接及 PNG/SVG/PDF 导出 | `1.2.6` |
 | [aikg-search](plugins/aikg-search/README_CN.md) | 查找 AI 基础、推理训练、GPU/NPU 和性能分析的知识解释与参考资料 | `0.1.0` |
@@ -36,7 +35,6 @@ codex plugin add superpowers-neo@lingqulab
 - **软件开发：**“找到这个测试失败的原因并修复。”
 - **Ascend C：**“针对目标 CANN 版本，检查这个算子的 tiling 和内存对齐。”
 - **跨区检查：**“在绿区执行这个只读检查并返回结果。”绿区配置见[用户指南](plugins/cross-zone-development/USER_GUIDE_CN.md)。
-- **SSH session：**“使用 persistent shell 在这台主机上连续执行命令。”需要 Windows、SSH 访问权限和安装了 Paramiko 的 Python。
 - **图表：**“绘制从浏览器到 API、缓存和数据库的请求流程。”需要 Node.js 18 或更高版本。
 - **AI 知识：**“解释 KV Cache，以及哪些因素决定它的显存占用。”公开的 AIKG 资料不需要 WIKI 认证。
 - **华为 WIKI：**“在这个知识库中搜索部署指南。”在线访问需要跨区插件，以及在绿区完成认证的 `wiki-cli`。
