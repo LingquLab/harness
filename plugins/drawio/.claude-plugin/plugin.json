@@ -1,0 +1,11 @@
+{
+  "name": "drawio",
+  "version": "1.2.6",
+  "description": "Generate native .drawio diagrams using Mermaid or XML, with optional ELK layout, PNG/SVG/PDF export, and browser URL output.",
+  "author": {
+    "name": "draw.io",
+    "url": "https://www.drawio.com"
+  },
+  "repository": "https://github.com/jgraph/drawio-mcp",
+  "license": "Apache-2.0"
+}

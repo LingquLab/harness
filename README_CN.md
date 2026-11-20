@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-面向 Codex 的 skill 插件集，帮助你开发软件、编写 Ascend C 算子、检索 AI 系统知识、绘制图表，并在开发环境与受保护环境之间协作验证。按需安装所需插件即可。
+面向 Codex 和 Claude Code 的 skill 插件集，帮助你开发软件、编写 Ascend C 算子、检索 AI 系统知识、绘制图表，并在开发环境与受保护环境之间协作验证。按需安装所需插件即可。
 
 ## 安装
 
@@ -14,6 +14,16 @@ codex plugin add superpowers-neo@lingqulab
 ```
 
 将 `superpowers-neo` 替换为下表中的插件名。安装后新建 Codex 任务，以便发现新安装的 skills。
+
+在 Claude Code 会话中运行以下命令。
+
+```text
+/plugin marketplace add LingquLab/harness
+/plugin install superpowers-neo@lingqulab
+/reload-plugins
+```
+
+下表中的插件均可在 Claude Code 安装，`cross-zone-development` 仅在 Codex 提供。
 
 ## 选择插件
 

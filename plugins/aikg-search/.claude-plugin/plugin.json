@@ -1,0 +1,11 @@
+{
+  "name": "aikg-search",
+  "version": "0.1.0",
+  "description": "Find AI systems knowledge, including inference, training, GPU/NPU architecture and performance analysis.",
+  "author": {
+    "name": "LingquLab",
+    "url": "https://github.com/LingquLab"
+  },
+  "repository": "https://github.com/LingquLab/harness",
+  "license": "MIT"
+}

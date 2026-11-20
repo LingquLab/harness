@@ -1,0 +1,11 @@
+{
+  "name": "wiki-search",
+  "version": "0.1.2",
+  "description": "Find Huawei WIKI documents by keyword, knowledge base, category or document subtree.",
+  "author": {
+    "name": "LingquLab",
+    "url": "https://github.com/LingquLab"
+  },
+  "repository": "https://github.com/LingquLab/harness",
+  "license": "MIT"
+}
