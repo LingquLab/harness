@@ -2,7 +2,7 @@
 
 [中文文档](README_CN.md)
 
-Skills for Codex that help you develop software, build Ascend C operators, research AI systems, create diagrams, and validate work across development and protected environments. Install only the plugins you need.
+Skills for Codex and Claude Code that help you develop software, build Ascend C operators, research AI systems, create diagrams, and validate work across development and protected environments. Install only the plugins you need.
 
 ## Install
 
@@ -14,6 +14,16 @@ codex plugin add superpowers-neo@lingqulab
 ```
 
 Replace `superpowers-neo` with a plugin name below. Start a new Codex task after installation to discover its skills.
+
+In Claude Code, run:
+
+```text
+/plugin marketplace add LingquLab/harness
+/plugin install superpowers-neo@lingqulab
+/reload-plugins
+```
+
+The Claude Code marketplace lists seven plugins. Cross-zone development is available through Codex.
 
 ## Choose a Plugin
 

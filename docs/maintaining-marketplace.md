@@ -16,6 +16,13 @@ Behavioral validation is a fresh-agent evaluation. Give a new agent only the rel
 
 Before publishing a plugin change, also run the current validator supplied by Codex's installed `plugin-creator` skill against that plugin directory. This catches schema changes that may be newer than the repository validator.
 
+For Claude Code, validate the marketplace and each plugin registered in it:
+
+```bash
+claude plugin validate .claude-plugin/marketplace.json
+claude plugin validate plugins/superpowers-neo/.claude-plugin/plugin.json
+```
+
 ## Add a Plugin
 
 Each independently versioned plugin lives under:
@@ -39,5 +46,7 @@ To add a plugin:
 7. Provide semantically equivalent `README.md` and `README_CN.md` files covering invocation, dependencies, network access, commands, file effects, Hooks, MCP, and licensing. Keep provenance in THIRD_PARTY_NOTICES.md or a dedicated source record, linked from the README.
 8. Add plugin-specific tests under `tests/<plugin-name>/` and extend repository validation.
 9. Document its Codex selector as `<plugin-name>@lingqulab`.
+
+To publish a plugin for Claude Code, add its directory to `.claude-plugin/marketplace.json` and put its manifest at `plugins/<plugin-name>/.claude-plugin/plugin.json`. Both clients load the shared `skills/` directory. Keep manifest versions in sync and test marketplace installation in Claude Code.
 
 Keep coherent skill series together, but publish unrelated skills as separate plugins instead of expanding one catch-all package.

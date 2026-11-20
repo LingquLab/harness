@@ -1,0 +1,46 @@
+{
+  "name": "lingqulab",
+  "owner": {
+    "name": "LingquLab"
+  },
+  "metadata": {
+    "description": "LingquLab skills for software development, Ascend C, technical research, diagrams, and Chinese technical writing."
+  },
+  "plugins": [
+    {
+      "name": "superpowers-neo",
+      "source": "./plugins/superpowers-neo",
+      "category": "Developer Tools"
+    },
+    {
+      "name": "ascendc-development",
+      "source": "./plugins/ascendc-development",
+      "category": "Developer Tools"
+    },
+    {
+      "name": "archify",
+      "source": "./plugins/archify",
+      "category": "Developer Tools"
+    },
+    {
+      "name": "aikg-search",
+      "source": "./plugins/aikg-search",
+      "category": "Developer Tools"
+    },
+    {
+      "name": "wiki-search",
+      "source": "./plugins/wiki-search",
+      "category": "Developer Tools"
+    },
+    {
+      "name": "drawio",
+      "source": "./plugins/drawio",
+      "category": "Productivity"
+    },
+    {
+      "name": "chinese-writing",
+      "source": "./plugins/chinese-writing",
+      "category": "Productivity"
+    }
+  ]
+}

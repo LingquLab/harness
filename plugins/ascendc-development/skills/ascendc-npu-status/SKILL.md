@@ -59,7 +59,7 @@ python '<skill-dir>/scripts/npu_status_dashboard.py' /path/to/env_list.json \
   --interval 10 --max-workers 16
 ```
 
-Read the single startup JSON line from stdout and open its `url` in the Codex in-app browser. Keep the server process running while the dashboard is in use. If the requested port is occupied, omit `--port` so the operating system selects a free loopback port. The dashboard binds only to `127.0.0.1`, probes once immediately, then refreshes server data at the requested interval.
+Read the single startup JSON line from stdout and open its `url` in a browser that can reach the dashboard server. Keep the server process running while the dashboard is in use. If the requested port is occupied, omit `--port` so the operating system selects a free loopback port. The dashboard binds only to `127.0.0.1`, probes once immediately, then refreshes server data at the requested interval.
 
 The compact view groups environment names ending in `-<number>` by their shared prefix, moves a common IPv4 `/24` prefix into the group heading, represents server state with a colored marker, and shows each requested device as a colored cell. Beside each server IP, it shows the time since that server was last observed busy. A leading `>` means no busy state has been observed since this dashboard process started, so the duration is only a lower bound; `--` means the server is not currently confirmed fully idle. Green means idle, red means busy, and gray means indeterminate. Do not relabel indeterminate probes as idle. Use the visible summary and last-check time when reporting results; this remains an occupancy view rather than a health monitor.
 

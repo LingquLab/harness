@@ -1,0 +1,11 @@
+{
+  "name": "chinese-writing",
+  "version": "0.1.0",
+  "description": "Write and check Chinese technical prose with concrete actions, original English terminology, and a local vocabulary blacklist.",
+  "author": {
+    "name": "LingquLab",
+    "url": "https://github.com/LingquLab"
+  },
+  "repository": "https://github.com/LingquLab/harness",
+  "license": "MIT"
+}
