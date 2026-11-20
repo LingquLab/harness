@@ -15,6 +15,7 @@ class ChineseWritingScannerTests(unittest.TestCase):
             "方案涉及结构性决策、裁决和契约。\n"
             "协调资源、赋能、统一管理、赋能。\n"
             "运行 Host 合同检查。\n"
+            "排入一次忙等。\n"
         )
         result = subprocess.run(
             [sys.executable, str(SCANNER)],
@@ -35,6 +36,7 @@ class ChineseWritingScannerTests(unittest.TestCase):
                 "stdin:2:9: 统一管理",
                 "stdin:2:14: 赋能",
                 "stdin:3:9: 合同",
+                "stdin:4:1: 排入",
             ],
         )
         self.assertIn("接口约定", result.stdout)
